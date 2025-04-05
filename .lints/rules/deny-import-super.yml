@@ -1,0 +1,13 @@
+id: deny-import-super
+severity: error
+language: Rust
+message: "discouraged import using `super` path"
+note: |
+   reason: using `super::` paths for imports can cause issues when moving or refactoring code between files or modules.
+   help: prefer using `crate::` paths for imports, as this makes the code more robust to changes in module hierarchy and easier to refactor.
+rule:
+   all:
+      - pattern: super
+      - not:
+           inside:
+              kind: use_wildcard

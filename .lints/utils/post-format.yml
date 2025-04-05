@@ -1,0 +1,13 @@
+# Replace `-` with `@` in macros
+id: post-format-0
+language: Rust
+rule:
+  pattern: '-'
+  precedes:
+    any:
+      - kind: string_literal
+      - kind: raw_string_literal
+  inside:
+    kind: macro_invocation
+    stopBy: end
+fix: '@'

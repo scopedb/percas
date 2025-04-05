@@ -1,0 +1,7 @@
+id: deny-import-serde-json
+valid:
+  - "let v = serde_json::Value::new();"
+  - "use foo::serde_json;"
+invalid:
+  - "use serde_json::Value;"
+  - "use serde_json::foo::bar;"

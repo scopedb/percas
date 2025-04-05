@@ -1,0 +1,30 @@
+id: deny-import-serde-json
+snapshots:
+  use serde_json::Value;:
+    labels:
+    - source: serde_json
+      style: primary
+      start: 4
+      end: 14
+    - source: use serde_json::Value;
+      style: secondary
+      start: 0
+      end: 22
+    - source: serde_json::Value
+      style: secondary
+      start: 4
+      end: 21
+  use serde_json::foo::bar;:
+    labels:
+    - source: serde_json
+      style: primary
+      start: 4
+      end: 14
+    - source: use serde_json::foo::bar;
+      style: secondary
+      start: 0
+      end: 25
+    - source: serde_json::foo
+      style: secondary
+      start: 4
+      end: 19

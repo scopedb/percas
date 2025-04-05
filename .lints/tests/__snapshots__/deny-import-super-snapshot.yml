@@ -1,0 +1,14 @@
+id: deny-import-super
+snapshots:
+  use super::foo::*;:
+    labels:
+    - source: super
+      style: primary
+      start: 4
+      end: 9
+  use super::foo;:
+    labels:
+    - source: super
+      style: primary
+      start: 4
+      end: 9

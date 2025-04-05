@@ -1,0 +1,5 @@
+[alias]
+x = "run --package x --"
+
+[env]
+CARGO_WORKSPACE_DIR = { value = "", relative = true }

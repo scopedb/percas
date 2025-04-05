@@ -1,0 +1,7 @@
+id: deny-import-log
+valid:
+  - "log::info(\"foo\");"
+  - "use foo::log;"
+invalid:
+  - "use log::warn;"
+  - "use log::info;"

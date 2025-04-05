@@ -1,0 +1,6 @@
+id: inline-snap
+language: Rust
+rule:
+  kind: raw_string_literal
+  follows:
+    regex: '@'

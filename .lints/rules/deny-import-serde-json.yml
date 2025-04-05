@@ -1,0 +1,16 @@
+id: deny-import-serde-json
+severity: error
+language: Rust
+message: "ambiguous import from `serde_json` crate"
+note: |
+  reason: this import may lead to ambiguity between items imported from `variant` and `serde_json` crates.
+  help: remove the import and use fully qualified paths to avoid potential conflicts.
+rule:
+  all:
+    - pattern: serde_json
+    - inside:
+        pattern: use $PATH;
+        stopBy: end
+    - inside:
+        pattern: serde_json::$FOLLOWS
+        stopBy: end

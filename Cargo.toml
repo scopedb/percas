@@ -1,0 +1,7 @@
+[workspace]
+members = ["atrium-core", "xtask"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"

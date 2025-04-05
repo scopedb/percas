@@ -1,0 +1,30 @@
+id: deny-import-log
+snapshots:
+  use log::info;:
+    labels:
+    - source: log
+      style: primary
+      start: 4
+      end: 7
+    - source: use log::info;
+      style: secondary
+      start: 0
+      end: 14
+    - source: log::info
+      style: secondary
+      start: 4
+      end: 13
+  use log::warn;:
+    labels:
+    - source: log
+      style: primary
+      start: 4
+      end: 7
+    - source: use log::warn;
+      style: secondary
+      start: 0
+      end: 14
+    - source: log::warn
+      style: secondary
+      start: 4
+      end: 13

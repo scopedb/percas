@@ -1,0 +1,4 @@
+ruleDirs:
+  - ./.lints/rules
+testConfigs:
+  - testDir: ./.lints/tests

@@ -1,0 +1,13 @@
+id: deny-import-log
+severity: error
+language: Rust
+message: "recommended to use qualified `log` macros."
+rule:
+  all:
+    - pattern: log
+    - inside:
+        pattern: use $PATH;
+        stopBy: end
+    - inside:
+        pattern: log::$FOLLOWS
+        stopBy: end

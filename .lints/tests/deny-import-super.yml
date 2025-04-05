@@ -1,0 +1,6 @@
+id: deny-import-super
+valid:
+  - "use super::*;"
+invalid:
+  - "use super::foo;"
+  - "use super::foo::*;"
