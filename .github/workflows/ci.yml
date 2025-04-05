@@ -1,0 +1,40 @@
+name: CI
+on:
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Run test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest,cargo-nextest
+      - run: cargo x test
+        env:
+          USE_TLS: 1
+
+  required:
+    name: Required
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: ${{ always() }}
+    needs:
+      - test
+    steps:
+      - name: Guardian
+        run: |
+          if [[ ! ( \
+                 "${{ needs.test.result }}" == "success" \
+              ) ]]; then
+            echo "Required jobs haven't been completed successfully."
+            exit -1
+          fi
