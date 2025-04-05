@@ -21,3 +21,17 @@ impl FoyerEngine {
         self.inner.remove(key);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use foyer::CacheBuilder;
+
+    use super::*;
+
+    #[test]
+    fn test_get() {
+        let engine = FoyerEngine::new(CacheBuilder::new(1024).build());
+        engine.put(b"foo", b"bar");
+        assert_eq!(engine.get(b"foo"), Some(b"bar".to_vec()));
+    }
+}
