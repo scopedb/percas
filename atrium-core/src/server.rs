@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use foyer::CacheBuilder;
 use poem::Body;
 use poem::Endpoint;
 use poem::EndpointExt;
@@ -18,7 +17,8 @@ use poem::web::headers::ContentType;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::engine::FoyerEngine;
+use crate::Context;
+use crate::config::Config;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
@@ -29,10 +29,6 @@ impl Default for ServerConfig {
     fn default() -> Self {
         Self { port: 7654 }
     }
-}
-
-struct Context {
-    engine: FoyerEngine,
 }
 
 struct LoggerMiddleware;
@@ -69,20 +65,15 @@ where
     }
 }
 
-pub async fn start_server() -> Result<(), std::io::Error> {
-    let config = ServerConfig::default();
-    let ctx = Arc::new(Context {
-        engine: FoyerEngine::new(CacheBuilder::new(4 * 1024 * 1024 * 1024).build()),
-    });
-
+pub async fn start_server(config: &Config, ctx: Arc<Context>) -> Result<(), std::io::Error> {
     let route = Route::new()
         .at("/:key", poem::get(get).put(put).delete(delete))
         .data(ctx)
         .with(LoggerMiddleware);
 
-    log::info!("listening on 0.0.0.0:{}", config.port);
+    log::info!("listening on {}", config.listen_addr);
 
-    poem::Server::new(TcpListener::bind(("0.0.0.0", config.port)))
+    poem::Server::new(TcpListener::bind(&config.listen_addr))
         .run(route)
         .await
 }
@@ -94,8 +85,8 @@ struct GetParams {
 
 #[handler]
 pub async fn get(Data(ctx): Data<&Arc<Context>>, Query(params): Query<GetParams>) -> Response {
-    let key = params.key.as_bytes();
-    let value = ctx.engine.get(key);
+    let key = params.key.as_bytes().to_vec();
+    let value = ctx.engine.get(&key).await;
 
     match value {
         Some(value) => Response::builder()
@@ -119,11 +110,11 @@ pub async fn put(
     Query(params): Query<PutParams>,
     body: Body,
 ) -> Response {
-    let key = params.key.as_bytes();
+    let key = params.key.as_bytes().to_vec();
     let put_result = body
         .into_bytes()
         .await
-        .map(|bytes| ctx.engine.put(key, &bytes));
+        .map(|bytes| ctx.engine.put(&key, &bytes));
 
     match put_result {
         Ok(_) => Response::builder()

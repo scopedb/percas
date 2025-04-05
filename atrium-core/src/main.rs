@@ -1,10 +1,17 @@
+use std::sync::Arc;
+
 use clap::Parser;
+use error_stack::Result;
+use error_stack::ResultExt;
+use thiserror::Error;
 
 use crate::config::Config;
+use crate::engine::FoyerEngine;
 
 mod config;
 mod engine;
 mod server;
+mod util;
 
 #[derive(clap::Parser)]
 struct Command {
@@ -12,8 +19,18 @@ struct Command {
     config: String,
 }
 
+struct Context {
+    engine: FoyerEngine,
+}
+
+#[derive(Debug, Error)]
+#[error("{0}")]
+struct Error(String);
+
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Error> {
+    let make_error = || Error("failed to start server".to_string());
+
     logforth::builder()
         .dispatch(|d| {
             d.filter(log::LevelFilter::Debug)
@@ -24,9 +41,20 @@ async fn main() {
     let cmd = Command::parse();
     let config = toml::from_str::<Config>(&std::fs::read_to_string(&cmd.config).unwrap()).unwrap();
 
+    let engine = FoyerEngine::try_new(&config.path, config.memory_capacity, config.disk_capacity)
+        .await
+        .change_context_lazy(make_error)?;
+
+    let ctx = Arc::new(Context { engine });
+
     log::info!("config: {config:#?}");
 
-    let _ = server::start_server().await.inspect_err(|err| {
-        log::error!("server stopped: {}", err);
-    });
+    server::start_server(&config, ctx)
+        .await
+        .inspect_err(|err| {
+            log::error!("server stopped: {}", err);
+        })
+        .change_context_lazy(make_error)?;
+
+    Ok(())
 }
