@@ -206,6 +206,7 @@ name = "atrium"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "clap",
  "fastrace",
  "foyer",
  "log",
@@ -213,6 +214,7 @@ dependencies = [
  "poem",
  "serde",
  "tokio",
+ "toml 0.8.20",
 ]
 
 [[package]]
