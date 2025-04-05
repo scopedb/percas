@@ -5,11 +5,11 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
-bytes = "1.10.1"
-fastrace = "0.7.9"
-foyer = "0.15.3"
-log = "0.4.27"
-logforth = { version = "0.23.1", features = ["colored"] }
-poem = "3.1.7"
-serde = { version = "1.0", features = ["derive"] }
-tokio = "1.44.1"
+bytes = { workspace = true }
+fastrace = { workspace = true }
+foyer = { workspace = true }
+log = { workspace = true }
+logforth = { workspace = true }
+poem = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
