@@ -1,4 +1,5 @@
 listen_addr = "127.0.0.1:7654"
 advertise_addr = "127.0.0.1:7654"
 path = ".atrium"
-capacity = 1000000000
+disk_capacity = 1_000_000_000
+memory_capacity = 500_000_000

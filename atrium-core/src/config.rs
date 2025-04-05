@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -9,7 +11,8 @@ pub struct Config {
     pub advertise_addr: String,
     #[serde(default = "default_path")]
     pub path: String,
-    pub capacity: u64,
+    pub disk_capacity: u64,
+    pub memory_capacity: u64,
 }
 
 fn default_listen_addr() -> String {
@@ -22,4 +25,20 @@ fn default_advertise_addr() -> String {
 
 fn default_path() -> String {
     "/usr/local/atrium".to_string()
+}
+
+pub fn data_path(base: impl Into<PathBuf>) -> PathBuf {
+    base.into().join("data")
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            listen_addr: default_listen_addr(),
+            advertise_addr: default_advertise_addr(),
+            path: default_path(),
+            disk_capacity: 0,
+            memory_capacity: 0,
+        }
+    }
 }

@@ -7,11 +7,17 @@ version.workspace = true
 [dependencies]
 bytes = { workspace = true }
 clap = { workspace = true }
+error-stack = { workspace = true }
 fastrace = { workspace = true }
 foyer = { workspace = true }
 log = { workspace = true }
 logforth = { workspace = true }
 poem = { workspace = true }
 serde = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+tempfile = { workspace = true }
