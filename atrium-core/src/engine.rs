@@ -2,9 +2,13 @@ use error_stack::Result;
 use error_stack::ResultExt;
 use error_stack::report;
 use foyer::DirectFileDeviceOptions;
+use foyer::DirectFsDeviceOptions;
 use foyer::HybridCache;
 use foyer::HybridCacheBuilder;
 use foyer::HybridCachePolicy;
+use foyer::LruConfig;
+use foyer::RecoverMode;
+use foyer::RuntimeOptions;
 use foyer::TokioRuntimeOptions;
 use thiserror::Error;
 
@@ -32,11 +36,16 @@ impl FoyerEngine {
             .with_policy(HybridCachePolicy::WriteOnInsertion)
             .memory(memory_capacity as usize)
             .with_shards(num_cpus())
+            .with_eviction_config(LruConfig::default())
             .storage(foyer::Engine::Large)
             .with_device_options(
-                DirectFileDeviceOptions::new(data_path(path)).with_capacity(disk_capacity as usize),
+                DirectFsDeviceOptions::new(data_path(path))
+                    .with_capacity(disk_capacity as usize)
+                    .with_file_size(32 * 1024 * 1024),
             )
-            .with_runtime_options(foyer::RuntimeOptions::Unified(TokioRuntimeOptions {
+            .with_flush(true)
+            .with_recover_mode(RecoverMode::Quiet)
+            .with_runtime_options(RuntimeOptions::Unified(TokioRuntimeOptions {
                 worker_threads: num_cpus(),
                 max_blocking_threads: num_cpus() * 2,
             }))
