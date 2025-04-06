@@ -5,7 +5,7 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
-atrium-core = { path = "../atrium-core" }
+atrium-core = { workspace = true }
 bytes = { workspace = true }
 clap = { workspace = true }
 error-stack = { workspace = true }
