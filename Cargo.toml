@@ -29,3 +29,10 @@ thiserror = { version = "2.0" }
 tokio = "1.44.1"
 toml = "0.8.20"
 unindent = "0.2.4"
+
+# Workspace members
+atrium-core = { path = "atrium-core" }
+
+[profile.release]
+debug = true
+lto = true
