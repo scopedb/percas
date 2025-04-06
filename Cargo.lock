@@ -205,6 +205,27 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 name = "atrium"
 version = "0.1.0"
 dependencies = [
+ "atrium-core",
+ "bytes",
+ "clap",
+ "error-stack",
+ "fastrace",
+ "foyer",
+ "insta",
+ "log",
+ "logforth",
+ "poem",
+ "serde",
+ "tempfile",
+ "thiserror 2.0.12",
+ "tokio",
+ "toml 0.8.20",
+]
+
+[[package]]
+name = "atrium-core"
+version = "0.1.0"
+dependencies = [
  "bytes",
  "clap",
  "error-stack",

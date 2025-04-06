@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use atrium_core::Config;
 use poem::Body;
 use poem::Endpoint;
 use poem::EndpointExt;
@@ -18,7 +19,6 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::Context;
-use crate::config::Config;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
