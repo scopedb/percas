@@ -1,7 +1,6 @@
 use error_stack::Result;
 use error_stack::ResultExt;
 use error_stack::report;
-use foyer::DirectFileDeviceOptions;
 use foyer::DirectFsDeviceOptions;
 use foyer::HybridCache;
 use foyer::HybridCacheBuilder;
