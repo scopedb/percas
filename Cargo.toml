@@ -1,5 +1,5 @@
 [workspace]
-members = ["atrium-core", "xtask"]
+members = ["atrium-core", "atrium-server", "xtask"]
 resolver = "2"
 
 [workspace.package]

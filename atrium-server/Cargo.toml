@@ -1,10 +1,11 @@
 [package]
-name = "atrium-core"
+name = "atrium"
 
 edition.workspace = true
 version.workspace = true
 
 [dependencies]
+atrium-core = { path = "../atrium-core" }
 bytes = { workspace = true }
 clap = { workspace = true }
 error-stack = { workspace = true }

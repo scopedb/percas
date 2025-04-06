@@ -1,17 +1,13 @@
 use std::sync::Arc;
 
+use atrium_core::Config;
+use atrium_core::FoyerEngine;
 use clap::Parser;
 use error_stack::Result;
 use error_stack::ResultExt;
 use thiserror::Error;
 
-use crate::config::Config;
-use crate::engine::FoyerEngine;
-
-mod config;
-mod engine;
 mod server;
-mod util;
 
 #[derive(clap::Parser)]
 struct Command {
