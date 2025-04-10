@@ -1,0 +1,12 @@
+[package]
+name = "behavior-tests"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+atrium-core = { workspace = true }
+atrium = { workspace = true }
+test-harness = { workspace = true }
+tests-toolkit = { workspace = true }
+tokio = { workspace = true, features = ["full"] }

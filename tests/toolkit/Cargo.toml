@@ -1,0 +1,10 @@
+[package]
+name = "tests-toolkit"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+atrium-core = { workspace = true }
+atrium = { workspace = true }
+regex = { workspace = true }
