@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use atrium_core::Config;
+use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
 use poem::Body;
 use poem::Endpoint;
 use poem::EndpointExt;
@@ -85,7 +87,11 @@ struct GetParams {
 
 #[handler]
 pub async fn get(Data(ctx): Data<&Arc<Context>>, Query(params): Query<GetParams>) -> Response {
-    let key = params.key.as_bytes().to_vec();
+    let Ok(key) = BASE64_STANDARD.decode(params.key) else {
+        return Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body("Bad request");
+    };
     let value = ctx.engine.get(&key).await;
 
     match value {
@@ -110,7 +116,11 @@ pub async fn put(
     Query(params): Query<PutParams>,
     body: Body,
 ) -> Response {
-    let key = params.key.as_bytes().to_vec();
+    let Ok(key) = BASE64_STANDARD.decode(params.key) else {
+        return Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body("Bad request");
+    };
     let put_result = body
         .into_bytes()
         .await
@@ -136,7 +146,11 @@ pub async fn delete(
     Data(ctx): Data<&Arc<Context>>,
     Query(params): Query<DeleteParams>,
 ) -> Response {
-    let key = params.key.as_bytes();
-    ctx.engine.delete(key);
+    let Ok(key) = BASE64_STANDARD.decode(params.key) else {
+        return Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body("Bad request");
+    };
+    ctx.engine.delete(&key);
     Response::builder().status(StatusCode::NO_CONTENT).body("")
 }

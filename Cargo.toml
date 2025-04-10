@@ -1,5 +1,5 @@
 [workspace]
-members = ["atrium-core", "atrium-server", "xtask"]
+members = ["atrium-client", "atrium-core", "atrium-server", "xtask"]
 resolver = "2"
 
 [workspace.package]
@@ -7,6 +7,7 @@ edition = "2024"
 version = "0.1.0"
 
 [workspace.dependencies]
+base64 = "0.22.1"
 bytes = "1.10.1"
 clap = { version = "4.5.35", features = ["derive"] }
 error-stack = { version = "0.5", default-features = false, features = [
@@ -21,6 +22,7 @@ log = "0.4.27"
 logforth = { version = "0.23.1", features = ["colored"] }
 poem = "3.1.7"
 pretty_assertions = "1.4.1"
+reqwest = "0.12.15"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 styled = "0.2.0"
