@@ -19,6 +19,7 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
+urlencoding = { workspace = true }
 
 [dev-dependencies]
 insta = { workspace = true }

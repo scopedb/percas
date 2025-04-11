@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
 use atrium_core::Config;
-use base64::Engine;
-use base64::prelude::BASE64_STANDARD;
 use poem::Body;
 use poem::Endpoint;
 use poem::EndpointExt;
@@ -87,12 +85,12 @@ struct GetParams {
 
 #[handler]
 pub async fn get(Data(ctx): Data<&Arc<Context>>, Query(params): Query<GetParams>) -> Response {
-    let Ok(key) = BASE64_STANDARD.decode(params.key) else {
+    let Ok(key) = urlencoding::decode(&params.key) else {
         return Response::builder()
             .status(StatusCode::BAD_REQUEST)
             .body("Bad request");
     };
-    let value = ctx.engine.get(&key).await;
+    let value = ctx.engine.get(key.as_bytes()).await;
 
     match value {
         Some(value) => Response::builder()
@@ -116,7 +114,7 @@ pub async fn put(
     Query(params): Query<PutParams>,
     body: Body,
 ) -> Response {
-    let Ok(key) = BASE64_STANDARD.decode(params.key) else {
+    let Ok(key) = urlencoding::decode(&params.key) else {
         return Response::builder()
             .status(StatusCode::BAD_REQUEST)
             .body("Bad request");
@@ -124,7 +122,7 @@ pub async fn put(
     let put_result = body
         .into_bytes()
         .await
-        .map(|bytes| ctx.engine.put(&key, &bytes));
+        .map(|bytes| ctx.engine.put(key.as_bytes(), &bytes));
 
     match put_result {
         Ok(_) => Response::builder()
@@ -146,11 +144,11 @@ pub async fn delete(
     Data(ctx): Data<&Arc<Context>>,
     Query(params): Query<DeleteParams>,
 ) -> Response {
-    let Ok(key) = BASE64_STANDARD.decode(params.key) else {
+    let Ok(key) = urlencoding::decode(&params.key) else {
         return Response::builder()
             .status(StatusCode::BAD_REQUEST)
             .body("Bad request");
     };
-    ctx.engine.delete(&key);
+    ctx.engine.delete(key.as_bytes());
     Response::builder().status(StatusCode::NO_CONTENT).body("")
 }
