@@ -32,8 +32,10 @@ fastrace = { version = "0.7.9" }
 foyer = { version = "0.16.0", features = ["nightly"] }
 indent = { version = "0.1.1" }
 insta = { version = "1.42.2" }
+local-ip-address = { version = "0.6.3" }
 log = { version = "0.4.27", features = ["kv"] }
 logforth = { version = "0.24.0", features = ["colored"] }
+mea = { version = "0.3.4" }
 poem = { version = "3.1.7" }
 pretty_assertions = { version = "1.4.1" }
 regex = { version = "1.11.1" }

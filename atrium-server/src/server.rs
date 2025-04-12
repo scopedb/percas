@@ -1,6 +1,11 @@
+use std::io;
+use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use atrium_core::Config;
+use mea::latch::Latch;
+use mea::waitgroup::WaitGroup;
 use poem::Body;
 use poem::Endpoint;
 use poem::EndpointExt;
@@ -11,6 +16,8 @@ use poem::Response;
 use poem::Route;
 use poem::handler;
 use poem::http::StatusCode;
+use poem::listener::Acceptor;
+use poem::listener::Listener;
 use poem::listener::TcpListener;
 use poem::web::Data;
 use poem::web::Query;
@@ -65,17 +72,112 @@ where
     }
 }
 
-pub async fn start_server(config: &Config, ctx: Arc<Context>) -> Result<(), std::io::Error> {
-    let route = Route::new()
-        .at("/:key", poem::get(get).put(put).delete(delete))
-        .data(ctx)
-        .with(LoggerMiddleware);
+pub(crate) type ServerFuture<T> = tokio::task::JoinHandle<Result<T, io::Error>>;
+
+#[derive(Debug)]
+pub struct ServerState {
+    server_advertise_addr: SocketAddr,
+    server_fut: ServerFuture<()>,
+    shutdown: Arc<Latch>,
+}
+
+impl ServerState {
+    pub fn server_advertise_addr(&self) -> SocketAddr {
+        self.server_advertise_addr
+    }
+
+    pub fn shutdown_handle(&self) -> impl Fn() {
+        let shutdown = self.shutdown.clone();
+        move || shutdown.count_down()
+    }
+
+    pub fn shutdown(&self) {
+        self.shutdown_handle()();
+    }
+
+    pub async fn await_shutdown(self) {
+        self.shutdown.wait().await;
+
+        match self.server_fut.await {
+            Ok(_) => log::info!("Atrium server stopped."),
+            Err(err) => log::error!(err:?; "Atrium server failed."),
+        }
+    }
+}
+
+pub async fn start_server(config: &Config, ctx: Arc<Context>) -> Result<ServerState, io::Error> {
+    let shutdown = Arc::new(Latch::new(1));
+    let wg = WaitGroup::new();
 
     log::info!("listening on {}", config.listen_addr);
 
-    poem::Server::new(TcpListener::bind(&config.listen_addr))
-        .run(route)
-        .await
+    let acceptor = TcpListener::bind(&config.listen_addr)
+        .into_acceptor()
+        .await?;
+    let listen_addr = acceptor.local_addr()[0]
+        .as_socket_addr()
+        .cloned()
+        .ok_or_else(|| io::Error::other("failed to get local address of server"))?;
+    let server_advertise_addr =
+        resolve_advertise_addr(listen_addr, config.advertise_addr.as_deref())?;
+
+    let server_fut = {
+        let shutdown_clone = shutdown.clone();
+        let wg_clone = wg;
+
+        let route = Route::new()
+            .at("/:key", poem::get(get).put(put).delete(delete))
+            .data(ctx)
+            .with(LoggerMiddleware);
+        let signal = async move {
+            log::info!("Server has started on [{listen_addr}]");
+            drop(wg_clone);
+
+            shutdown_clone.wait().await;
+            log::info!("Server is closing");
+        };
+
+        tokio::spawn(async move {
+            poem::Server::new_with_acceptor(acceptor)
+                .run_with_graceful_shutdown(route, signal, Some(Duration::from_secs(30)))
+                .await
+        })
+    };
+
+    wg.await;
+    Ok(ServerState {
+        server_advertise_addr,
+        server_fut,
+        shutdown,
+    })
+}
+
+fn resolve_advertise_addr(
+    listen_addr: SocketAddr,
+    advertise_addr: Option<&str>,
+) -> Result<SocketAddr, io::Error> {
+    match advertise_addr {
+        None => {
+            if listen_addr.ip().is_unspecified() {
+                let ip = local_ip_address::local_ip()?;
+                let port = listen_addr.port();
+                Ok(SocketAddr::new(ip, port))
+            } else {
+                Ok(listen_addr)
+            }
+        }
+        Some(advertise_addr) => {
+            let advertise_addr = advertise_addr
+                .parse::<SocketAddr>()
+                .map_err(io::Error::other)?;
+            assert!(
+                advertise_addr.ip().is_global(),
+                "ip = {}",
+                advertise_addr.ip()
+            );
+            Ok(advertise_addr)
+        }
+    }
 }
 
 #[derive(Deserialize)]

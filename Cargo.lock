@@ -206,18 +206,13 @@ name = "atrium"
 version = "0.1.0"
 dependencies = [
  "atrium-core",
- "base64 0.22.1",
- "bytes",
  "clap",
  "error-stack",
- "fastrace",
- "foyer",
- "insta",
  "log",
  "logforth",
+ "mea",
  "poem",
  "serde",
- "tempfile",
  "thiserror 2.0.12",
  "tokio",
  "toml 0.8.20",
@@ -251,20 +246,13 @@ dependencies = [
 name = "atrium-core"
 version = "0.1.0"
 dependencies = [
- "bytes",
- "clap",
  "error-stack",
- "fastrace",
  "foyer",
  "insta",
- "log",
- "logforth",
- "poem",
  "serde",
  "tempfile",
  "thiserror 2.0.12",
  "tokio",
- "toml 0.8.20",
 ]
 
 [[package]]
@@ -2130,6 +2118,15 @@ dependencies = [
  "proc-macro-utils",
  "proc-macro2",
  "quote",
+]
+
+[[package]]
+name = "mea"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d374b4dbb6246f27947f394b468bc2cbe66ec82610831284c70994068075c570"
+dependencies = [
+ "slab",
 ]
 
 [[package]]

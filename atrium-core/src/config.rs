@@ -7,8 +7,8 @@ use serde::Serialize;
 pub struct Config {
     #[serde(default = "default_listen_addr")]
     pub listen_addr: String,
-    #[serde(default = "default_advertise_addr")]
-    pub advertise_addr: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub advertise_addr: Option<String>,
     #[serde(default = "default_path")]
     pub path: String,
     pub disk_capacity: u64,
@@ -35,7 +35,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             listen_addr: default_listen_addr(),
-            advertise_addr: default_advertise_addr(),
+            advertise_addr: None,
             path: default_path(),
             disk_capacity: 0,
             memory_capacity: 0,

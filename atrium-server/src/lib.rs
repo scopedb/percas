@@ -1,3 +1,5 @@
+#![feature(ip)]
+
 use atrium_core::FoyerEngine;
 
 pub mod server;
