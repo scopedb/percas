@@ -1,0 +1,13 @@
+[package]
+name = "tests-toolkit"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+atrium = { workspace = true }
+atrium-core = { workspace = true }
+local-ip-address = { workspace = true }
+regex = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["full"] }

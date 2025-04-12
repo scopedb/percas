@@ -206,18 +206,14 @@ name = "atrium"
 version = "0.1.0"
 dependencies = [
  "atrium-core",
- "base64 0.22.1",
- "bytes",
  "clap",
  "error-stack",
- "fastrace",
- "foyer",
- "insta",
+ "local-ip-address",
  "log",
  "logforth",
+ "mea",
  "poem",
  "serde",
- "tempfile",
  "thiserror 2.0.12",
  "tokio",
  "toml 0.8.20",
@@ -251,20 +247,13 @@ dependencies = [
 name = "atrium-core"
 version = "0.1.0"
 dependencies = [
- "bytes",
- "clap",
  "error-stack",
- "fastrace",
  "foyer",
  "insta",
- "log",
- "logforth",
- "poem",
  "serde",
  "tempfile",
  "thiserror 2.0.12",
  "tokio",
- "toml 0.8.20",
 ]
 
 [[package]]
@@ -341,6 +330,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "behavior-tests"
+version = "0.1.0"
+dependencies = [
+ "atrium",
+ "atrium-client",
+ "atrium-core",
+ "log",
+ "logforth",
+ "test-harness",
+ "tests-toolkit",
+ "tokio",
+]
+
+[[package]]
 name = "bincode"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -410,6 +413,12 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
+
+[[package]]
+name = "byteorder"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
@@ -922,9 +931,9 @@ dependencies = [
 
 [[package]]
 name = "foyer"
-version = "0.15.3"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb3b4e79fe76576b3970ada6437b30bee8cefe28685535290c3188d9b79b981e"
+checksum = "59819ed1a4be90fe66aa13df94adff2365bbb94929ad1052fd977e06b478974e"
 dependencies = [
  "ahash 0.8.11",
  "anyhow",
@@ -943,9 +952,9 @@ dependencies = [
 
 [[package]]
 name = "foyer-common"
-version = "0.15.3"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e71666dc1f66539cc9a21668fa59d11dbf9e1fd7cb9048d3e2293e28080f5d0"
+checksum = "06d425cd90d221e1c2cad27717260414cc1d55fa325fd8d02bbd928e4930d7d8"
 dependencies = [
  "ahash 0.8.11",
  "bytes",
@@ -956,7 +965,7 @@ dependencies = [
  "mixtrics",
  "parking_lot",
  "pin-project",
- "serde",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
@@ -971,9 +980,9 @@ dependencies = [
 
 [[package]]
 name = "foyer-memory"
-version = "0.15.3"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e9332460864db122775ef95b0603562288674daad7a8df0add81adaca7e5e09"
+checksum = "fd2582199b44afa6f617464335cc50debdff3caaf9a93972369bbf7e42cc630d"
 dependencies = [
  "ahash 0.8.11",
  "arc-swap",
@@ -997,16 +1006,15 @@ dependencies = [
 
 [[package]]
 name = "foyer-storage"
-version = "0.15.3"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cfae1b6d15d65c014e72047939fcf937f964582c6561942e736fc5dec1fc8c3c"
+checksum = "ba8dbd31e2caa79d3816b6924c30cc7eb292eac731d8a2af9c59bec911c27924"
 dependencies = [
  "ahash 0.8.11",
  "allocator-api2",
  "anyhow",
  "array-util",
  "auto_enums",
- "bincode",
  "bytes",
  "clap",
  "equivalent",
@@ -1026,7 +1034,6 @@ dependencies = [
  "paste",
  "pin-project",
  "rand 0.9.0",
- "serde",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
@@ -1999,6 +2006,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "local-ip-address"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3669cf5561f8d27e8fc84cc15e58350e70f557d4d65f70e3154e54cd2f8e1782"
+dependencies = [
+ "libc",
+ "neli",
+ "thiserror 1.0.69",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2016,9 +2035,9 @@ checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 
 [[package]]
 name = "logforth"
-version = "0.23.1"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9b81df91671a0a96902d950498cc69b509291c37f6d49105d5a1b7ddacc727d"
+checksum = "e7d12336d4771854b6fdbf75bab8257e62d4221d1f9d7187fc254b29aa3bd23b"
 dependencies = [
  "anyhow",
  "colored",
@@ -2124,6 +2143,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mea"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d374b4dbb6246f27947f394b468bc2cbe66ec82610831284c70994068075c570"
+dependencies = [
+ "slab",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2172,9 +2200,9 @@ dependencies = [
 
 [[package]]
 name = "mixtrics"
-version = "0.0.4"
+version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "285f6f175bfc4a068c0aa66d1fc48b6f4af0193d9577f8a86fa3a80014be9321"
+checksum = "41434672bd2f5df1b8ed58e0cee0a7a1000bf8dd711cea5a5540afcf41f7d7fb"
 dependencies = [
  "itertools 0.14.0",
  "parking_lot",
@@ -2210,6 +2238,31 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "tempfile",
+]
+
+[[package]]
+name = "neli"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93062a0dce6da2517ea35f301dfc88184ce18d3601ec786a727a87bf535deca9"
+dependencies = [
+ "byteorder",
+ "libc",
+ "log",
+ "neli-proc-macros",
+]
+
+[[package]]
+name = "neli-proc-macros"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c8034b7fbb6f9455b2a96c19e6edf8dc9fc34c70449938d8ee3b4df363f61fe"
+dependencies = [
+ "either",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -3499,6 +3552,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-harness"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae861f7d521762a2e5524ceeb3a518fab2c06c25e217a1d7270b8c5e158c141b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
+]
+
+[[package]]
+name = "tests-toolkit"
+version = "0.1.0"
+dependencies = [
+ "atrium",
+ "atrium-core",
+ "local-ip-address",
+ "regex",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3575,14 +3651,15 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.44.1"
+version = "1.44.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f382da615b842244d4b8738c82ed1275e6c5dd90c459a30941cd07080b06c91a"
+checksum = "e6b88822cbe49de4185e3a4cbf8321dd487cf5fe0c5c65695fef6346371e9c48"
 dependencies = [
  "backtrace",
  "bytes",
  "libc",
  "mio",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",

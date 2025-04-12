@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use atrium::Context;
 use atrium_core::Config;
 use atrium_core::FoyerEngine;
 use clap::Parser;
@@ -7,16 +8,10 @@ use error_stack::Result;
 use error_stack::ResultExt;
 use thiserror::Error;
 
-mod server;
-
 #[derive(clap::Parser)]
 struct Command {
     #[clap(short, long, help = "Path to config file")]
     config: String,
-}
-
-struct Context {
-    engine: FoyerEngine,
 }
 
 #[derive(Debug, Error)]
@@ -45,12 +40,12 @@ async fn main() -> Result<(), Error> {
 
     log::info!("config: {config:#?}");
 
-    server::start_server(&config, ctx)
+    let server = atrium::server::start_server(&config, ctx)
         .await
         .inspect_err(|err| {
             log::error!("server stopped: {}", err);
         })
         .change_context_lazy(make_error)?;
-
+    server.await_shutdown().await;
     Ok(())
 }

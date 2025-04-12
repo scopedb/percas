@@ -10,8 +10,8 @@ impl ClientBuilder {
     }
 
     pub fn build(self) -> Client {
-        Client {
-            endpoint: self.endpoint,
-        }
+        let builder = reqwest::ClientBuilder::new().no_proxy();
+        // FIXME(tisonkun): fallible over unwrap
+        Client::new(self.endpoint, builder).unwrap()
     }
 }
