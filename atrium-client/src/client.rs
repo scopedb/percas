@@ -16,10 +16,20 @@ pub enum Error {
 }
 
 pub struct Client {
-    pub(crate) endpoint: String,
+    endpoint: String,
+    client: reqwest::Client,
 }
 
 impl Client {
+    pub(crate) fn new(
+        endpoint: impl Into<String>,
+        builder: reqwest::ClientBuilder,
+    ) -> Result<Self, reqwest::Error> {
+        let client = builder.build()?;
+        let endpoint = endpoint.into();
+        Ok(Client { endpoint, client })
+    }
+
     pub async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
         do_get(self, key).await
     }
@@ -39,9 +49,13 @@ async fn do_get(client: &Client, key: &str) -> Result<Option<Vec<u8>>, Error> {
 
     let encoded_key = urlencoding::encode(key);
 
-    url = url.join(&encoded_key).change_context_lazy(make_error)?;
-
-    let resp = reqwest::get(url).await.change_context_lazy(make_error)?;
+    url.query_pairs_mut().append_pair("key", &encoded_key);
+    let resp = client
+        .client
+        .get(url)
+        .send()
+        .await
+        .change_context_lazy(make_error)?;
 
     match resp.status() {
         StatusCode::OK => {
@@ -56,14 +70,14 @@ async fn do_get(client: &Client, key: &str) -> Result<Option<Vec<u8>>, Error> {
 }
 
 async fn do_put(client: &Client, key: &str, value: &[u8]) -> Result<(), Error> {
-    let make_error = || Error::Other("failed to get".to_string());
+    let make_error = || Error::Other("failed to put".to_string());
     let mut url = Url::parse(&client.endpoint).change_context_lazy(make_error)?;
 
     let encoded_key = urlencoding::encode(key);
+    url.query_pairs_mut().append_pair("key", &encoded_key);
 
-    url = url.join(&encoded_key).change_context_lazy(make_error)?;
-
-    let resp = reqwest::Client::new()
+    let resp = client
+        .client
         .put(url)
         .body(value.to_vec())
         .send()
@@ -78,14 +92,14 @@ async fn do_put(client: &Client, key: &str, value: &[u8]) -> Result<(), Error> {
 }
 
 async fn do_delete(client: &Client, key: &str) -> Result<(), Error> {
-    let make_error = || Error::Other("failed to get".to_string());
+    let make_error = || Error::Other("failed to delete".to_string());
     let mut url = Url::parse(&client.endpoint).change_context_lazy(make_error)?;
 
     let encoded_key = urlencoding::encode(key);
+    url.query_pairs_mut().append_pair("key", &encoded_key);
 
-    url = url.join(&encoded_key).change_context_lazy(make_error)?;
-
-    let resp = reqwest::Client::new()
+    let resp = client
+        .client
         .delete(url)
         .send()
         .await

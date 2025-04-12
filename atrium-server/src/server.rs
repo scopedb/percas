@@ -123,10 +123,10 @@ pub async fn start_server(config: &Config, ctx: Arc<Context>) -> Result<ServerSt
 
     let server_fut = {
         let shutdown_clone = shutdown.clone();
-        let wg_clone = wg;
+        let wg_clone = wg.clone();
 
         let route = Route::new()
-            .at("/:key", poem::get(get).put(put).delete(delete))
+            .at("/", poem::get(get).put(put).delete(delete))
             .data(ctx)
             .with(LoggerMiddleware);
         let signal = async move {
@@ -159,7 +159,7 @@ fn resolve_advertise_addr(
     match advertise_addr {
         None => {
             if listen_addr.ip().is_unspecified() {
-                let ip = local_ip_address::local_ip()?;
+                let ip = local_ip_address::local_ip().map_err(io::Error::other)?;
                 let port = listen_addr.port();
                 Ok(SocketAddr::new(ip, port))
             } else {

@@ -5,8 +5,11 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
-atrium-core = { workspace = true }
 atrium = { workspace = true }
+atrium-client = { workspace = true }
+atrium-core = { workspace = true }
+log = { workspace = true }
+logforth = { workspace = true }
 test-harness = { workspace = true }
 tests-toolkit = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

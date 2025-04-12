@@ -40,12 +40,12 @@ async fn main() -> Result<(), Error> {
 
     log::info!("config: {config:#?}");
 
-    atrium::server::start_server(&config, ctx)
+    let server = atrium::server::start_server(&config, ctx)
         .await
         .inspect_err(|err| {
             log::error!("server stopped: {}", err);
         })
         .change_context_lazy(make_error)?;
-
+    server.await_shutdown().await;
     Ok(())
 }

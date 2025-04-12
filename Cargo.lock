@@ -208,6 +208,7 @@ dependencies = [
  "atrium-core",
  "clap",
  "error-stack",
+ "local-ip-address",
  "log",
  "logforth",
  "mea",
@@ -333,7 +334,10 @@ name = "behavior-tests"
 version = "0.1.0"
 dependencies = [
  "atrium",
+ "atrium-client",
  "atrium-core",
+ "log",
+ "logforth",
  "test-harness",
  "tests-toolkit",
  "tokio",
@@ -409,6 +413,12 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
+
+[[package]]
+name = "byteorder"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "bytes"
@@ -1996,6 +2006,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "local-ip-address"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3669cf5561f8d27e8fc84cc15e58350e70f557d4d65f70e3154e54cd2f8e1782"
+dependencies = [
+ "libc",
+ "neli",
+ "thiserror 1.0.69",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2216,6 +2238,31 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "tempfile",
+]
+
+[[package]]
+name = "neli"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93062a0dce6da2517ea35f301dfc88184ce18d3601ec786a727a87bf535deca9"
+dependencies = [
+ "byteorder",
+ "libc",
+ "log",
+ "neli-proc-macros",
+]
+
+[[package]]
+name = "neli-proc-macros"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c8034b7fbb6f9455b2a96c19e6edf8dc9fc34c70449938d8ee3b4df363f61fe"
+dependencies = [
+ "either",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -3521,7 +3568,10 @@ version = "0.1.0"
 dependencies = [
  "atrium",
  "atrium-core",
+ "local-ip-address",
  "regex",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

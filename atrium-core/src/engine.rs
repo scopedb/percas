@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use error_stack::Result;
 use error_stack::ResultExt;
 use error_stack::report;
@@ -24,7 +26,7 @@ pub struct FoyerEngine {
 
 impl FoyerEngine {
     pub async fn try_new(
-        path: &str,
+        path: &Path,
         memory_capacity: u64,
         disk_capacity: u64,
     ) -> Result<Self, EngineError> {
@@ -82,12 +84,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_get() {
-        let temp_dir = tempfile::tempdir_in("/tmp/foyer").unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
 
-        let engine =
-            FoyerEngine::try_new(temp_dir.path().to_str().unwrap(), 512 * 1024, 1024 * 1024)
-                .await
-                .unwrap();
+        let engine = FoyerEngine::try_new(temp_dir.path(), 512 * 1024, 1024 * 1024)
+            .await
+            .unwrap();
         engine.put(b"foo".to_vec().as_ref(), b"bar".to_vec().as_ref());
 
         assert_compact_debug_snapshot!(

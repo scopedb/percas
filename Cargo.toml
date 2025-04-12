@@ -15,9 +15,9 @@ version = "0.1.0"
 
 [workspace.dependencies]
 # Workspace members
+atrium = { path = "atrium-server" }
 atrium-client = { path = "atrium-client" }
 atrium-core = { path = "atrium-core" }
-atrium = { path = "atrium-server" }
 tests-toolkit = { path = "tests/toolkit" }
 
 # Crates.io dependencies

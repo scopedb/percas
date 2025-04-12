@@ -10,7 +10,7 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub advertise_addr: Option<String>,
     #[serde(default = "default_path")]
-    pub path: String,
+    pub path: PathBuf,
     pub disk_capacity: u64,
     pub memory_capacity: u64,
 }
@@ -19,12 +19,8 @@ fn default_listen_addr() -> String {
     "0.0.0.0:7654".to_string()
 }
 
-fn default_advertise_addr() -> String {
-    "127.0.0.1:7654".to_string()
-}
-
-fn default_path() -> String {
-    "/usr/local/atrium".to_string()
+fn default_path() -> PathBuf {
+    PathBuf::from("/usr/local/atrium")
 }
 
 pub fn data_path(base: impl Into<PathBuf>) -> PathBuf {
@@ -37,8 +33,8 @@ impl Default for Config {
             listen_addr: default_listen_addr(),
             advertise_addr: None,
             path: default_path(),
-            disk_capacity: 0,
-            memory_capacity: 0,
+            disk_capacity: 512 * 1024,
+            memory_capacity: 1024 * 1024,
         }
     }
 }
