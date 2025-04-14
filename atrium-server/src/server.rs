@@ -20,7 +20,7 @@ use poem::listener::Acceptor;
 use poem::listener::Listener;
 use poem::listener::TcpListener;
 use poem::web::Data;
-use poem::web::Query;
+use poem::web::Path;
 use poem::web::headers::ContentType;
 use serde::Deserialize;
 use serde::Serialize;
@@ -126,7 +126,7 @@ pub async fn start_server(config: &Config, ctx: Arc<Context>) -> Result<ServerSt
         let wg_clone = wg.clone();
 
         let route = Route::new()
-            .at("/", poem::get(get).put(put).delete(delete))
+            .at("/:key", poem::get(get).put(put).delete(delete))
             .data(ctx)
             .with(LoggerMiddleware);
         let signal = async move {
@@ -180,14 +180,9 @@ fn resolve_advertise_addr(
     }
 }
 
-#[derive(Deserialize)]
-struct GetParams {
-    key: String,
-}
-
 #[handler]
-pub async fn get(Data(ctx): Data<&Arc<Context>>, Query(params): Query<GetParams>) -> Response {
-    let Ok(key) = urlencoding::decode(&params.key) else {
+pub async fn get(Data(ctx): Data<&Arc<Context>>, key: Path<String>) -> Response {
+    let Ok(key) = urlencoding::decode(&key) else {
         return Response::builder()
             .status(StatusCode::BAD_REQUEST)
             .body("Bad request");
@@ -205,18 +200,9 @@ pub async fn get(Data(ctx): Data<&Arc<Context>>, Query(params): Query<GetParams>
     }
 }
 
-#[derive(Deserialize)]
-struct PutParams {
-    key: String,
-}
-
 #[handler]
-pub async fn put(
-    Data(ctx): Data<&Arc<Context>>,
-    Query(params): Query<PutParams>,
-    body: Body,
-) -> Response {
-    let Ok(key) = urlencoding::decode(&params.key) else {
+pub async fn put(Data(ctx): Data<&Arc<Context>>, key: Path<String>, body: Body) -> Response {
+    let Ok(key) = urlencoding::decode(&key) else {
         return Response::builder()
             .status(StatusCode::BAD_REQUEST)
             .body("Bad request");
@@ -236,17 +222,9 @@ pub async fn put(
     }
 }
 
-#[derive(Deserialize)]
-struct DeleteParams {
-    key: String,
-}
-
 #[handler]
-pub async fn delete(
-    Data(ctx): Data<&Arc<Context>>,
-    Query(params): Query<DeleteParams>,
-) -> Response {
-    let Ok(key) = urlencoding::decode(&params.key) else {
+pub async fn delete(Data(ctx): Data<&Arc<Context>>, key: Path<String>) -> Response {
+    let Ok(key) = urlencoding::decode(&key) else {
         return Response::builder()
             .status(StatusCode::BAD_REQUEST)
             .body("Bad request");

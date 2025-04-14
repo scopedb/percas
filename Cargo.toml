@@ -37,6 +37,7 @@ log = { version = "0.4.27", features = ["kv"] }
 logforth = { version = "0.24.0", features = ["colored"] }
 mea = { version = "0.3.4" }
 poem = { version = "3.1.7" }
+pretty-hex = { version = "0.4.1" }
 pretty_assertions = { version = "1.4.1" }
 regex = { version = "1.11.1" }
 reqwest = { version = "0.12.15" }
