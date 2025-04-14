@@ -38,3 +38,15 @@ where
         exit_code
     })
 }
+
+pub fn render_hex<T: AsRef<[u8]>>(data: T) -> String {
+    let config = pretty_hex::HexConfig {
+        width: 8,
+        group: 0,
+        ..Default::default()
+    };
+    format!(
+        "{:?}",
+        pretty_hex::PrettyHex::hex_conf(&data.as_ref(), config)
+    )
+}

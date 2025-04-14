@@ -8,8 +8,10 @@ version.workspace = true
 atrium = { workspace = true }
 atrium-client = { workspace = true }
 atrium-core = { workspace = true }
+insta = { workspace = true }
 log = { workspace = true }
 logforth = { workspace = true }
+pretty-hex = { workspace = true }
 test-harness = { workspace = true }
 tests-toolkit = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

@@ -49,7 +49,7 @@ async fn do_get(client: &Client, key: &str) -> Result<Option<Vec<u8>>, Error> {
 
     let encoded_key = urlencoding::encode(key);
 
-    url.query_pairs_mut().append_pair("key", &encoded_key);
+    url = url.join(&encoded_key).change_context_lazy(make_error)?;
     let resp = client
         .client
         .get(url)
@@ -74,7 +74,7 @@ async fn do_put(client: &Client, key: &str, value: &[u8]) -> Result<(), Error> {
     let mut url = Url::parse(&client.endpoint).change_context_lazy(make_error)?;
 
     let encoded_key = urlencoding::encode(key);
-    url.query_pairs_mut().append_pair("key", &encoded_key);
+    url = url.join(&encoded_key).change_context_lazy(make_error)?;
 
     let resp = client
         .client
@@ -96,7 +96,7 @@ async fn do_delete(client: &Client, key: &str) -> Result<(), Error> {
     let mut url = Url::parse(&client.endpoint).change_context_lazy(make_error)?;
 
     let encoded_key = urlencoding::encode(key);
-    url.query_pairs_mut().append_pair("key", &encoded_key);
+    url = url.join(&encoded_key).change_context_lazy(make_error)?;
 
     let resp = client
         .client
