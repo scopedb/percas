@@ -19,8 +19,6 @@ jobs:
         with:
           tool: nextest,cargo-nextest
       - run: cargo x test
-        env:
-          USE_TLS: 1
 
   required:
     name: Required

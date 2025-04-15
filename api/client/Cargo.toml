@@ -1,0 +1,14 @@
+[package]
+name = "atrium-client"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+error-stack = { workspace = true }
+reqwest = { workspace = true }
+thiserror = { workspace = true }
+urlencoding = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,20 +1,27 @@
 [package]
-name = "atrium-client"
+name = "atrium"
 
 edition.workspace = true
 version.workspace = true
 
 [dependencies]
-base64 = { workspace = true }
-bytes = { workspace = true }
+atrium-core = { workspace = true }
+atrium-metrics = { workspace = true }
 clap = { workspace = true }
 error-stack = { workspace = true }
+fastimer = { workspace = true }
+fastimer-tokio = { workspace = true }
 fastrace = { workspace = true }
-foyer = { workspace = true }
+fastrace-opentelemetry = { workspace = true }
+local-ip-address = { workspace = true }
 log = { workspace = true }
 logforth = { workspace = true }
+mea = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+opentelemetry_sdk = { workspace = true }
 poem = { workspace = true }
-reqwest = { workspace = true }
+scopeguard = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
