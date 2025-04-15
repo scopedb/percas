@@ -13,13 +13,6 @@ where
     T: std::process::Termination,
     Fut: Send + Future<Output = T>,
 {
-    logforth::builder()
-        .dispatch(|d| {
-            d.filter(log::LevelFilter::Debug)
-                .append(logforth::append::Stdout::default())
-        })
-        .apply();
-
     let rt = tokio::runtime::Runtime::new().unwrap();
 
     let test_name = make_test_name::<Fut>();
