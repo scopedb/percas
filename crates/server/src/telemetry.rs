@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::sync::LazyLock;
 use std::time::Duration;
 
 use atrium_core::MetricsConfig;
@@ -15,33 +14,24 @@ use logforth::filter::env_filter::EnvFilterBuilder;
 use logforth::layout;
 use opentelemetry_otlp::WithExportConfig;
 
-fn telemetry_runtime() -> &'static tokio::runtime::Runtime {
-    static RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
-        tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(1)
-            .enable_all()
-            .build()
-            .expect("failed to create telemetry runtime")
-    });
-    &RUNTIME
-}
-
 pub fn init(
+    rt: &tokio::runtime::Runtime,
     service_name: &'static str,
     config: TelemetryConfig,
 ) -> Vec<Box<dyn Send + Sync + 'static>> {
     let mut drop_guards = vec![];
     if let Some(metrics) = &config.metrics {
-        drop_guards.extend(init_metrics(service_name, metrics));
+        drop_guards.extend(init_metrics(rt, service_name, metrics));
     }
     if let Some(traces) = &config.traces {
-        drop_guards.extend(init_traces(service_name, traces));
+        drop_guards.extend(init_traces(rt, service_name, traces));
     }
-    drop_guards.extend(init_logs(service_name, &config));
+    drop_guards.extend(init_logs(rt, service_name, &config));
     drop_guards
 }
 
 fn init_metrics(
+    rt: &tokio::runtime::Runtime,
     service_name: &'static str,
     config: &MetricsConfig,
 ) -> Vec<Box<dyn Send + Sync + 'static>> {
@@ -53,7 +43,7 @@ fn init_metrics(
         return vec![];
     };
 
-    telemetry_runtime().block_on(async {
+    rt.block_on(async {
         let exporter = opentelemetry_otlp::MetricExporter::builder()
             .with_tonic()
             .with_protocol(opentelemetry_otlp::Protocol::Grpc)
@@ -83,6 +73,7 @@ fn init_metrics(
 }
 
 fn init_traces(
+    rt: &tokio::runtime::Runtime,
     service_name: &'static str,
     config: &TracesConfig,
 ) -> Vec<Box<dyn Send + Sync + 'static>> {
@@ -97,7 +88,7 @@ fn init_traces(
     let resource = opentelemetry_sdk::Resource::builder()
         .with_attributes([opentelemetry::KeyValue::new("service.name", service_name)])
         .build();
-    let otlp_reporter = telemetry_runtime().block_on(async move {
+    let otlp_reporter = rt.block_on(async move {
         fastrace_opentelemetry::OpenTelemetryReporter::new(
             opentelemetry_otlp::SpanExporter::builder()
                 .with_tonic()
@@ -124,6 +115,7 @@ fn init_traces(
 }
 
 fn init_logs(
+    rt: &tokio::runtime::Runtime,
     service_name: &'static str,
     config: &TelemetryConfig,
 ) -> Vec<Box<dyn Send + Sync + 'static>> {
@@ -175,7 +167,7 @@ fn init_logs(
     // opentelemetry appender
     if let Some(opentelemetry) = &config.logs.opentelemetry {
         let filter = make_rust_log_filter(&opentelemetry.filter);
-        let appender = telemetry_runtime().block_on(async {
+        let appender = rt.block_on(async {
             append::opentelemetry::OpentelemetryLogBuilder::new(
                 service_name,
                 &opentelemetry.otlp_endpoint,

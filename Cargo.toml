@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "api/client",
+  "cmd/atrium",
   "crates/core",
   "crates/metrics",
   "crates/server",
@@ -16,10 +17,11 @@ version = "0.1.0"
 
 [workspace.dependencies]
 # Workspace members
-atrium = { path = "crates/server" }
+atrium = { path = "cmd/atrium" }
 atrium-client = { path = "api/client" }
 atrium-core = { path = "crates/core" }
 atrium-metrics = { path = "crates/metrics" }
+atrium-server = { path = "crates/server" }
 styled = { path = "crates/styled" }
 tests-toolkit = { path = "tests/toolkit" }
 
@@ -32,7 +34,7 @@ error-stack = { version = "0.5", default-features = false, features = [
   "serde",
 ] }
 fastimer = { version = "0.8.0" }
-fastimer-tokio = { version = "0.8.0" }
+fastimer-tokio = { version = "0.8.0", features = ["time", "spawn"] }
 fastrace = { version = "0.7.9" }
 fastrace-opentelemetry = { version = "0.10.0" }
 foyer = { version = "0.16.0", features = ["nightly"] }

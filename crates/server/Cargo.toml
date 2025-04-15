@@ -1,5 +1,5 @@
 [package]
-name = "atrium"
+name = "atrium-server"
 
 edition.workspace = true
 version.workspace = true
@@ -7,10 +7,7 @@ version.workspace = true
 [dependencies]
 atrium-core = { workspace = true }
 atrium-metrics = { workspace = true }
-clap = { workspace = true }
-error-stack = { workspace = true }
 fastimer = { workspace = true }
-fastimer-tokio = { workspace = true }
 fastrace = { workspace = true }
 fastrace-opentelemetry = { workspace = true }
 local-ip-address = { workspace = true }
@@ -22,10 +19,7 @@ opentelemetry-otlp = { workspace = true }
 opentelemetry_sdk = { workspace = true }
 poem = { workspace = true }
 scopeguard = { workspace = true }
-serde = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true }
-toml = { workspace = true }
 urlencoding = { workspace = true }
 
 [lints]
