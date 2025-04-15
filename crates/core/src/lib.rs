@@ -1,6 +1,9 @@
-pub use crate::config::Config;
-pub use crate::engine::FoyerEngine;
-
 mod config;
 mod engine;
-mod util;
+
+pub use config::*;
+pub use engine::*;
+
+pub fn num_cpus() -> usize {
+    std::thread::available_parallelism().unwrap().get().max(1)
+}

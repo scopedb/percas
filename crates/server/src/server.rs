@@ -3,7 +3,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use atrium_core::Config;
+use atrium_core::ServerConfig;
+use atrium_metrics::GlobalMetrics;
+use atrium_metrics::OperationMetrics;
 use mea::latch::Latch;
 use mea::waitgroup::WaitGroup;
 use poem::Body;
@@ -22,21 +24,8 @@ use poem::listener::TcpListener;
 use poem::web::Data;
 use poem::web::Path;
 use poem::web::headers::ContentType;
-use serde::Deserialize;
-use serde::Serialize;
 
-use crate::Context;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServerConfig {
-    pub port: u16,
-}
-
-impl Default for ServerConfig {
-    fn default() -> Self {
-        Self { port: 7654 }
-    }
-}
+use crate::AtriumContext;
 
 struct LoggerMiddleware;
 
@@ -105,7 +94,10 @@ impl ServerState {
     }
 }
 
-pub async fn start_server(config: &Config, ctx: Arc<Context>) -> Result<ServerState, io::Error> {
+pub async fn start_server(
+    config: &ServerConfig,
+    ctx: Arc<AtriumContext>,
+) -> Result<ServerState, io::Error> {
     let shutdown = Arc::new(Latch::new(1));
     let wg = WaitGroup::new();
 
@@ -181,54 +173,131 @@ fn resolve_advertise_addr(
 }
 
 #[handler]
-pub async fn get(Data(ctx): Data<&Arc<Context>>, key: Path<String>) -> Response {
+pub async fn get(Data(ctx): Data<&Arc<AtriumContext>>, key: Path<String>) -> Response {
+    let metrics = &GlobalMetrics::get().operation;
     let Ok(key) = urlencoding::decode(&key) else {
+        let labels = OperationMetrics::operation_labels(
+            OperationMetrics::OPERATION_GET,
+            OperationMetrics::STATUS_FAILURE,
+        );
+        metrics.count.add(1, &labels);
         return Response::builder()
             .status(StatusCode::BAD_REQUEST)
             .body("Bad request");
     };
+    let start = std::time::Instant::now();
     let value = ctx.engine.get(key.as_bytes()).await;
 
     match value {
-        Some(value) => Response::builder()
-            .status(StatusCode::OK)
-            .typed_header(ContentType::octet_stream())
-            .body(value),
-        None => Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .body("Not found"),
+        Some(value) => {
+            let labels = OperationMetrics::operation_labels(
+                OperationMetrics::OPERATION_GET,
+                OperationMetrics::STATUS_SUCCESS,
+            );
+            metrics.count.add(1, &labels);
+            metrics.bytes.add(value.len() as u64, &labels);
+            metrics
+                .duration
+                .record(start.elapsed().as_secs_f64(), &labels);
+
+            Response::builder()
+                .status(StatusCode::OK)
+                .typed_header(ContentType::octet_stream())
+                .body(value)
+        }
+        None => {
+            let labels = OperationMetrics::operation_labels(
+                OperationMetrics::OPERATION_GET,
+                OperationMetrics::STATUS_NOT_FOUND,
+            );
+            metrics.count.add(1, &labels);
+            metrics
+                .duration
+                .record(start.elapsed().as_secs_f64(), &labels);
+
+            Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body("Not found")
+        }
     }
 }
 
 #[handler]
-pub async fn put(Data(ctx): Data<&Arc<Context>>, key: Path<String>, body: Body) -> Response {
+pub async fn put(Data(ctx): Data<&Arc<AtriumContext>>, key: Path<String>, body: Body) -> Response {
+    let metrics = &GlobalMetrics::get().operation;
     let Ok(key) = urlencoding::decode(&key) else {
+        let labels = OperationMetrics::operation_labels(
+            OperationMetrics::OPERATION_PUT,
+            OperationMetrics::STATUS_FAILURE,
+        );
+        metrics.count.add(1, &labels);
         return Response::builder()
             .status(StatusCode::BAD_REQUEST)
             .body("Bad request");
     };
-    let put_result = body
-        .into_bytes()
-        .await
-        .map(|bytes| ctx.engine.put(key.as_bytes(), &bytes));
+    let start = std::time::Instant::now();
+    let put_result = body.into_bytes().await.map(|bytes| {
+        ctx.engine.put(key.as_bytes(), &bytes);
+        bytes.len()
+    });
 
     match put_result {
-        Ok(_) => Response::builder()
-            .status(StatusCode::CREATED)
-            .body("Created"),
-        Err(_) => Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body("Bad request"),
+        Ok(len) => {
+            let labels = OperationMetrics::operation_labels(
+                OperationMetrics::OPERATION_PUT,
+                OperationMetrics::STATUS_SUCCESS,
+            );
+            metrics.count.add(1, &labels);
+            metrics.bytes.add(len as u64, &labels);
+            metrics
+                .duration
+                .record(start.elapsed().as_secs_f64(), &labels);
+
+            Response::builder()
+                .status(StatusCode::CREATED)
+                .body("Created")
+        }
+        Err(_) => {
+            let labels = OperationMetrics::operation_labels(
+                OperationMetrics::OPERATION_PUT,
+                OperationMetrics::STATUS_FAILURE,
+            );
+            metrics.count.add(1, &labels);
+            metrics
+                .duration
+                .record(start.elapsed().as_secs_f64(), &labels);
+
+            Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body("Bad request")
+        }
     }
 }
 
 #[handler]
-pub async fn delete(Data(ctx): Data<&Arc<Context>>, key: Path<String>) -> Response {
+pub async fn delete(Data(ctx): Data<&Arc<AtriumContext>>, key: Path<String>) -> Response {
+    let metrics = &GlobalMetrics::get().operation;
     let Ok(key) = urlencoding::decode(&key) else {
+        let labels = OperationMetrics::operation_labels(
+            OperationMetrics::OPERATION_DELETE,
+            OperationMetrics::STATUS_FAILURE,
+        );
+        metrics.count.add(1, &labels);
         return Response::builder()
             .status(StatusCode::BAD_REQUEST)
             .body("Bad request");
     };
+    let start = std::time::Instant::now();
     ctx.engine.delete(key.as_bytes());
+
+    let labels = OperationMetrics::operation_labels(
+        OperationMetrics::OPERATION_DELETE,
+        OperationMetrics::STATUS_SUCCESS,
+    );
+    metrics.count.add(1, &labels);
+    metrics
+        .duration
+        .record(start.elapsed().as_secs_f64(), &labels);
+
     Response::builder().status(StatusCode::NO_CONTENT).body("")
 }

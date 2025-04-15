@@ -1,5 +1,30 @@
-listen_addr = "127.0.0.1:7654"
+[server]
+listen_addr = "0.0.0.0:7654"
 advertise_addr = "127.0.0.1:7654"
-path = ".atrium"
+
+[storage]
+data_dir = ".atrium"
 disk_capacity = 1_000_000_000
 memory_capacity = 500_000_000
+
+[telemetry.logs.file]
+filter = "INFO"
+dir = "logs"
+max_files = 64
+
+[telemetry.logs.stderr]
+filter = "INFO"
+
+[telemetry.logs.opentelemetry]
+filter = "INFO"
+otlp_endpoint = "http://127.0.0.1:4317"
+
+[telemetry.traces]
+capture_log_filter = "INFO"
+
+[telemetry.traces.opentelemetry]
+otlp_endpoint = "http://127.0.0.1:4317"
+
+[telemetry.metrics.opentelemetry]
+otlp_endpoint = "http://127.0.0.1:4317"
+push_interval = "30s"
