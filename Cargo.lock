@@ -197,20 +197,9 @@ dependencies = [
 name = "atrium-client"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
- "bytes",
- "clap",
  "error-stack",
- "fastrace",
- "foyer",
- "log",
- "logforth",
- "poem",
  "reqwest",
- "serde",
  "thiserror 2.0.12",
- "tokio",
- "toml",
  "urlencoding",
 ]
 
