@@ -2,14 +2,14 @@ use std::any::Any;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use atrium::server::ServerState;
-use atrium::telemetry;
 use atrium_core::Config;
 use atrium_core::FoyerEngine;
 use atrium_core::LogsConfig;
 use atrium_core::ServerConfig;
 use atrium_core::StorageConfig;
 use atrium_core::TelemetryConfig;
+use atrium_server::server::ServerState;
+use atrium_server::telemetry;
 
 pub fn make_test_name<TestFn>() -> String {
     let replacer = regex::Regex::new(r"[^a-zA-Z0-9]").unwrap();
@@ -35,6 +35,7 @@ pub fn start_test_server(
     let mut drop_guard = Vec::<DropGuard>::new();
     drop_guard.extend(
         telemetry::init(
+            rt,
             "atrium",
             TelemetryConfig {
                 logs: LogsConfig::disabled(),
@@ -76,8 +77,8 @@ pub fn start_test_server(
         )
         .await
         .unwrap();
-        let ctx = Arc::new(atrium::AtriumContext { engine });
-        atrium::server::start_server(&config.server, ctx)
+        let ctx = Arc::new(atrium_server::AtriumContext { engine });
+        atrium_server::server::start_server(&config.server, ctx)
             .await
             .unwrap()
     });

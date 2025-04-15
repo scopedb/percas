@@ -190,27 +190,15 @@ name = "atrium"
 version = "0.1.0"
 dependencies = [
  "atrium-core",
- "atrium-metrics",
+ "atrium-server",
  "clap",
  "error-stack",
  "fastimer",
  "fastimer-tokio",
- "fastrace",
- "fastrace-opentelemetry",
- "local-ip-address",
  "log",
- "logforth",
- "mea",
- "opentelemetry",
- "opentelemetry-otlp",
- "opentelemetry_sdk",
- "poem",
- "scopeguard",
- "serde",
  "thiserror 2.0.12",
  "tokio",
  "toml",
- "urlencoding",
 ]
 
 [[package]]
@@ -245,6 +233,28 @@ version = "0.1.0"
 dependencies = [
  "opentelemetry",
  "opentelemetry_sdk",
+]
+
+[[package]]
+name = "atrium-server"
+version = "0.1.0"
+dependencies = [
+ "atrium-core",
+ "atrium-metrics",
+ "fastimer",
+ "fastrace",
+ "fastrace-opentelemetry",
+ "local-ip-address",
+ "log",
+ "logforth",
+ "mea",
+ "opentelemetry",
+ "opentelemetry-otlp",
+ "opentelemetry_sdk",
+ "poem",
+ "scopeguard",
+ "tokio",
+ "urlencoding",
 ]
 
 [[package]]
@@ -296,9 +306,8 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 name = "behavior-tests"
 version = "0.1.0"
 dependencies = [
- "atrium",
  "atrium-client",
- "atrium-core",
+ "atrium-server",
  "insta",
  "log",
  "logforth",
@@ -796,6 +805,10 @@ name = "fastimer-tokio"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbbfc997756b803c0503467539eadd11f83eb0d10f06af046ce73d39fff3b8f9"
+dependencies = [
+ "fastimer",
+ "tokio",
+]
 
 [[package]]
 name = "fastrace"
@@ -3110,8 +3123,8 @@ dependencies = [
 name = "tests-toolkit"
 version = "0.1.0"
 dependencies = [
- "atrium",
  "atrium-core",
+ "atrium-server",
  "local-ip-address",
  "regex",
  "tempfile",

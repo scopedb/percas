@@ -1,0 +1,20 @@
+[package]
+name = "atrium"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+atrium-core = { workspace = true }
+atrium-server = { workspace = true }
+clap = { workspace = true }
+error-stack = { workspace = true }
+fastimer = { workspace = true }
+fastimer-tokio = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+toml = { workspace = true }
+
+[lints]
+workspace = true
