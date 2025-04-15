@@ -15,3 +15,6 @@ pretty-hex = { workspace = true }
 test-harness = { workspace = true }
 tests-toolkit = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+
+[lints]
+workspace = true

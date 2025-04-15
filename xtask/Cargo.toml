@@ -12,3 +12,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 styled = { workspace = true }
 unindent = { workspace = true }
+
+[lints]
+workspace = true
