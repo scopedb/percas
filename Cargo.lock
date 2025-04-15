@@ -307,10 +307,7 @@ name = "behavior-tests"
 version = "0.1.0"
 dependencies = [
  "atrium-client",
- "atrium-server",
  "insta",
- "log",
- "logforth",
  "pretty-hex",
  "test-harness",
  "tests-toolkit",
