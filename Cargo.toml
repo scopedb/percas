@@ -2,6 +2,7 @@
 members = [
   "atrium-client",
   "atrium-core",
+  "atrium-metrics",
   "atrium-server",
   "tests/behavior",
   "tests/toolkit",
@@ -18,6 +19,7 @@ version = "0.1.0"
 atrium = { path = "atrium-server" }
 atrium-client = { path = "atrium-client" }
 atrium-core = { path = "atrium-core" }
+atrium-metrics = { path = "atrium-metrics" }
 styled = { path = "crates/styled" }
 tests-toolkit = { path = "tests/toolkit" }
 
@@ -31,20 +33,41 @@ error-stack = { version = "0.5", default-features = false, features = [
   "std",
   "serde",
 ] }
+fastimer = { version = "0.8.0" }
 fastrace = { version = "0.7.9" }
+fastrace-opentelemetry = { version = "0.10.0" }
 foyer = { version = "0.16.0", features = ["nightly"] }
 humansize = { version = "2.1.3" }
 indent = { version = "0.1.1" }
 insta = { version = "1.42.2" }
+jiff = { version = "0.2", features = ["serde"] }
 local-ip-address = { version = "0.6.3" }
 log = { version = "0.4.27", features = ["kv"] }
-logforth = { version = "0.24.0", features = ["colored"] }
+logforth = { version = "0.24.0", features = [
+  "colored",
+  "fastrace",
+  "json",
+  "opentelemetry",
+  "rolling-file",
+] }
 mea = { version = "0.3.4" }
+opentelemetry = { version = "0.29.1", features = ["trace", "metrics"] }
+opentelemetry-otlp = { version = "0.29.0", features = [
+  "trace",
+  "metrics",
+  "grpc-tonic",
+] }
+opentelemetry_sdk = { version = "0.29.0", features = [
+  "trace",
+  "metrics",
+  "rt-tokio",
+] }
 poem = { version = "3.1.7" }
 pretty-hex = { version = "0.4.1" }
 pretty_assertions = { version = "1.4.1" }
 regex = { version = "1.11.1" }
 reqwest = { version = "0.12.15" }
+scopeguard = { version = "1.2" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 tempfile = { version = "3.19.1" }

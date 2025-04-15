@@ -21,6 +21,7 @@ use crate::util::num_cpus;
 pub struct EngineError(pub String);
 
 pub struct FoyerEngine {
+    capacity: u64,
     inner: HybridCache<Vec<u8>, Vec<u8>>,
 }
 
@@ -53,7 +54,10 @@ impl FoyerEngine {
             .await
             .map_err(|err| report!(EngineError(err.to_string())))?;
 
-        Ok(FoyerEngine { inner: cache })
+        Ok(FoyerEngine {
+            capacity: disk_capacity,
+            inner: cache,
+        })
     }
 
     pub async fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
@@ -72,6 +76,10 @@ impl FoyerEngine {
 
     pub fn delete(&self, key: &[u8]) {
         self.inner.remove(key);
+    }
+
+    pub fn capacity(&self) -> u64 {
+        self.capacity
     }
 }
 
