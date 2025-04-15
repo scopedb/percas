@@ -17,6 +17,9 @@ humansize = { workspace = true }
 insta = { workspace = true }
 tempfile = { workspace = true }
 
+[lints]
+workspace = true
+
 [[bench]]
 harness = false
 name = "benchmark"
