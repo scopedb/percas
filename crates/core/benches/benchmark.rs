@@ -1,11 +1,11 @@
 #![feature(random)]
 
-use atrium_core::FoyerEngine;
 use criterion::BenchmarkId;
 use criterion::Criterion;
 use criterion::black_box;
 use criterion::criterion_group;
 use criterion::criterion_main;
+use percas_core::FoyerEngine;
 use tempfile::tempdir_in;
 
 criterion_group!(benches, foyer_engine);

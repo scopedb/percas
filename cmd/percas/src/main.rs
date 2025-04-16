@@ -1,15 +1,15 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use atrium_core::Config;
-use atrium_core::FoyerEngine;
-use atrium_server::AtriumContext;
-use atrium_server::scheduled::ReportMetricsAction;
-use atrium_server::telemetry;
 use clap::Parser;
 use error_stack::Result;
 use error_stack::ResultExt;
 use fastimer::schedule::SimpleActionExt;
+use percas_core::Config;
+use percas_core::FoyerEngine;
+use percas_server::PercasContext;
+use percas_server::scheduled::ReportMetricsAction;
+use percas_server::telemetry;
 use thiserror::Error;
 
 #[derive(clap::Parser)]
@@ -38,7 +38,7 @@ async fn main() -> Result<(), Error> {
     let config = toml::from_str::<Config>(&std::fs::read_to_string(&cmd.config).unwrap()).unwrap();
 
     let telemetry_runtime = make_telemetry_runtime();
-    let mut drop_guards = telemetry::init(&telemetry_runtime, "atrium", config.telemetry.clone());
+    let mut drop_guards = telemetry::init(&telemetry_runtime, "percas", config.telemetry.clone());
     drop_guards.push(Box::new(telemetry_runtime));
 
     let engine = FoyerEngine::try_new(
@@ -49,7 +49,7 @@ async fn main() -> Result<(), Error> {
     .await
     .change_context_lazy(make_error)?;
 
-    let ctx = Arc::new(AtriumContext { engine });
+    let ctx = Arc::new(PercasContext { engine });
 
     // Scheduled actions
     ReportMetricsAction::new(ctx.clone()).schedule_with_fixed_delay(
@@ -61,7 +61,7 @@ async fn main() -> Result<(), Error> {
 
     log::info!("config: {config:#?}");
 
-    let server = atrium_server::server::start_server(&config.server, ctx)
+    let server = percas_server::server::start_server(&config.server, ctx)
         .await
         .inspect_err(|err| {
             log::error!("server stopped: {}", err);

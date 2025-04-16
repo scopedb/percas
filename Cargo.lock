@@ -186,78 +186,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
-name = "atrium"
-version = "0.1.0"
-dependencies = [
- "atrium-core",
- "atrium-server",
- "clap",
- "error-stack",
- "fastimer",
- "fastimer-tokio",
- "log",
- "thiserror 2.0.12",
- "tokio",
- "toml",
-]
-
-[[package]]
-name = "atrium-client"
-version = "0.1.0"
-dependencies = [
- "error-stack",
- "reqwest",
- "thiserror 2.0.12",
- "urlencoding",
-]
-
-[[package]]
-name = "atrium-core"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "error-stack",
- "foyer",
- "humansize",
- "insta",
- "jiff",
- "serde",
- "tempfile",
- "thiserror 2.0.12",
- "tokio",
-]
-
-[[package]]
-name = "atrium-metrics"
-version = "0.1.0"
-dependencies = [
- "opentelemetry",
- "opentelemetry_sdk",
-]
-
-[[package]]
-name = "atrium-server"
-version = "0.1.0"
-dependencies = [
- "atrium-core",
- "atrium-metrics",
- "fastimer",
- "fastrace",
- "fastrace-opentelemetry",
- "local-ip-address",
- "log",
- "logforth",
- "mea",
- "opentelemetry",
- "opentelemetry-otlp",
- "opentelemetry_sdk",
- "poem",
- "scopeguard",
- "tokio",
- "urlencoding",
-]
-
-[[package]]
 name = "auto_enums"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -306,8 +234,8 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 name = "behavior-tests"
 version = "0.1.0"
 dependencies = [
- "atrium-client",
  "insta",
+ "percas-client",
  "pretty-hex",
  "test-harness",
  "tests-toolkit",
@@ -2203,6 +2131,86 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
+name = "percas"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "error-stack",
+ "fastimer",
+ "fastimer-tokio",
+ "log",
+ "percas-core",
+ "percas-server",
+ "thiserror 2.0.12",
+ "tokio",
+ "toml",
+]
+
+[[package]]
+name = "percas-client"
+version = "0.1.0"
+dependencies = [
+ "error-stack",
+ "reqwest",
+ "thiserror 2.0.12",
+ "urlencoding",
+]
+
+[[package]]
+name = "percas-core"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "error-stack",
+ "foyer",
+ "humansize",
+ "insta",
+ "jiff",
+ "serde",
+ "tempfile",
+ "thiserror 2.0.12",
+ "tokio",
+]
+
+[[package]]
+name = "percas-metrics"
+version = "0.1.0"
+dependencies = [
+ "opentelemetry",
+ "opentelemetry_sdk",
+]
+
+[[package]]
+name = "percas-server"
+version = "0.1.0"
+dependencies = [
+ "fastimer",
+ "fastrace",
+ "fastrace-opentelemetry",
+ "local-ip-address",
+ "log",
+ "logforth",
+ "mea",
+ "opentelemetry",
+ "opentelemetry-otlp",
+ "opentelemetry_sdk",
+ "percas-core",
+ "percas-metrics",
+ "poem",
+ "scopeguard",
+ "tokio",
+ "urlencoding",
+]
+
+[[package]]
+name = "percas-styled"
+version = "0.1.0"
+dependencies = [
+ "anstyle",
+ "clap",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2938,14 +2946,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
-name = "styled"
-version = "0.1.0"
-dependencies = [
- "anstyle",
- "clap",
-]
-
-[[package]]
 name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3120,9 +3120,9 @@ dependencies = [
 name = "tests-toolkit"
 version = "0.1.0"
 dependencies = [
- "atrium-core",
- "atrium-server",
  "local-ip-address",
+ "percas-core",
+ "percas-server",
  "regex",
  "tempfile",
  "tokio",
@@ -3957,10 +3957,10 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "indent",
+ "percas-styled",
  "pretty_assertions",
  "serde",
  "serde_json",
- "styled",
  "unindent",
 ]
 

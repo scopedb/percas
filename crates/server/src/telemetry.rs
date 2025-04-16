@@ -1,9 +1,6 @@
 use std::borrow::Cow;
 use std::time::Duration;
 
-use atrium_core::MetricsConfig;
-use atrium_core::TelemetryConfig;
-use atrium_core::TracesConfig;
 use logforth::append;
 use logforth::append::rolling_file::RollingFileBuilder;
 use logforth::append::rolling_file::Rotation;
@@ -13,6 +10,9 @@ use logforth::filter::EnvFilter;
 use logforth::filter::env_filter::EnvFilterBuilder;
 use logforth::layout;
 use opentelemetry_otlp::WithExportConfig;
+use percas_core::MetricsConfig;
+use percas_core::TelemetryConfig;
+use percas_core::TracesConfig;
 
 pub fn init(
     rt: &tokio::runtime::Runtime,

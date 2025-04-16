@@ -32,7 +32,7 @@ fn default_listen_addr() -> String {
 }
 
 fn default_data_dir() -> PathBuf {
-    PathBuf::from("/var/lib/atrium")
+    PathBuf::from("/var/lib/percas")
 }
 
 pub fn data_path(base: impl Into<PathBuf>) -> PathBuf {

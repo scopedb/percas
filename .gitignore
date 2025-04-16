@@ -1,2 +1,5 @@
+# Cargo files
 /target
-**/.atrium
+
+# temporary files
+.percas

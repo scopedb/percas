@@ -2,14 +2,14 @@ use std::any::Any;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use atrium_core::Config;
-use atrium_core::FoyerEngine;
-use atrium_core::LogsConfig;
-use atrium_core::ServerConfig;
-use atrium_core::StorageConfig;
-use atrium_core::TelemetryConfig;
-use atrium_server::server::ServerState;
-use atrium_server::telemetry;
+use percas_core::Config;
+use percas_core::FoyerEngine;
+use percas_core::LogsConfig;
+use percas_core::ServerConfig;
+use percas_core::StorageConfig;
+use percas_core::TelemetryConfig;
+use percas_server::server::ServerState;
+use percas_server::telemetry;
 
 pub fn make_test_name<TestFn>() -> String {
     let replacer = regex::Regex::new(r"[^a-zA-Z0-9]").unwrap();
@@ -36,7 +36,7 @@ pub fn start_test_server(
     drop_guard.extend(
         telemetry::init(
             rt,
-            "atrium",
+            "percas",
             TelemetryConfig {
                 logs: LogsConfig::disabled(),
                 traces: None,
@@ -77,8 +77,8 @@ pub fn start_test_server(
         )
         .await
         .unwrap();
-        let ctx = Arc::new(atrium_server::AtriumContext { engine });
-        atrium_server::server::start_server(&config.server, ctx)
+        let ctx = Arc::new(percas_server::PercasContext { engine });
+        percas_server::server::start_server(&config.server, ctx)
             .await
             .unwrap()
     });

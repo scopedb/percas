@@ -1,7 +1,7 @@
 [workspace]
 members = [
   "api/client",
-  "cmd/atrium",
+  "cmd/percas",
   "crates/core",
   "crates/metrics",
   "crates/server",
@@ -17,12 +17,12 @@ version = "0.1.0"
 
 [workspace.dependencies]
 # Workspace members
-atrium = { path = "cmd/atrium" }
-atrium-client = { path = "api/client" }
-atrium-core = { path = "crates/core" }
-atrium-metrics = { path = "crates/metrics" }
-atrium-server = { path = "crates/server" }
-styled = { path = "crates/styled" }
+percas = { path = "cmd/percas" }
+percas-client = { path = "api/client" }
+percas-core = { path = "crates/core" }
+percas-metrics = { path = "crates/metrics" }
+percas-server = { path = "crates/server" }
+percas-styled = { path = "crates/styled" }
 tests-toolkit = { path = "tests/toolkit" }
 
 # Crates.io dependencies

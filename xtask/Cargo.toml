@@ -1,5 +1,6 @@
 [package]
 name = "x"
+publish = false
 
 edition.workspace = true
 version.workspace = true
@@ -7,10 +8,10 @@ version.workspace = true
 [dependencies]
 clap = { workspace = true }
 indent = { workspace = true }
+percas-styled = { workspace = true }
 pretty_assertions = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-styled = { workspace = true }
 unindent = { workspace = true }
 
 [lints]

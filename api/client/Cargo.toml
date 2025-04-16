@@ -1,5 +1,5 @@
 [package]
-name = "atrium-client"
+name = "percas-client"
 
 edition.workspace = true
 version.workspace = true
