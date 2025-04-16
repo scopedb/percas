@@ -1,5 +1,5 @@
 [package]
-name = "styled"
+name = "percas-styled"
 
 edition.workspace = true
 version.workspace = true

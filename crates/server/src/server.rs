@@ -3,11 +3,11 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use atrium_core::ServerConfig;
-use atrium_metrics::GlobalMetrics;
-use atrium_metrics::OperationMetrics;
 use mea::latch::Latch;
 use mea::waitgroup::WaitGroup;
+use percas_core::ServerConfig;
+use percas_metrics::GlobalMetrics;
+use percas_metrics::OperationMetrics;
 use poem::Body;
 use poem::Endpoint;
 use poem::EndpointExt;
@@ -25,7 +25,7 @@ use poem::web::Data;
 use poem::web::Path;
 use poem::web::headers::ContentType;
 
-use crate::AtriumContext;
+use crate::PercasContext;
 
 struct LoggerMiddleware;
 
@@ -88,15 +88,15 @@ impl ServerState {
         self.shutdown.wait().await;
 
         match self.server_fut.await {
-            Ok(_) => log::info!("Atrium server stopped."),
-            Err(err) => log::error!(err:?; "Atrium server failed."),
+            Ok(_) => log::info!("Percas server stopped."),
+            Err(err) => log::error!(err:?; "Percas server failed."),
         }
     }
 }
 
 pub async fn start_server(
     config: &ServerConfig,
-    ctx: Arc<AtriumContext>,
+    ctx: Arc<PercasContext>,
 ) -> Result<ServerState, io::Error> {
     let shutdown = Arc::new(Latch::new(1));
     let wg = WaitGroup::new();
@@ -173,7 +173,7 @@ fn resolve_advertise_addr(
 }
 
 #[handler]
-pub async fn get(Data(ctx): Data<&Arc<AtriumContext>>, key: Path<String>) -> Response {
+pub async fn get(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Response {
     let metrics = &GlobalMetrics::get().operation;
     let Ok(key) = urlencoding::decode(&key) else {
         let labels = OperationMetrics::operation_labels(
@@ -223,7 +223,7 @@ pub async fn get(Data(ctx): Data<&Arc<AtriumContext>>, key: Path<String>) -> Res
 }
 
 #[handler]
-pub async fn put(Data(ctx): Data<&Arc<AtriumContext>>, key: Path<String>, body: Body) -> Response {
+pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>, body: Body) -> Response {
     let metrics = &GlobalMetrics::get().operation;
     let Ok(key) = urlencoding::decode(&key) else {
         let labels = OperationMetrics::operation_labels(
@@ -275,7 +275,7 @@ pub async fn put(Data(ctx): Data<&Arc<AtriumContext>>, key: Path<String>, body: 
 }
 
 #[handler]
-pub async fn delete(Data(ctx): Data<&Arc<AtriumContext>>, key: Path<String>) -> Response {
+pub async fn delete(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Response {
     let metrics = &GlobalMetrics::get().operation;
     let Ok(key) = urlencoding::decode(&key) else {
         let labels = OperationMetrics::operation_labels(

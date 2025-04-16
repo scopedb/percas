@@ -3,8 +3,8 @@ use std::process::Command as StdCommand;
 
 use clap::Parser;
 use clap::Subcommand;
+use percas_styled::styled;
 use serde::Deserialize;
-use styled::styled;
 
 const CARGO_WORKSPACE_DIR: &str = env!("CARGO_WORKSPACE_DIR");
 

@@ -5,8 +5,8 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
-atrium-client = { workspace = true }
 insta = { workspace = true }
+percas-client = { workspace = true }
 pretty-hex = { workspace = true }
 test-harness = { workspace = true }
 tests-toolkit = { workspace = true }

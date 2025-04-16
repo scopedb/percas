@@ -3,7 +3,7 @@ listen_addr = "0.0.0.0:7654"
 advertise_addr = "127.0.0.1:7654"
 
 [storage]
-data_dir = ".atrium"
+data_dir = ".percas"
 disk_capacity = 1_000_000_000
 memory_capacity = 500_000_000
 

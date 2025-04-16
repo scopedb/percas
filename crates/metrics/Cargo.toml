@@ -1,5 +1,5 @@
 [package]
-name = "atrium-metrics"
+name = "percas-metrics"
 
 edition.workspace = true
 version.workspace = true

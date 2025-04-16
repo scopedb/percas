@@ -1,11 +1,11 @@
 #![feature(ip)]
 
-use atrium_core::FoyerEngine;
+use percas_core::FoyerEngine;
 
 pub mod scheduled;
 pub mod server;
 pub mod telemetry;
 
-pub struct AtriumContext {
+pub struct PercasContext {
     pub engine: FoyerEngine,
 }

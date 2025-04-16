@@ -14,7 +14,7 @@ pub struct GlobalMetrics {
 
 impl GlobalMetrics {
     fn new() -> Self {
-        let meter = opentelemetry::global::meter("atrium");
+        let meter = opentelemetry::global::meter("percas");
         Self {
             storage: StorageMetrics::new(meter.clone()),
             operation: OperationMetrics::new(meter.clone()),
@@ -38,17 +38,17 @@ impl StorageMetrics {
     pub fn new(meter: Meter) -> Self {
         Self {
             capacity: meter
-                .u64_gauge("atrium.storage.capacity")
+                .u64_gauge("percas.storage.capacity")
                 .with_description("The total capacity of the storage")
                 .with_unit("byte")
                 .build(),
             used: meter
-                .u64_gauge("atrium.storage.used")
+                .u64_gauge("percas.storage.used")
                 .with_description("The used capacity of the storage")
                 .with_unit("byte")
                 .build(),
             entries: meter
-                .u64_gauge("atrium.storage.entries")
+                .u64_gauge("percas.storage.entries")
                 .with_description("The number of entries in the storage")
                 .build(),
         }
@@ -66,16 +66,16 @@ impl OperationMetrics {
     pub fn new(meter: Meter) -> Self {
         Self {
             count: meter
-                .u64_counter("atrium.operation.count")
+                .u64_counter("percas.operation.count")
                 .with_description("The number of operations")
                 .build(),
             bytes: meter
-                .u64_counter("atrium.operation.bytes")
+                .u64_counter("percas.operation.bytes")
                 .with_description("The number of bytes")
                 .with_unit("byte")
                 .build(),
             duration: meter
-                .f64_histogram("atrium.operation.duration")
+                .f64_histogram("percas.operation.duration")
                 .with_description("The duration of the operation")
                 .with_unit("second")
                 .with_boundaries(
@@ -86,7 +86,7 @@ impl OperationMetrics {
                 )
                 .build(),
             status: meter
-                .u64_counter("atrium.operation.status")
+                .u64_counter("percas.operation.status")
                 .with_description("The status of the operation")
                 .build(),
         }

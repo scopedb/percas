@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 
-use atrium_client::Client;
-use atrium_client::ClientBuilder;
+use percas_client::Client;
+use percas_client::ClientBuilder;
 use tests_toolkit::make_test_name;
 
 pub struct Testkit {

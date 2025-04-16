@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
-use atrium_metrics::GlobalMetrics;
+use percas_metrics::GlobalMetrics;
 
-use crate::AtriumContext;
+use crate::PercasContext;
 
 pub struct ReportMetricsAction {
-    ctx: Arc<AtriumContext>,
+    ctx: Arc<PercasContext>,
 }
 
 impl ReportMetricsAction {
-    pub fn new(ctx: Arc<AtriumContext>) -> Self {
+    pub fn new(ctx: Arc<PercasContext>) -> Self {
         ReportMetricsAction { ctx }
     }
 

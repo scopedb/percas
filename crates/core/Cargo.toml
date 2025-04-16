@@ -1,5 +1,5 @@
 [package]
-name = "atrium-core"
+name = "percas-core"
 
 edition.workspace = true
 version.workspace = true

@@ -1,12 +1,10 @@
 [package]
-name = "atrium-server"
+name = "percas-server"
 
 edition.workspace = true
 version.workspace = true
 
 [dependencies]
-atrium-core = { workspace = true }
-atrium-metrics = { workspace = true }
 fastimer = { workspace = true }
 fastrace = { workspace = true }
 fastrace-opentelemetry = { workspace = true }
@@ -17,6 +15,8 @@ mea = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-otlp = { workspace = true }
 opentelemetry_sdk = { workspace = true }
+percas-core = { workspace = true }
+percas-metrics = { workspace = true }
 poem = { workspace = true }
 scopeguard = { workspace = true }
 tokio = { workspace = true }
