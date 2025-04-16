@@ -19,6 +19,7 @@ members = [
   "crates/core",
   "crates/metrics",
   "crates/server",
+  "crates/version",
   "tests/behavior",
   "tests/toolkit",
   "xtask",
@@ -40,11 +41,14 @@ percas-core = { path = "crates/core" }
 percas-metrics = { path = "crates/metrics" }
 percas-server = { path = "crates/server" }
 percas-styled = { path = "crates/styled" }
+percas-version = { path = "crates/version" }
 tests-toolkit = { path = "tests/toolkit" }
 
 # Crates.io dependencies
 anstyle = { version = "1.0.10" }
+build-data = { version = "0.2.3" }
 clap = { version = "4.5.35", features = ["derive"] }
+const_format = { version = "0.2.34" }
 criterion = { version = "0.5.1", features = ["async_tokio"] }
 error-stack = { version = "0.5", default-features = false, features = [
   "std",
@@ -54,6 +58,7 @@ fastimer = { version = "0.8.0" }
 fastrace = { version = "0.7.9" }
 fastrace-opentelemetry = { version = "0.10.0" }
 foyer = { version = "0.16.0", features = ["nightly"] }
+gix-discover = { version = "0.39.0" }
 humansize = { version = "2.1.3" }
 indent = { version = "0.1.1" }
 insta = { version = "1.42.2" }
@@ -88,6 +93,7 @@ reqwest = { version = "0.12.15" }
 scopeguard = { version = "1.2.0" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
+shadow-rs = { version = "1.0.0", default-features = false }
 tempfile = { version = "3.19.1" }
 test-harness = { version = "0.3.0" }
 thiserror = { version = "2.0" }

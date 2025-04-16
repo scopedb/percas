@@ -13,10 +13,10 @@
 # limitations under the License.
 
 [package]
-name = "percas"
+name = "percas-version"
 publish = true
 
-description = "A persistent cache service."
+description = "A common build helper for Percas that generates the version information"
 
 edition.workspace = true
 license.workspace = true
@@ -25,16 +25,14 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
-clap = { workspace = true }
-error-stack = { workspace = true }
-fastimer = { workspace = true }
-log = { workspace = true }
-percas-core = { workspace = true }
-percas-server = { workspace = true }
-percas-styled = { workspace = true }
-percas-version = { workspace = true }
-thiserror = { workspace = true }
-toml = { workspace = true }
+const_format = { workspace = true }
+serde = { workspace = true }
+shadow-rs = { workspace = true }
+
+[build-dependencies]
+build-data = { workspace = true }
+gix-discover = { workspace = true }
+shadow-rs = { workspace = true, features = ["build"] }
 
 [lints]
 workspace = true
