@@ -14,8 +14,14 @@
 
 [package]
 name = "percas-server"
+publish = true
+
+description = "The Percas server that servers all requests."
 
 edition.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
 version.workspace = true
 
 [dependencies]
@@ -31,6 +37,7 @@ opentelemetry-otlp = { workspace = true }
 opentelemetry_sdk = { workspace = true }
 percas-core = { workspace = true }
 percas-metrics = { workspace = true }
+pin-project = { workspace = true }
 poem = { workspace = true }
 scopeguard = { workspace = true }
 tokio = { workspace = true }

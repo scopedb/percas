@@ -2,6 +2,20 @@
 
 Percas is a persistent cache service.
 
+## Getting Started
+
+To get started with Percas, you can follow these steps:
+
+1. Build the project: `cargo x build`
+2. Start a local server: `./target/debug/percas --config-file dev/config.toml`
+
+Now, you can put and get a key-value pair into the cache using the following command:
+
+```shell
+curl -X PUT -H 'Content-Type: application/json' http://localhost:7654/my_lovely_key -d 'my_lovely_value'
+curl -X GET -H 'Content-Type: application/json' http://localhost:7654/my_lovely_key
+```
+
 ## License
 
 This work is licensed by [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).

@@ -12,26 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-[package]
-name = "behavior-tests"
-publish = false
+FROM public.ecr.aws/docker/library/rust:1.85.0-bullseye AS build
+WORKDIR /build/
+COPY . .
+RUN ./xtask/scripts/docker-build.sh
 
-edition.workspace = true
-license.workspace = true
-readme.workspace = true
-repository.workspace = true
-version.workspace = true
+FROM public.ecr.aws/docker/library/debian:bullseye-slim
+WORKDIR /app/
 
-[package.metadata.release]
-release = false
+COPY --from=build /build/target/dist/percas /bin/
+COPY LICENSE README.md /app/
 
-[dependencies]
-insta = { workspace = true }
-percas-client = { workspace = true }
-percas-server = { workspace = true }
-pretty-hex = { workspace = true }
-test-harness = { workspace = true }
-tests-toolkit = { workspace = true }
-
-[lints]
-workspace = true
+ENTRYPOINT ["/bin/percas"]
+CMD ["start"]

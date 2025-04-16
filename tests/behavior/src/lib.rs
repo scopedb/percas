@@ -16,6 +16,7 @@ use std::process::ExitCode;
 
 use percas_client::Client;
 use percas_client::ClientBuilder;
+use percas_server::runtime::make_runtime;
 use tests_toolkit::make_test_name;
 
 pub struct Testkit {
@@ -27,7 +28,7 @@ where
     T: std::process::Termination,
     Fut: Send + Future<Output = T>,
 {
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = make_runtime("test_runtime", "test_thread", 4);
 
     let test_name = make_test_name::<Fut>();
     let Some(state) = tests_toolkit::start_test_server(&test_name, &rt) else {

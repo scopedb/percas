@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Copyright 2025 ScopeDB <contact@scopedb.io>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,26 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-[package]
-name = "behavior-tests"
-publish = false
 
-edition.workspace = true
-license.workspace = true
-readme.workspace = true
-repository.workspace = true
-version.workspace = true
+if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
+  echo "GITHUB_REF_TYPE=${GITHUB_REF_TYPE} Not a tag, skipping version check"
+  exit 0
+fi
 
-[package.metadata.release]
-release = false
-
-[dependencies]
-insta = { workspace = true }
-percas-client = { workspace = true }
-percas-server = { workspace = true }
-pretty-hex = { workspace = true }
-test-harness = { workspace = true }
-tests-toolkit = { workspace = true }
-
-[lints]
-workspace = true
+VERSION=$( cargo metadata --format-version=1 --no-deps | jq -r '.packages[] | select(.name == "x") | .version' )
+echo "VERSION: $VERSION"
+echo "GITHUB_REF_NAME: $GITHUB_REF_NAME"
+if [[ "$GITHUB_REF_NAME" != "v$VERSION" ]]; then
+  echo "Version tag does not match the version in Cargo.toml"
+  exit 1
+fi

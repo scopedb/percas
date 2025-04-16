@@ -232,14 +232,14 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "behavior-tests"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "insta",
  "percas-client",
+ "percas-server",
  "pretty-hex",
  "test-harness",
  "tests-toolkit",
- "tokio",
 ]
 
 [[package]]
@@ -723,16 +723,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d909511f928163d7c2e5e4c0378aa56f7e95a255f9130dfa42f80d8c4ae376f"
 dependencies = [
  "pin-project",
-]
-
-[[package]]
-name = "fastimer-tokio"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbbfc997756b803c0503467539eadd11f83eb0d10f06af046ce73d39fff3b8f9"
-dependencies = [
- "fastimer",
- "tokio",
 ]
 
 [[package]]
@@ -2132,23 +2122,21 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "percas"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "clap",
  "error-stack",
  "fastimer",
- "fastimer-tokio",
  "log",
  "percas-core",
  "percas-server",
  "thiserror 2.0.12",
- "tokio",
  "toml",
 ]
 
 [[package]]
 name = "percas-client"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "error-stack",
  "reqwest",
@@ -2158,7 +2146,7 @@ dependencies = [
 
 [[package]]
 name = "percas-core"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "criterion",
  "error-stack",
@@ -2166,6 +2154,7 @@ dependencies = [
  "humansize",
  "insta",
  "jiff",
+ "log",
  "serde",
  "tempfile",
  "thiserror 2.0.12",
@@ -2174,15 +2163,14 @@ dependencies = [
 
 [[package]]
 name = "percas-metrics"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "opentelemetry",
- "opentelemetry_sdk",
 ]
 
 [[package]]
 name = "percas-server"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "fastimer",
  "fastrace",
@@ -2196,6 +2184,7 @@ dependencies = [
  "opentelemetry_sdk",
  "percas-core",
  "percas-metrics",
+ "pin-project",
  "poem",
  "scopeguard",
  "tokio",
@@ -2204,7 +2193,7 @@ dependencies = [
 
 [[package]]
 name = "percas-styled"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "anstyle",
  "clap",
@@ -3118,7 +3107,7 @@ dependencies = [
 
 [[package]]
 name = "tests-toolkit"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "local-ip-address",
  "percas-core",
@@ -3953,7 +3942,7 @@ checksum = "1e9df38ee2d2c3c5948ea468a8406ff0db0b29ae1ffde1bcf20ef305bcc95c51"
 
 [[package]]
 name = "x"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "clap",
  "indent",
