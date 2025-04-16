@@ -7,7 +7,7 @@ Percas is a persistent cache service.
 To get started with Percas, you can follow these steps:
 
 1. Build the project: `cargo x build`
-2. Start a local server: `./target/debug/percas --config-file dev/config.toml`
+2. Start a local server: `./target/debug/percas start --config-file dev/config.toml`
 
 Now, you can put and get a key-value pair into the cache using the following command:
 
