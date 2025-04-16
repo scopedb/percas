@@ -39,7 +39,7 @@ jobs:
   build-and-push-amd64:
     needs: [ precondition ]
     if: ${{ github.repository == 'scopedb/percas' }}
-    runs-on: warp-ubuntu-2404-x64-4x
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -62,7 +62,7 @@ jobs:
   build-and-push-arm64:
     needs: [ precondition ]
     if: ${{ github.repository == 'scopedb/percas' }}
-    runs-on: warp-ubuntu-2404-arm64-4x
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
