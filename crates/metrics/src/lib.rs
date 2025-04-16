@@ -73,7 +73,6 @@ pub struct OperationMetrics {
     pub count: Counter<u64>,
     pub bytes: Counter<u64>,
     pub duration: Histogram<f64>,
-    pub status: Counter<u64>,
 }
 
 impl OperationMetrics {
@@ -98,10 +97,6 @@ impl OperationMetrics {
                     ]
                     .into(),
                 )
-                .build(),
-            status: meter
-                .u64_counter("percas.operation.status")
-                .with_description("The status of the operation")
                 .build(),
         }
     }

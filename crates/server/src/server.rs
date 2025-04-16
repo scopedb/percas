@@ -67,7 +67,9 @@ where
     async fn call(&self, req: Request) -> Result<Self::Output, poem::Error> {
         log::debug!("{} {}", req.method(), req.uri());
         let resp = self.0.call(req).await.inspect_err(|err| {
-            log::error!("{}", err);
+            if err.status() != StatusCode::NOT_FOUND {
+                log::info!("{}: {}", err.status(), err);
+            }
         })?;
         let resp = resp.into_response();
         log::debug!("{}", resp.status());
@@ -102,8 +104,8 @@ impl ServerState {
         self.shutdown.wait().await;
 
         match self.server_fut.await {
-            Ok(_) => log::info!("Percas server stopped."),
-            Err(err) => log::error!(err:?; "Percas server failed."),
+            Ok(_) => log::info!("percas server stopped."),
+            Err(err) => log::error!(err:?; "percas server failed."),
         }
     }
 }
@@ -136,11 +138,11 @@ pub async fn start_server(
             .data(ctx)
             .with(LoggerMiddleware);
         let signal = async move {
-            log::info!("Server has started on [{listen_addr}]");
+            log::info!("server has started on [{listen_addr}]");
             drop(wg_clone);
 
             shutdown_clone.wait().await;
-            log::info!("Server is closing");
+            log::info!("server is closing");
         };
 
         tokio::spawn(async move {
@@ -197,7 +199,7 @@ pub async fn get(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Res
         metrics.count.add(1, &labels);
         return Response::builder()
             .status(StatusCode::BAD_REQUEST)
-            .body("Bad request");
+            .body("bad request");
     };
     let start = std::time::Instant::now();
     let value = ctx.engine.get(key.as_bytes()).await;
@@ -231,7 +233,7 @@ pub async fn get(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Res
 
             Response::builder()
                 .status(StatusCode::NOT_FOUND)
-                .body("Not found")
+                .body("not found")
         }
     }
 }
@@ -247,7 +249,7 @@ pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>, body: 
         metrics.count.add(1, &labels);
         return Response::builder()
             .status(StatusCode::BAD_REQUEST)
-            .body("Bad request");
+            .body("bad request");
     };
     let start = std::time::Instant::now();
     let put_result = body.into_bytes().await.map(|bytes| {
@@ -269,7 +271,7 @@ pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>, body: 
 
             Response::builder()
                 .status(StatusCode::CREATED)
-                .body("Created")
+                .body("created")
         }
         Err(_) => {
             let labels = OperationMetrics::operation_labels(
@@ -283,7 +285,7 @@ pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>, body: 
 
             Response::builder()
                 .status(StatusCode::BAD_REQUEST)
-                .body("Bad request")
+                .body("bad request")
         }
     }
 }
@@ -299,7 +301,7 @@ pub async fn delete(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> 
         metrics.count.add(1, &labels);
         return Response::builder()
             .status(StatusCode::BAD_REQUEST)
-            .body("Bad request");
+            .body("bad request");
     };
     let start = std::time::Instant::now();
     ctx.engine.delete(key.as_bytes());
