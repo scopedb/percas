@@ -1,3 +1,17 @@
+// Copyright 2025 ScopeDB <contact@scopedb.io>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use std::fs;
 use std::process::Command as StdCommand;
 
@@ -78,6 +92,7 @@ impl CommandLint {
             run_custom_format(true);
             run_command(make_sg_lint_cmd());
             run_command(make_taplo_cmd(true));
+            run_command(make_hawkeye_cmd(true));
             // cannot fix; but still report errors because developers often call
             // 'cargo x lint --fix' only during developing
             run_command(make_typos_cmd());
@@ -88,6 +103,7 @@ impl CommandLint {
             run_command(make_sg_lint_cmd());
             run_command(make_taplo_cmd(false));
             run_command(make_typos_cmd());
+            run_command(make_hawkeye_cmd(false));
             run_command(make_format_cmd(false));
             run_command(make_clippy_cmd(false));
         }
@@ -207,6 +223,17 @@ fn make_sg_fix_cmd(rule_file: &str) -> StdCommand {
 fn make_typos_cmd() -> StdCommand {
     ensure_installed("typos", "typos-cli");
     find_command("typos")
+}
+
+fn make_hawkeye_cmd(fix: bool) -> StdCommand {
+    ensure_installed("hawkeye", "hawkeye");
+    let mut cmd = find_command("hawkeye");
+    if fix {
+        cmd.args(["format", "--fail-if-updated=false"]);
+    } else {
+        cmd.args(["check"]);
+    }
+    cmd
 }
 
 fn make_taplo_cmd(fix: bool) -> StdCommand {

@@ -12,17 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-id: deny-import-super
-snapshots:
-  use super::foo::*;:
-    labels:
-    - source: super
-      style: primary
-      start: 4
-      end: 9
-  use super::foo;:
-    labels:
-    - source: super
-      style: primary
-      start: 4
-      end: 9
+headerPath = "Apache-2.0.txt"
+
+includes = ['**/*.proto', '**/*.rs', '**/*.yml', '**/*.yaml', '**/*.toml']
+
+[properties]
+copyrightOwner = "ScopeDB <contact@scopedb.io>"
+inceptionYear = 2025
