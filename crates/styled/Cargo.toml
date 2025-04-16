@@ -14,8 +14,14 @@
 
 [package]
 name = "percas-styled"
+publish = true
+
+description = "A common library for configuring command-line tools style."
 
 edition.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
 version.workspace = true
 
 [dependencies]

@@ -48,10 +48,11 @@ impl FoyerEngine {
         let make_error = || EngineError("failed to create foyer engine".to_string());
         std::fs::create_dir_all(path).change_context_lazy(make_error)?;
 
+        let parallelism = num_cpus().get();
         let cache = HybridCacheBuilder::new()
             .with_policy(HybridCachePolicy::WriteOnInsertion)
             .memory(memory_capacity as usize)
-            .with_shards(num_cpus())
+            .with_shards(parallelism)
             .with_eviction_config(FifoConfig::default())
             .storage(foyer::Engine::Large)
             .with_device_options(
@@ -61,8 +62,8 @@ impl FoyerEngine {
             )
             .with_recover_mode(RecoverMode::Quiet)
             .with_runtime_options(RuntimeOptions::Unified(TokioRuntimeOptions {
-                worker_threads: num_cpus(),
-                max_blocking_threads: num_cpus() * 2,
+                worker_threads: parallelism,
+                max_blocking_threads: parallelism * 2,
             }))
             .build()
             .await

@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Copyright 2025 ScopeDB <contact@scopedb.io>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,26 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-[package]
-name = "behavior-tests"
-publish = false
 
-edition.workspace = true
-license.workspace = true
-readme.workspace = true
-repository.workspace = true
-version.workspace = true
-
-[package.metadata.release]
-release = false
-
-[dependencies]
-insta = { workspace = true }
-percas-client = { workspace = true }
-percas-server = { workspace = true }
-pretty-hex = { workspace = true }
-test-harness = { workspace = true }
-tests-toolkit = { workspace = true }
-
-[lints]
-workspace = true
+# Build release artifacts
+cargo build --profile dist --bin percas

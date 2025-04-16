@@ -14,20 +14,24 @@
 
 [package]
 name = "percas"
+publish = true
+
+description = "A persistent cache service."
 
 edition.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
 version.workspace = true
 
 [dependencies]
 clap = { workspace = true }
 error-stack = { workspace = true }
 fastimer = { workspace = true }
-fastimer-tokio = { workspace = true }
 log = { workspace = true }
 percas-core = { workspace = true }
 percas-server = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
 
 [lints]

@@ -22,6 +22,7 @@ use percas_core::LogsConfig;
 use percas_core::ServerConfig;
 use percas_core::StorageConfig;
 use percas_core::TelemetryConfig;
+use percas_server::runtime::Runtime;
 use percas_server::server::ServerState;
 use percas_server::telemetry;
 
@@ -42,10 +43,7 @@ pub struct TestServerState {
     _drop_guards: Vec<DropGuard>,
 }
 
-pub fn start_test_server(
-    _test_name: &str,
-    rt: &tokio::runtime::Runtime,
-) -> Option<TestServerState> {
+pub fn start_test_server(_test_name: &str, rt: &Runtime) -> Option<TestServerState> {
     let mut drop_guard = Vec::<DropGuard>::new();
     drop_guard.extend(
         telemetry::init(

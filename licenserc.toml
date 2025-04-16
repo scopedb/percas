@@ -14,8 +14,6 @@
 
 headerPath = "Apache-2.0.txt"
 
-includes = ['**/*.proto', '**/*.rs', '**/*.yml', '**/*.yaml', '**/*.toml']
-
 [properties]
 copyrightOwner = "ScopeDB <contact@scopedb.io>"
 inceptionYear = 2025

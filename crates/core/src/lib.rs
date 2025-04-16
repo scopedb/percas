@@ -18,6 +18,16 @@ mod engine;
 pub use config::*;
 pub use engine::*;
 
-pub fn num_cpus() -> usize {
-    std::thread::available_parallelism().unwrap().get().max(1)
+/// Returns the number of logical CPUs on the current machine.
+// This method fills the gap that `std::thread::available_parallelism()`
+// may return `Err` on some platforms, in which case we default to `1`.
+#[track_caller]
+pub fn num_cpus() -> std::num::NonZeroUsize {
+    match std::thread::available_parallelism() {
+        Ok(parallelism) => parallelism,
+        Err(err) => {
+            log::warn!("failed to fetch the available parallelism (fallback to 1): {err:?}");
+            std::num::NonZeroUsize::new(1).unwrap()
+        }
+    }
 }

@@ -14,8 +14,14 @@
 
 [package]
 name = "percas-client"
+publish = true
+
+description = "A client for talking to the Percas server"
 
 edition.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
 version.workspace = true
 
 [dependencies]

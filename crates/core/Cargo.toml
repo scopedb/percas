@@ -14,14 +14,21 @@
 
 [package]
 name = "percas-core"
+publish = true
+
+description = "The core abstractions and engine implementations for the Percas server."
 
 edition.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
 version.workspace = true
 
 [dependencies]
 error-stack = { workspace = true }
 foyer = { workspace = true }
 jiff = { workspace = true }
+log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }

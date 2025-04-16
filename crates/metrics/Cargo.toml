@@ -14,13 +14,18 @@
 
 [package]
 name = "percas-metrics"
+publish = true
+
+description = "Metrics definitions for the Percas server."
 
 edition.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
 version.workspace = true
 
 [dependencies]
 opentelemetry = { workspace = true }
-opentelemetry_sdk = { workspace = true }
 
 [lints]
 workspace = true

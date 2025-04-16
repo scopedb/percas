@@ -28,8 +28,10 @@ use percas_core::MetricsConfig;
 use percas_core::TelemetryConfig;
 use percas_core::TracesConfig;
 
+use crate::runtime::Runtime;
+
 pub fn init(
-    rt: &tokio::runtime::Runtime,
+    rt: &Runtime,
     service_name: &'static str,
     config: TelemetryConfig,
 ) -> Vec<Box<dyn Send + Sync + 'static>> {
@@ -45,7 +47,7 @@ pub fn init(
 }
 
 fn init_metrics(
-    rt: &tokio::runtime::Runtime,
+    rt: &Runtime,
     service_name: &'static str,
     config: &MetricsConfig,
 ) -> Vec<Box<dyn Send + Sync + 'static>> {
@@ -87,7 +89,7 @@ fn init_metrics(
 }
 
 fn init_traces(
-    rt: &tokio::runtime::Runtime,
+    rt: &Runtime,
     service_name: &'static str,
     config: &TracesConfig,
 ) -> Vec<Box<dyn Send + Sync + 'static>> {
@@ -129,7 +131,7 @@ fn init_traces(
 }
 
 fn init_logs(
-    rt: &tokio::runtime::Runtime,
+    rt: &Runtime,
     service_name: &'static str,
     config: &TelemetryConfig,
 ) -> Vec<Box<dyn Send + Sync + 'static>> {

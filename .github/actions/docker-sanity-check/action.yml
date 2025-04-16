@@ -12,26 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-[package]
-name = "behavior-tests"
-publish = false
+name: Docker Sanity Check
+description: Build image and run sanity checks
 
-edition.workspace = true
-license.workspace = true
-readme.workspace = true
-repository.workspace = true
-version.workspace = true
-
-[package.metadata.release]
-release = false
-
-[dependencies]
-insta = { workspace = true }
-percas-client = { workspace = true }
-percas-server = { workspace = true }
-pretty-hex = { workspace = true }
-test-harness = { workspace = true }
-tests-toolkit = { workspace = true }
-
-[lints]
-workspace = true
+runs:
+  using: composite
+  steps:
+      - name: Build and load
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          tags: percas:ci
+          outputs: |
+            type=docker
+            type=image,push=false
+      - name: Sanity check
+        shell: bash
+        run: |
+          docker image inspect percas:ci --format='{{.Size}}'
+          docker run --rm -v $(pwd):/github/workspace percas:ci --version
