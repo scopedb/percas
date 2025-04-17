@@ -24,6 +24,9 @@ readme.workspace = true
 repository.workspace = true
 version.workspace = true
 
+[package.metadata.release]
+release = false
+
 [dependencies]
 fastimer = { workspace = true }
 fastrace = { workspace = true }

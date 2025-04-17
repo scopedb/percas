@@ -24,6 +24,9 @@ readme.workspace = true
 repository.workspace = true
 version.workspace = true
 
+[package.metadata.release]
+release = false
+
 [dependencies]
 error-stack = { workspace = true }
 foyer = { workspace = true }
