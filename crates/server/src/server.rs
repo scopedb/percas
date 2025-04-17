@@ -134,7 +134,7 @@ pub async fn start_server(
         let wg_clone = wg.clone();
 
         let route = Route::new()
-            .at("/:key", poem::get(get).put(put).delete(delete))
+            .at("/*key", poem::get(get).put(put).delete(delete))
             .data(ctx)
             .with(LoggerMiddleware);
         let signal = async move {
@@ -191,20 +191,9 @@ fn resolve_advertise_addr(
 #[handler]
 pub async fn get(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Response {
     let metrics = &GlobalMetrics::get().operation;
-    let Ok(key) = urlencoding::decode(&key) else {
-        let labels = OperationMetrics::operation_labels(
-            OperationMetrics::OPERATION_GET,
-            OperationMetrics::STATUS_FAILURE,
-        );
-        metrics.count.add(1, &labels);
-        return Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body("bad request");
-    };
     let start = std::time::Instant::now();
-    let value = ctx.engine.get(key.as_bytes()).await;
 
-    match value {
+    match ctx.engine.get(key.as_bytes()).await {
         Some(value) => {
             let labels = OperationMetrics::operation_labels(
                 OperationMetrics::OPERATION_GET,
@@ -233,7 +222,8 @@ pub async fn get(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Res
 
             Response::builder()
                 .status(StatusCode::NOT_FOUND)
-                .body("not found")
+                .typed_header(ContentType::text())
+                .body(StatusCode::NOT_FOUND.to_string())
         }
     }
 }
@@ -241,23 +231,12 @@ pub async fn get(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Res
 #[handler]
 pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>, body: Body) -> Response {
     let metrics = &GlobalMetrics::get().operation;
-    let Ok(key) = urlencoding::decode(&key) else {
-        let labels = OperationMetrics::operation_labels(
-            OperationMetrics::OPERATION_PUT,
-            OperationMetrics::STATUS_FAILURE,
-        );
-        metrics.count.add(1, &labels);
-        return Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body("bad request");
-    };
     let start = std::time::Instant::now();
-    let put_result = body.into_bytes().await.map(|bytes| {
+
+    match body.into_bytes().await.map(|bytes| {
         ctx.engine.put(key.as_bytes(), &bytes);
         bytes.len()
-    });
-
-    match put_result {
+    }) {
         Ok(len) => {
             let labels = OperationMetrics::operation_labels(
                 OperationMetrics::OPERATION_PUT,
@@ -271,7 +250,8 @@ pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>, body: 
 
             Response::builder()
                 .status(StatusCode::CREATED)
-                .body("created")
+                .typed_header(ContentType::text())
+                .body(StatusCode::CREATED.to_string())
         }
         Err(_) => {
             let labels = OperationMetrics::operation_labels(
@@ -285,7 +265,8 @@ pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>, body: 
 
             Response::builder()
                 .status(StatusCode::BAD_REQUEST)
-                .body("bad request")
+                .typed_header(ContentType::text())
+                .body(StatusCode::BAD_REQUEST.to_string())
         }
     }
 }
@@ -293,16 +274,6 @@ pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>, body: 
 #[handler]
 pub async fn delete(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Response {
     let metrics = &GlobalMetrics::get().operation;
-    let Ok(key) = urlencoding::decode(&key) else {
-        let labels = OperationMetrics::operation_labels(
-            OperationMetrics::OPERATION_DELETE,
-            OperationMetrics::STATUS_FAILURE,
-        );
-        metrics.count.add(1, &labels);
-        return Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .body("bad request");
-    };
     let start = std::time::Instant::now();
     ctx.engine.delete(key.as_bytes());
 
@@ -315,5 +286,5 @@ pub async fn delete(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> 
         .duration
         .record(start.elapsed().as_secs_f64(), &labels);
 
-    Response::builder().status(StatusCode::NO_CONTENT).body("")
+    Response::builder().status(StatusCode::NO_CONTENT).finish()
 }

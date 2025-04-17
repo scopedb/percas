@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod builder;
 mod client;
 
-pub use builder::ClientBuilder;
 pub use client::Client;
+pub use client::ClientBuilder;

@@ -12,8 +12,8 @@ To get started with Percas, you can follow these steps:
 Now, you can put and get a key-value pair into the cache using the following command:
 
 ```shell
-curl -X PUT -H 'Content-Type: application/json' http://localhost:7654/my_lovely_key -d 'my_lovely_value'
-curl -X GET -H 'Content-Type: application/json' http://localhost:7654/my_lovely_key
+curl -X PUT http://localhost:7654/my/lovely/key -d 'my_lovely_value'
+curl -X GET http://localhost:7654/my/lovely/key
 ```
 
 ## License
