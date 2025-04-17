@@ -14,7 +14,7 @@
 
 [package]
 name = "percas-version"
-publish = true
+publish = false
 
 description = "A common build helper for Percas that generates the version information"
 
@@ -23,6 +23,9 @@ license.workspace = true
 readme.workspace = true
 repository.workspace = true
 version.workspace = true
+
+[package.metadata.release]
+release = false
 
 [dependencies]
 const_format = { workspace = true }

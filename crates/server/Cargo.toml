@@ -14,7 +14,7 @@
 
 [package]
 name = "percas-server"
-publish = true
+publish = false
 
 description = "The Percas server that servers all requests."
 
@@ -23,6 +23,9 @@ license.workspace = true
 readme.workspace = true
 repository.workspace = true
 version.workspace = true
+
+[package.metadata.release]
+release = false
 
 [dependencies]
 fastimer = { workspace = true }
