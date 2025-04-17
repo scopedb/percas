@@ -47,9 +47,6 @@ impl ClientBuilder {
 
 pub struct Client {
     client: reqwest::Client,
-    base_url_data: Url,
-    // perhaps for debugging
-    #[allow(dead_code)]
     base_url: Url,
 }
 
@@ -68,27 +65,15 @@ impl Client {
 
     fn new(base_url: impl IntoUrl, builder: reqwest::ClientBuilder) -> Result<Self, Error> {
         let client = builder.build().map_err(Error::Http)?;
-
-        let make_error = || Error::Other("failed to prepare base URLs".to_string());
-        let base_url = base_url.into_url().change_context_lazy(make_error)?;
-        let base_url_data = base_url.join("/data/").change_context_lazy(make_error)?;
-
-        Ok(Client {
-            client,
-            base_url,
-            base_url_data,
-        })
+        let base_url = base_url.into_url().map_err(Error::Http)?;
+        Ok(Client { client, base_url })
     }
 }
 
 async fn do_get(client: &Client, key: &str) -> Result<Option<Vec<u8>>, Error> {
     let make_error = || Error::Other("failed to get".to_string());
 
-    let url = client
-        .base_url_data
-        .join(key)
-        .change_context_lazy(make_error)?;
-
+    let url = client.base_url.join(key).change_context_lazy(make_error)?;
     let resp = client
         .client
         .get(url)
@@ -109,11 +94,7 @@ async fn do_get(client: &Client, key: &str) -> Result<Option<Vec<u8>>, Error> {
 async fn do_put(client: &Client, key: &str, value: &[u8]) -> Result<(), Error> {
     let make_error = || Error::Other("failed to put".to_string());
 
-    let url = client
-        .base_url_data
-        .join(key)
-        .change_context_lazy(make_error)?;
-
+    let url = client.base_url.join(key).change_context_lazy(make_error)?;
     let resp = client
         .client
         .put(url)
@@ -131,11 +112,7 @@ async fn do_put(client: &Client, key: &str, value: &[u8]) -> Result<(), Error> {
 async fn do_delete(client: &Client, key: &str) -> Result<(), Error> {
     let make_error = || Error::Other("failed to delete".to_string());
 
-    let url = client
-        .base_url_data
-        .join(key)
-        .change_context_lazy(make_error)?;
-
+    let url = client.base_url.join(key).change_context_lazy(make_error)?;
     let resp = client
         .client
         .delete(url)

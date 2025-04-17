@@ -134,7 +134,7 @@ pub async fn start_server(
         let wg_clone = wg.clone();
 
         let route = Route::new()
-            .at("/data/*key", poem::get(get).put(put).delete(delete))
+            .at("/*key", poem::get(get).put(put).delete(delete))
             .data(ctx)
             .with(LoggerMiddleware);
         let signal = async move {
