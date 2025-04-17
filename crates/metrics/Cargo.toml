@@ -14,7 +14,7 @@
 
 [package]
 name = "percas-metrics"
-publish = true
+publish = false
 
 description = "Metrics definitions for the Percas server."
 

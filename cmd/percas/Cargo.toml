@@ -14,7 +14,7 @@
 
 [package]
 name = "percas"
-publish = true
+publish = false
 
 description = "A persistent cache service."
 

@@ -14,7 +14,7 @@
 
 [package]
 name = "percas-core"
-publish = true
+publish = false
 
 description = "The core abstractions and engine implementations for the Percas server."
 

@@ -14,7 +14,7 @@
 
 [package]
 name = "percas-styled"
-publish = true
+publish = false
 
 description = "A common library for configuring command-line tools style."
 

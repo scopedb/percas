@@ -14,7 +14,7 @@
 
 [package]
 name = "percas-version"
-publish = true
+publish = false
 
 description = "A common build helper for Percas that generates the version information"
 

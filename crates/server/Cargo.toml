@@ -14,7 +14,7 @@
 
 [package]
 name = "percas-server"
-publish = true
+publish = false
 
 description = "The Percas server that servers all requests."
 
