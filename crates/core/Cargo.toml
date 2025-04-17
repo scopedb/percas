@@ -14,7 +14,7 @@
 
 [package]
 name = "percas-core"
-publish = true
+publish = false
 
 description = "The core abstractions and engine implementations for the Percas server."
 
@@ -23,6 +23,9 @@ license.workspace = true
 readme.workspace = true
 repository.workspace = true
 version.workspace = true
+
+[package.metadata.release]
+release = false
 
 [dependencies]
 error-stack = { workspace = true }
