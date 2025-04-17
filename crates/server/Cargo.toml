@@ -41,7 +41,6 @@ pin-project = { workspace = true }
 poem = { workspace = true }
 scopeguard = { workspace = true }
 tokio = { workspace = true }
-urlencoding = { workspace = true }
 
 [lints]
 workspace = true

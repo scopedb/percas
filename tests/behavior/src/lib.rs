@@ -37,7 +37,7 @@ where
 
     rt.block_on(async move {
         let server_addr = format!("http://{}/", state.server_state.server_advertise_addr());
-        let client = ClientBuilder::new(server_addr).build();
+        let client = ClientBuilder::new(server_addr).build().unwrap();
 
         let exit_code = test(Testkit { client }).await.report();
 

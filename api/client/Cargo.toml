@@ -28,7 +28,6 @@ version.workspace = true
 error-stack = { workspace = true }
 reqwest = { workspace = true }
 thiserror = { workspace = true }
-urlencoding = { workspace = true }
 
 [lints]
 workspace = true
