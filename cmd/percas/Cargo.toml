@@ -29,6 +29,7 @@ release = false
 
 [dependencies]
 clap = { workspace = true }
+ctrlc = { workspace = true }
 error-stack = { workspace = true }
 fastimer = { workspace = true }
 log = { workspace = true }

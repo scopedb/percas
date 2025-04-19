@@ -17,7 +17,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use mea::latch::Latch;
+use fastimer::schedule::SimpleActionExt;
+use mea::shutdown::ShutdownRecv;
+use mea::shutdown::ShutdownSend;
 use mea::waitgroup::WaitGroup;
 use percas_core::ServerConfig;
 use percas_metrics::GlobalMetrics;
@@ -40,6 +42,9 @@ use poem::web::Path;
 use poem::web::headers::ContentType;
 
 use crate::PercasContext;
+use crate::runtime::Runtime;
+use crate::runtime::timer;
+use crate::scheduled::ReportMetricsAction;
 
 struct LoggerMiddleware;
 
@@ -83,7 +88,9 @@ pub(crate) type ServerFuture<T> = tokio::task::JoinHandle<Result<T, io::Error>>;
 pub struct ServerState {
     server_advertise_addr: SocketAddr,
     server_fut: ServerFuture<()>,
-    shutdown: Arc<Latch>,
+
+    shutdown_rx_server: ShutdownRecv,
+    shutdown_tx_actions: Vec<ShutdownSend>,
 }
 
 impl ServerState {
@@ -91,17 +98,18 @@ impl ServerState {
         self.server_advertise_addr
     }
 
-    pub fn shutdown_handle(&self) -> impl Fn() {
-        let shutdown = self.shutdown.clone();
-        move || shutdown.count_down()
-    }
-
-    pub fn shutdown(&self) {
-        self.shutdown_handle()();
-    }
-
     pub async fn await_shutdown(self) {
-        self.shutdown.wait().await;
+        self.shutdown_rx_server.is_shutdown().await;
+
+        log::info!("percas server is shutting down");
+
+        for shutdown in self.shutdown_tx_actions.iter() {
+            shutdown.shutdown();
+        }
+        for shutdown in self.shutdown_tx_actions {
+            shutdown.await_shutdown().await;
+        }
+        log::info!("percas actions shutdown");
 
         match self.server_fut.await {
             Ok(_) => log::info!("percas server stopped."),
@@ -111,10 +119,12 @@ impl ServerState {
 }
 
 pub async fn start_server(
+    rt: &Runtime,
     config: &ServerConfig,
     ctx: Arc<PercasContext>,
-) -> Result<ServerState, io::Error> {
-    let shutdown = Arc::new(Latch::new(1));
+) -> Result<(ServerState, ShutdownSend), io::Error> {
+    let (shutdown_tx_server, shutdown_rx_server) = mea::shutdown::new_pair();
+
     let wg = WaitGroup::new();
 
     log::info!("listening on {}", config.listen_addr);
@@ -130,18 +140,18 @@ pub async fn start_server(
         resolve_advertise_addr(listen_addr, config.advertise_addr.as_deref())?;
 
     let server_fut = {
-        let shutdown_clone = shutdown.clone();
+        let shutdown_clone = shutdown_rx_server.clone();
         let wg_clone = wg.clone();
 
         let route = Route::new()
             .at("/*key", poem::get(get).put(put).delete(delete))
-            .data(ctx)
+            .data(ctx.clone())
             .with(LoggerMiddleware);
         let signal = async move {
             log::info!("server has started on [{listen_addr}]");
             drop(wg_clone);
 
-            shutdown_clone.wait().await;
+            shutdown_clone.is_shutdown().await;
             log::info!("server is closing");
         };
 
@@ -153,11 +163,26 @@ pub async fn start_server(
     };
 
     wg.await;
-    Ok(ServerState {
+
+    // Scheduled actions
+    let mut shutdown_tx_actions = vec![];
+    let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
+    ReportMetricsAction::new(ctx.clone()).schedule_with_fixed_delay(
+        async move { shutdown_rx.is_shutdown().await },
+        rt,
+        timer(),
+        None,
+        Duration::from_secs(60),
+    );
+    shutdown_tx_actions.push(shutdown_tx);
+
+    let state = ServerState {
         server_advertise_addr,
         server_fut,
-        shutdown,
-    })
+        shutdown_rx_server,
+        shutdown_tx_actions,
+    };
+    Ok((state, shutdown_tx_server))
 }
 
 fn resolve_advertise_addr(

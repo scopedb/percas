@@ -37,13 +37,11 @@ impl ReportMetricsAction {
     }
 }
 
-impl fastimer::schedule::BaseAction for ReportMetricsAction {
+impl fastimer::schedule::SimpleAction for ReportMetricsAction {
     fn name(&self) -> &str {
         "report_metrics"
     }
-}
 
-impl fastimer::schedule::SimpleAction for ReportMetricsAction {
     async fn run(&mut self) {
         self.do_report().await;
     }

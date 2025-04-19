@@ -27,11 +27,11 @@ release = false
 
 [dependencies]
 local-ip-address = { workspace = true }
+mea = { workspace = true }
 percas-core = { workspace = true }
 percas-server = { workspace = true }
 regex = { workspace = true }
 tempfile = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
 
 [lints]
 workspace = true
