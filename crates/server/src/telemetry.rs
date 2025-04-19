@@ -25,10 +25,9 @@ use logforth::filter::env_filter::EnvFilterBuilder;
 use logforth::layout;
 use opentelemetry_otlp::WithExportConfig;
 use percas_core::MetricsConfig;
+use percas_core::Runtime;
 use percas_core::TelemetryConfig;
 use percas_core::TracesConfig;
-
-use crate::runtime::Runtime;
 
 pub fn init(
     rt: &Runtime,

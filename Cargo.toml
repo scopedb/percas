@@ -16,6 +16,7 @@
 members = [
   "api/client",
   "cmd/percas",
+  "crates/cluster",
   "crates/core",
   "crates/metrics",
   "crates/server",
@@ -37,6 +38,7 @@ version = "0.0.2"
 # Workspace members
 percas = { version = "0.0.2", path = "cmd/percas" }
 percas-client = { version = "0.0.2", path = "api/client" }
+percas-cluster = { version = "0.0.2", path = "crates/cluster" }
 percas-core = { version = "0.0.2", path = "crates/core" }
 percas-metrics = { version = "0.0.2", path = "crates/metrics" }
 percas-server = { version = "0.0.2", path = "crates/server" }
@@ -46,6 +48,7 @@ tests-toolkit = { version = "0.0.2", path = "tests/toolkit" }
 
 # Crates.io dependencies
 anstyle = { version = "1.0.10" }
+backon = { version = "1.5.0" }
 build-data = { version = "0.2.3" }
 clap = { version = "4.5.35", features = ["derive"] }
 const_format = { version = "0.2.34" }
@@ -90,10 +93,11 @@ poem = { version = "3.1.7" }
 pretty-hex = { version = "0.4.1" }
 pretty_assertions = { version = "1.4.1" }
 regex = { version = "1.11.1" }
-reqwest = { version = "0.12.15" }
+reqwest = { version = "0.12.15", features = ["json"] }
 scopeguard = { version = "1.2.0" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
+sha2 = { version = "0.10.8" }
 shadow-rs = { version = "1.0.0", default-features = false }
 tempfile = { version = "3.19.1" }
 test-harness = { version = "0.3.0" }
@@ -101,6 +105,7 @@ thiserror = { version = "2.0" }
 tokio = { version = "1.44.2" }
 toml = { version = "0.8.20" }
 unindent = { version = "0.2.4" }
+uuid = { version = "1.16.0", features = ["v4", "serde"] }
 
 [workspace.lints.rust]
 unknown_lints = "deny"
