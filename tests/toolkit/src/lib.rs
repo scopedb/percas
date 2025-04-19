@@ -16,6 +16,7 @@ use std::any::Any;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use mea::shutdown::ShutdownSend;
 use percas_core::Config;
 use percas_core::FoyerEngine;
 use percas_core::LogsConfig;
@@ -40,7 +41,15 @@ type DropGuard = Box<dyn Any>;
 #[derive(Debug)]
 pub struct TestServerState {
     pub server_state: ServerState,
+    shutdown_tx_server: ShutdownSend,
     _drop_guards: Vec<DropGuard>,
+}
+
+impl TestServerState {
+    pub async fn shutdown(self) {
+        self.shutdown_tx_server.shutdown();
+        self.server_state.await_shutdown().await;
+    }
 }
 
 pub fn start_test_server(_test_name: &str, rt: &Runtime) -> Option<TestServerState> {
@@ -81,7 +90,7 @@ pub fn start_test_server(_test_name: &str, rt: &Runtime) -> Option<TestServerSta
         },
     };
 
-    let server_state = rt.block_on(async move {
+    let (server_state, shutdown_tx_server) = rt.block_on(async move {
         let engine = FoyerEngine::try_new(
             &config.storage.data_dir,
             config.storage.memory_capacity,
@@ -90,7 +99,7 @@ pub fn start_test_server(_test_name: &str, rt: &Runtime) -> Option<TestServerSta
         .await
         .unwrap();
         let ctx = Arc::new(percas_server::PercasContext { engine });
-        percas_server::server::start_server(&config.server, ctx)
+        percas_server::server::start_server(rt, &config.server, ctx)
             .await
             .unwrap()
     });
@@ -98,6 +107,7 @@ pub fn start_test_server(_test_name: &str, rt: &Runtime) -> Option<TestServerSta
     drop_guard.push(Box::new(temp_dir));
     Some(TestServerState {
         server_state,
+        shutdown_tx_server,
         _drop_guards: drop_guard,
     })
 }

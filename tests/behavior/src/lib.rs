@@ -41,8 +41,7 @@ where
 
         let exit_code = test(Testkit { client }).await.report();
 
-        state.server_state.shutdown();
-        state.server_state.await_shutdown().await;
+        state.shutdown().await;
         exit_code
     })
 }

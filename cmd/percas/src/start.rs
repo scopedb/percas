@@ -14,20 +14,16 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 
 use clap::ValueHint;
 use error_stack::Result;
 use error_stack::ResultExt;
-use fastimer::schedule::SimpleActionExt;
 use percas_core::Config;
 use percas_core::FoyerEngine;
 use percas_core::num_cpus;
 use percas_server::PercasContext;
 use percas_server::runtime::Runtime;
 use percas_server::runtime::make_runtime;
-use percas_server::runtime::timer;
-use percas_server::scheduled::ReportMetricsAction;
 use percas_server::telemetry;
 
 use crate::Error;
@@ -51,6 +47,7 @@ impl CommandStart {
         let mut drop_guards =
             telemetry::init(&telemetry_runtime, "percas", config.telemetry.clone());
         drop_guards.push(Box::new(telemetry_runtime));
+        log::info!("Percas is starting with loaded config: {config:#?}");
 
         let server_runtime = make_server_runtime();
         server_runtime.block_on(run_server(&server_runtime, config))
@@ -67,34 +64,24 @@ fn make_server_runtime() -> Runtime {
 }
 
 async fn run_server(rt: &Runtime, config: Config) -> Result<(), Error> {
-    let make_error = || Error("failed to start server".to_string());
-
     let engine = FoyerEngine::try_new(
         &config.storage.data_dir,
         config.storage.memory_capacity,
         config.storage.disk_capacity,
     )
     .await
-    .change_context_lazy(make_error)?;
+    .change_context_lazy(|| Error("failed to start server".to_string()))?;
 
     let ctx = Arc::new(PercasContext { engine });
-
-    // Scheduled actions
-    ReportMetricsAction::new(ctx.clone()).schedule_with_fixed_delay(
-        rt,
-        timer(),
-        None,
-        Duration::from_secs(60),
-    );
-
-    log::info!("config: {config:#?}");
-
-    let server = percas_server::server::start_server(&config.server, ctx)
+    let (server, shutdown_tx) = percas_server::server::start_server(rt, &config.server, ctx)
         .await
-        .inspect_err(|err| {
-            log::error!("server stopped: {}", err);
-        })
-        .change_context_lazy(make_error)?;
+        .change_context_lazy(|| {
+            Error("A fatal error has occurred in server process.".to_string())
+        })?;
+
+    ctrlc::set_handler(move || shutdown_tx.shutdown())
+        .change_context_lazy(|| Error("failed to setup ctrl-c signal handle".to_string()))?;
+
     server.await_shutdown().await;
     Ok(())
 }

@@ -598,6 +598,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctrlc"
+version = "3.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "697b5419f348fd5ae2478e8018cb016c00a5881c7f46c717de98ffd135a5651c"
+dependencies = [
+ "nix",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "darling"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -801,9 +811,9 @@ dependencies = [
 
 [[package]]
 name = "fastimer"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d909511f928163d7c2e5e4c0378aa56f7e95a255f9130dfa42f80d8c4ae376f"
+checksum = "b4e7afa2545c74de5dfcc867741fc0412c5122b9c7097e625dad118bd6c930b4"
 dependencies = [
  "pin-project",
 ]
@@ -2487,6 +2497,7 @@ name = "percas"
 version = "0.0.2"
 dependencies = [
  "clap",
+ "ctrlc",
  "error-stack",
  "fastimer",
  "log",
@@ -3568,11 +3579,11 @@ name = "tests-toolkit"
 version = "0.0.2"
 dependencies = [
  "local-ip-address",
+ "mea",
  "percas-core",
  "percas-server",
  "regex",
  "tempfile",
- "tokio",
 ]
 
 [[package]]
@@ -3703,7 +3714,6 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
- "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",
