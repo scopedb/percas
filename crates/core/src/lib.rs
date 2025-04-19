@@ -14,9 +14,11 @@
 
 mod config;
 mod engine;
+mod runtime;
 
 pub use config::*;
 pub use engine::*;
+pub use runtime::*;
 
 /// Returns the number of logical CPUs on the current machine.
 // This method fills the gap that `std::thread::available_parallelism()`
