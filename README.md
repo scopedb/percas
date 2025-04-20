@@ -1,6 +1,6 @@
-# Percas
+# Percas: PERsistent CAche Service
 
-Percas is a persistent cache service.
+Percas is a distributed persistent cache service optimized for high performance NMVe SSD. It aims to provide the capability to scale-out without pain and with stable performance.
 
 ## Getting Started
 
