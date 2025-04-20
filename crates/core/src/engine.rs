@@ -15,7 +15,7 @@
 use std::path::Path;
 
 use error_stack::Result;
-use error_stack::ResultExt;
+use error_stack::bail;
 use error_stack::report;
 use foyer::DirectFsDeviceOptions;
 use foyer::FifoConfig;
@@ -27,7 +27,6 @@ use foyer::RuntimeOptions;
 use foyer::TokioRuntimeOptions;
 use thiserror::Error;
 
-use crate::config::data_path;
 use crate::num_cpus;
 
 #[derive(Debug, Error)]
@@ -41,12 +40,17 @@ pub struct FoyerEngine {
 
 impl FoyerEngine {
     pub async fn try_new(
-        path: &Path,
+        data_dir: &Path,
         memory_capacity: u64,
         disk_capacity: u64,
     ) -> Result<Self, EngineError> {
-        let make_error = || EngineError("failed to create foyer engine".to_string());
-        std::fs::create_dir_all(path).change_context_lazy(make_error)?;
+        let _ = std::fs::create_dir_all(data_dir);
+        if !data_dir.exists() {
+            bail!(EngineError(format!(
+                "failed to create data dir: {}",
+                data_dir.display()
+            )));
+        }
 
         let parallelism = num_cpus().get();
         let cache = HybridCacheBuilder::new()
@@ -56,7 +60,7 @@ impl FoyerEngine {
             .with_eviction_config(FifoConfig::default())
             .storage(foyer::Engine::Large)
             .with_device_options(
-                DirectFsDeviceOptions::new(data_path(path))
+                DirectFsDeviceOptions::new(data_dir)
                     .with_capacity(disk_capacity as usize)
                     .with_file_size(32 * 1024 * 1024),
             )

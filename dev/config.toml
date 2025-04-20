@@ -13,10 +13,12 @@
 # limitations under the License.
 
 [server]
+mode = "standalone"
+dir = ".percas"
 listen_addr = "0.0.0.0:7654"
 
 [storage]
-data_dir = ".percas"
+data_dir = ".percas/data"
 disk_capacity = 1_000_000_000
 memory_capacity = 500_000_000
 

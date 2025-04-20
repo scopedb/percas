@@ -13,24 +13,31 @@
 // limitations under the License.
 
 use std::collections::BTreeMap;
+use std::collections::btree_map::Entry;
 
 use jiff::Timestamp;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+use crate::node::NodeInfo;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MemberStatus {
     Alive,
     Dead,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct NodeInfo {
-    pub id: Uuid,
-    pub name: String,
-    pub addr: String,
-    pub peer_addr: String,
+impl MemberStatus {
+    // Downgrade the status of a member.
+    pub fn downgrade_to(&mut self, other: &MemberStatus) {
+        match (&self, other) {
+            (MemberStatus::Alive, MemberStatus::Alive) => {}
+            _ => {
+                *self = *other;
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -50,7 +57,34 @@ impl Membership {
         &self.members
     }
 
+    pub fn is_dead(&self, id: Uuid) -> bool {
+        self.members
+            .get(&id)
+            .is_some_and(|member| member.status == MemberStatus::Dead)
+    }
+
     pub fn update_member(&mut self, member: MemberState) {
-        self.members.insert(member.info.id, member);
+        match self.members.entry(member.info.id) {
+            Entry::Occupied(mut entry) => {
+                let current = entry.get_mut();
+                if current.info.incarnation < member.info.incarnation {
+                    *current = member;
+                    return;
+                }
+                if current.info.incarnation > member.info.incarnation {
+                    return;
+                }
+                // If the incarnation is the same, we only accept downgrades
+                current.status.downgrade_to(&member.status);
+                current.heartbeat = current.heartbeat.max(member.heartbeat);
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(member);
+            }
+        }
+    }
+
+    pub fn remove_member(&mut self, id: Uuid) {
+        self.members.remove(&id);
     }
 }

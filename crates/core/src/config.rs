@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::path::Path;
 use std::path::PathBuf;
 
 use jiff::SignedDuration;
@@ -26,11 +27,33 @@ pub struct Config {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServerConfig {
-    #[serde(default = "default_listen_addr")]
-    pub listen_addr: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub advertise_addr: Option<String>,
+#[serde(deny_unknown_fields)]
+#[serde(tag = "mode")]
+pub enum ServerConfig {
+    #[serde(rename = "standalone")]
+    Standalone {
+        #[serde(default = "default_dir")]
+        dir: PathBuf,
+        #[serde(default = "default_listen_addr")]
+        listen_addr: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        advertise_addr: Option<String>,
+    },
+    #[serde(rename = "cluster")]
+    Cluster {
+        #[serde(default = "default_dir")]
+        dir: PathBuf,
+        #[serde(default = "default_listen_addr")]
+        listen_addr: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        advertise_addr: Option<String>,
+        #[serde(default = "default_listen_peer_addr")]
+        listen_peer_addr: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        advertise_peer_addr: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        initial_advertise_peer_addrs: Option<Vec<String>>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,13 +68,22 @@ fn default_listen_addr() -> String {
     "0.0.0.0:7654".to_string()
 }
 
-fn default_data_dir() -> PathBuf {
+fn default_listen_peer_addr() -> String {
+    "0.0.0.0:7655".to_string()
+}
+
+fn default_dir() -> PathBuf {
     PathBuf::from("/var/lib/percas")
 }
 
-pub fn data_path(base: impl Into<PathBuf>) -> PathBuf {
-    base.into().join("data")
+fn default_data_dir() -> PathBuf {
+    PathBuf::from("/var/lib/percas/data")
 }
+
+pub fn node_file_path(base_dir: &Path) -> PathBuf {
+    base_dir.join("node.json")
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TelemetryConfig {
@@ -141,7 +173,8 @@ fn default_metrics_push_interval() -> SignedDuration {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            server: ServerConfig {
+            server: ServerConfig::Standalone {
+                dir: default_dir(),
                 listen_addr: default_listen_addr(),
                 advertise_addr: None,
             },

@@ -17,11 +17,13 @@ use std::sync::Arc;
 use crate::gossip::GossipState;
 use crate::member::MemberStatus;
 
-pub enum Route {
+#[derive(Debug, Clone)]
+pub enum RouteDest {
     Local,
-    Remote(String),
+    RemoteAddr(String),
 }
 
+#[derive(Debug, Clone)]
 pub struct Proxy {
     gossip: Arc<GossipState>,
 }
@@ -31,28 +33,32 @@ impl Proxy {
         Self { gossip }
     }
 
-    pub fn route(&self, key: &str) -> Route {
+    pub fn route(&self, key: &str) -> RouteDest {
         let ring = self.gossip.ring();
 
         let membership = self.gossip.membership();
-        let candidates = ring.lookup(key);
+        let members = membership.members();
 
-        if let Some(target) = candidates.iter().find_map(|id| {
-            if let Some(member) = membership.members().get(id) {
+        if let Some(id) = ring.lookup_until(key, |id| {
+            if let Some(member) = members.get(id) {
                 if member.status == MemberStatus::Alive {
-                    return Some(member);
+                    return true;
                 }
             }
-            None
+            false
         }) {
-            if target.info.id == self.gossip.current().id {
-                return Route::Local;
-            }
+            if let Some(target) = members.get(&id) {
+                if target.info.id == self.gossip.current().id {
+                    return RouteDest::Local;
+                }
 
-            Route::Remote(target.info.addr.clone())
+                RouteDest::RemoteAddr(target.info.addr.clone())
+            } else {
+                RouteDest::Local
+            }
         } else {
             log::error!("no target found for key: {key}");
-            Route::Local
+            RouteDest::Local
         }
     }
 }

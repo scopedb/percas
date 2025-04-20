@@ -18,11 +18,14 @@ use thiserror::Error;
 
 mod gossip;
 mod member;
+mod node;
 mod proxy;
 mod ring;
 
 pub use gossip::GossipState;
+pub use node::NodeInfo;
 pub use proxy::Proxy;
+pub use proxy::RouteDest;
 pub use ring::HashRing;
 
 #[derive(Debug, Error)]

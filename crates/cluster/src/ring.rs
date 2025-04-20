@@ -31,10 +31,10 @@ const DEFAULT_REPLICA_COUNT: usize = 256;
 /// ```
 /// use percas_cluster::HashRing;
 ///
-/// let ring = HashRing::from(["node1", "node2", "node3"]);
-/// assert_eq!(ring.lookup("key1"), vec!["node1"]);
-/// assert_eq!(ring.lookup("key2"), vec!["node3"]);
-/// assert_eq!(ring.lookup("key3"), vec!["node1"]);
+/// let ring = HashRing::from(["node-1", "node-2", "node-3"]);
+/// assert_eq!(ring.lookup("key1"), Some("node-1"));
+/// assert_eq!(ring.lookup("key2"), Some("node-3"));
+/// assert_eq!(ring.lookup("key3"), Some("node-3"));
 /// ```
 pub struct HashRing<T> {
     replica_count: usize,
@@ -97,29 +97,38 @@ impl<T> HashRing<T>
 where
     T: Clone + AsRef<[u8]> + Ord,
 {
-    /// Lookups the nodes responsible for the given key.
-    /// It returns a vector of nodes that are responsible for the key.
-    ///
-    /// # Notes
-    /// The nodes with same hash value are grouped together(when there is hash collision, which is
-    /// very unlikely). Thus the order of the nodes matters.
-    ///
-    /// We will sort the returned nodes by their `Ord` implementation.
-    pub fn lookup<K>(&self, key: K) -> Vec<T>
+    /// Lookups the node responsible for the given key.
+    pub fn lookup<K>(&self, key: K) -> Option<T>
     where
         K: AsRef<[u8]>,
     {
         let digest = self.hash_key(key.as_ref());
         self.nodes
-            .range(..=digest)
-            .last()
-            .map(|(_, node)| node.iter().cloned().collect::<Vec<T>>())
-            .unwrap_or_else(|| {
+            .range(digest..)
+            .next()
+            .and_then(|(_, node)| node.iter().next().cloned())
+            .or_else(|| {
                 self.nodes
                     .iter()
                     .next()
-                    .map(|(_, node)| node.iter().cloned().collect::<Vec<T>>())
-                    .unwrap_or_default()
+                    .and_then(|(_, node)| node.iter().next().cloned())
+            })
+    }
+
+    /// Lookups the node responsible for the given key that satisfies the predicate.
+    pub fn lookup_until<K, F>(&self, key: K, predicate: F) -> Option<T>
+    where
+        K: AsRef<[u8]>,
+        F: Fn(&T) -> bool,
+    {
+        let digest = self.hash_key(key.as_ref());
+        self.nodes
+            .range(digest..)
+            .find_map(|(_, node)| node.iter().find(|v| predicate(*v)).cloned())
+            .or_else(|| {
+                self.nodes
+                    .range(..=digest)
+                    .find_map(|(_, node)| node.iter().find(|v| predicate(*v)).cloned())
             })
     }
 
@@ -169,17 +178,17 @@ mod tests {
             ring,
             @r#"HashRing { replica_count: 3, nodes: {1130331173203730818: {"node1"}, 3453462956149404857: {"node3"}, 4664643935122212079: {"node1"}, 4945359727197601621: {"node2"}, 8109777462452160152: {"node1"}, 9540586358148544740: {"node2"}, 15364601984093359477: {"node3"}, 16459957557864277864: {"node2"}, 17005984661365267147: {"node3"}} }"#
         );
-        assert_compact_debug_snapshot!(ring.lookup("key1"), @r#"["node1"]"#);
-        assert_compact_debug_snapshot!(ring.lookup("key2"), @r#"["node2"]"#);
-        assert_compact_debug_snapshot!(ring.lookup("key3"), @r#"["node3"]"#);
+        assert_compact_debug_snapshot!(ring.lookup("key1"), @r#"Some("node2")"#);
+        assert_compact_debug_snapshot!(ring.lookup("key2"), @r#"Some("node3")"#);
+        assert_compact_debug_snapshot!(ring.lookup("key3"), @r#"Some("node1")"#);
 
         let ring = make_ring(&["node1", "node2", "node3"], 1);
         assert_compact_debug_snapshot!(
             ring,
             @r#"HashRing { replica_count: 1, nodes: {4664643935122212079: {"node1"}, 9540586358148544740: {"node2"}, 15364601984093359477: {"node3"}} }"#
         );
-        assert_compact_debug_snapshot!(ring.lookup("key1"), @r#"["node1"]"#);
-        assert_compact_debug_snapshot!(ring.lookup("key2"), @r#"["node2"]"#);
-        assert_compact_debug_snapshot!(ring.lookup("key3"), @r#"["node3"]"#);
+        assert_compact_debug_snapshot!(ring.lookup("key1"), @r#"Some("node2")"#);
+        assert_compact_debug_snapshot!(ring.lookup("key2"), @r#"Some("node3")"#);
+        assert_compact_debug_snapshot!(ring.lookup("key3"), @r#"Some("node1")"#);
     }
 }

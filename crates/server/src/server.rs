@@ -21,8 +21,10 @@ use fastimer::schedule::SimpleActionExt;
 use mea::shutdown::ShutdownRecv;
 use mea::shutdown::ShutdownSend;
 use mea::waitgroup::WaitGroup;
+use percas_client::ClientBuilder;
+use percas_cluster::Proxy;
+use percas_cluster::RouteDest;
 use percas_core::Runtime;
-use percas_core::ServerConfig;
 use percas_core::timer;
 use percas_metrics::GlobalMetrics;
 use percas_metrics::OperationMetrics;
@@ -35,11 +37,13 @@ use poem::Request;
 use poem::Response;
 use poem::Route;
 use poem::handler;
+use poem::http::Method;
 use poem::http::StatusCode;
 use poem::listener::Acceptor;
 use poem::listener::Listener;
 use poem::listener::TcpListener;
 use poem::web::Data;
+use poem::web::LocalAddr;
 use poem::web::Path;
 use poem::web::headers::ContentType;
 
@@ -82,11 +86,128 @@ where
     }
 }
 
+struct ClusterProxyMiddleware {
+    proxy: Option<Proxy>,
+}
+
+impl ClusterProxyMiddleware {
+    pub fn new(proxy: Option<Proxy>) -> Self {
+        Self { proxy }
+    }
+}
+
+impl<E> Middleware<E> for ClusterProxyMiddleware
+where
+    E: Endpoint,
+    E::Output: IntoResponse,
+{
+    type Output = ClusterProxyEndpoint<E>;
+
+    fn transform(&self, endpoint: E) -> Self::Output {
+        ClusterProxyEndpoint {
+            proxy: self.proxy.clone(),
+            endpoint,
+        }
+    }
+}
+
+struct ClusterProxyEndpoint<E> {
+    proxy: Option<Proxy>,
+    endpoint: E,
+}
+
+impl<E> Endpoint for ClusterProxyEndpoint<E>
+where
+    E: Endpoint,
+    E::Output: IntoResponse,
+{
+    type Output = Response;
+
+    async fn call(&self, mut req: Request) -> Result<Self::Output, poem::Error> {
+        let key = req.path_params::<String>()?;
+
+        if let Some(proxy) = &self.proxy {
+            match proxy.route(&key) {
+                RouteDest::Local => self
+                    .endpoint
+                    .call(req)
+                    .await
+                    .map(IntoResponse::into_response),
+                RouteDest::RemoteAddr(addr) => {
+                    let client = ClientBuilder::new(format!("http://{addr}"))
+                        .build()
+                        .unwrap();
+                    match *req.method() {
+                        Method::GET => {
+                            let resp = client.get(&key).await;
+                            match resp {
+                                Ok(resp) => {
+                                    if let Some(value) = resp {
+                                        Ok(get_success(value))
+                                    } else {
+                                        Ok(get_not_found())
+                                    }
+                                }
+                                Err(err) => {
+                                    log::error!("failed to get from remote: {err}");
+                                    self.endpoint
+                                        .call(req)
+                                        .await
+                                        .map(IntoResponse::into_response)
+                                }
+                            }
+                        }
+                        Method::PUT => {
+                            let body = req.take_body().into_bytes().await?;
+                            let resp = client.put(&key, &body).await;
+                            match resp {
+                                Ok(()) => Ok(put_success()),
+                                Err(err) => {
+                                    log::error!("failed to put from remote: {err}");
+                                    req.set_body(body);
+                                    self.endpoint
+                                        .call(req)
+                                        .await
+                                        .map(IntoResponse::into_response)
+                                }
+                            }
+                        }
+                        Method::DELETE => {
+                            let resp = client.delete(&key).await;
+                            match resp {
+                                Ok(()) => Ok(delete_success()),
+                                Err(err) => {
+                                    log::error!("failed to delete from remote: {err}");
+                                    self.endpoint
+                                        .call(req)
+                                        .await
+                                        .map(IntoResponse::into_response)
+                                }
+                            }
+                        }
+
+                        _ => self
+                            .endpoint
+                            .call(req)
+                            .await
+                            .map(IntoResponse::into_response),
+                    }
+                }
+            }
+        } else {
+            self.endpoint
+                .call(req)
+                .await
+                .map(IntoResponse::into_response)
+        }
+    }
+}
+
 pub(crate) type ServerFuture<T> = tokio::task::JoinHandle<Result<T, io::Error>>;
 
 #[derive(Debug)]
 pub struct ServerState {
-    server_advertise_addr: SocketAddr,
+    listen_addr: LocalAddr,
     server_fut: ServerFuture<()>,
 
     shutdown_rx_server: ShutdownRecv,
@@ -94,8 +215,8 @@ pub struct ServerState {
 }
 
 impl ServerState {
-    pub fn server_advertise_addr(&self) -> SocketAddr {
-        self.server_advertise_addr
+    pub fn listen_addr(&self) -> LocalAddr {
+        self.listen_addr.clone()
     }
 
     pub async fn await_shutdown(self) {
@@ -118,35 +239,57 @@ impl ServerState {
     }
 }
 
+pub fn resolve_advertise_addr(
+    listen_addr: &str,
+    advertise_addr: Option<&str>,
+) -> Result<String, std::io::Error> {
+    match (advertise_addr, listen_addr.parse::<SocketAddr>().ok()) {
+        (None, Some(listen_addr)) => {
+            if listen_addr.ip().is_unspecified() {
+                let ip = local_ip_address::local_ip().map_err(std::io::Error::other)?;
+                let port = listen_addr.port();
+                Ok(SocketAddr::new(ip, port).to_string())
+            } else {
+                Ok(listen_addr.to_string())
+            }
+        }
+        (Some(advertise_addr), _) => Ok(advertise_addr.to_string()),
+
+        _ => Ok(listen_addr.to_string()),
+    }
+}
+
 pub async fn start_server(
     rt: &Runtime,
-    config: &ServerConfig,
     ctx: Arc<PercasContext>,
+    listen_addr: String,
+    _advertise_addr: String,
+    cluster_proxy: Option<Proxy>,
 ) -> Result<(ServerState, ShutdownSend), io::Error> {
     let (shutdown_tx_server, shutdown_rx_server) = mea::shutdown::new_pair();
 
     let wg = WaitGroup::new();
 
-    log::info!("listening on {}", config.listen_addr);
+    log::info!("listening on {}", listen_addr);
 
-    let acceptor = TcpListener::bind(&config.listen_addr)
-        .into_acceptor()
-        .await?;
-    let listen_addr = acceptor.local_addr()[0]
-        .as_socket_addr()
-        .cloned()
-        .ok_or_else(|| io::Error::other("failed to get local address of server"))?;
-    let server_advertise_addr =
-        resolve_advertise_addr(listen_addr, config.advertise_addr.as_deref())?;
+    let acceptor = TcpListener::bind(&listen_addr).into_acceptor().await?;
+    let listen_addr = acceptor.local_addr()[0].clone();
 
     let server_fut = {
         let shutdown_clone = shutdown_rx_server.clone();
         let wg_clone = wg.clone();
 
         let route = Route::new()
-            .at("/*key", poem::get(get).put(put).delete(delete))
+            .at(
+                "/*key",
+                poem::get(get).put(put).delete(delete).with_if(
+                    cluster_proxy.is_some(),
+                    ClusterProxyMiddleware::new(cluster_proxy),
+                ),
+            )
             .data(ctx.clone())
             .with(LoggerMiddleware);
+        let listen_addr = listen_addr.clone();
         let signal = async move {
             log::info!("server has started on [{listen_addr}]");
             drop(wg_clone);
@@ -177,7 +320,7 @@ pub async fn start_server(
     shutdown_tx_actions.push(shutdown_tx);
 
     let state = ServerState {
-        server_advertise_addr,
+        listen_addr,
         server_fut,
         shutdown_rx_server,
         shutdown_tx_actions,
@@ -185,32 +328,18 @@ pub async fn start_server(
     Ok((state, shutdown_tx_server))
 }
 
-fn resolve_advertise_addr(
-    listen_addr: SocketAddr,
-    advertise_addr: Option<&str>,
-) -> Result<SocketAddr, io::Error> {
-    match advertise_addr {
-        None => {
-            if listen_addr.ip().is_unspecified() {
-                let ip = local_ip_address::local_ip().map_err(io::Error::other)?;
-                let port = listen_addr.port();
-                Ok(SocketAddr::new(ip, port))
-            } else {
-                Ok(listen_addr)
-            }
-        }
-        Some(advertise_addr) => {
-            let advertise_addr = advertise_addr
-                .parse::<SocketAddr>()
-                .map_err(io::Error::other)?;
-            assert!(
-                advertise_addr.ip().is_global(),
-                "ip = {}",
-                advertise_addr.ip()
-            );
-            Ok(advertise_addr)
-        }
-    }
+fn get_success(body: impl Into<Body>) -> Response {
+    Response::builder()
+        .status(StatusCode::OK)
+        .typed_header(ContentType::octet_stream())
+        .body(body)
+}
+
+fn get_not_found() -> Response {
+    Response::builder()
+        .status(StatusCode::NOT_FOUND)
+        .typed_header(ContentType::text())
+        .body(StatusCode::NOT_FOUND.to_string())
 }
 
 #[handler]
@@ -230,10 +359,7 @@ pub async fn get(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Res
                 .duration
                 .record(start.elapsed().as_secs_f64(), &labels);
 
-            Response::builder()
-                .status(StatusCode::OK)
-                .typed_header(ContentType::octet_stream())
-                .body(value)
+            get_success(value)
         }
         None => {
             let labels = OperationMetrics::operation_labels(
@@ -251,6 +377,20 @@ pub async fn get(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Res
                 .body(StatusCode::NOT_FOUND.to_string())
         }
     }
+}
+
+fn put_success() -> Response {
+    Response::builder()
+        .status(StatusCode::CREATED)
+        .typed_header(ContentType::text())
+        .body(StatusCode::CREATED.to_string())
+}
+
+fn put_bad_request() -> Response {
+    Response::builder()
+        .status(StatusCode::BAD_REQUEST)
+        .typed_header(ContentType::text())
+        .body(StatusCode::BAD_REQUEST.to_string())
 }
 
 #[handler]
@@ -273,10 +413,7 @@ pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>, body: 
                 .duration
                 .record(start.elapsed().as_secs_f64(), &labels);
 
-            Response::builder()
-                .status(StatusCode::CREATED)
-                .typed_header(ContentType::text())
-                .body(StatusCode::CREATED.to_string())
+            put_success()
         }
         Err(_) => {
             let labels = OperationMetrics::operation_labels(
@@ -288,12 +425,13 @@ pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>, body: 
                 .duration
                 .record(start.elapsed().as_secs_f64(), &labels);
 
-            Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .typed_header(ContentType::text())
-                .body(StatusCode::BAD_REQUEST.to_string())
+            put_bad_request()
         }
     }
+}
+
+fn delete_success() -> Response {
+    Response::builder().status(StatusCode::NO_CONTENT).finish()
 }
 
 #[handler]
@@ -311,5 +449,5 @@ pub async fn delete(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> 
         .duration
         .record(start.elapsed().as_secs_f64(), &labels);
 
-    Response::builder().status(StatusCode::NO_CONTENT).finish()
+    delete_success()
 }
