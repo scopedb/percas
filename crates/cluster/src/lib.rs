@@ -25,7 +25,7 @@ mod ring;
 pub use gossip::GossipState;
 pub use node::NodeInfo;
 pub use proxy::Proxy;
-pub use proxy::Route;
+pub use proxy::RouteDest;
 pub use ring::HashRing;
 
 #[derive(Debug, Error)]

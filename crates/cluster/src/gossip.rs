@@ -61,6 +61,8 @@ const DEFAULT_RETRIES: usize = 3;
 
 const DEFAULT_REBUILD_RING_INTERVAL: Duration = Duration::from_secs(10);
 
+const DEFAULT_MEMBER_DEADLINE: Duration = Duration::from_secs(30);
+
 #[derive(Debug)]
 pub struct GossipState {
     dir: PathBuf,
@@ -201,6 +203,29 @@ impl GossipState {
         current
             .persist(&node_file_path(&self.dir))
             .expect("unrecoverable error");
+    }
+
+    fn remove_dead_members(&self) -> Vec<NodeInfo> {
+        let mut members = self.membership.write().unwrap();
+        let dead_members: Vec<NodeInfo> = members
+            .members()
+            .iter()
+            .filter_map(|(_, member)| {
+                if member.status == MemberStatus::Dead
+                    && member.heartbeat + DEFAULT_MEMBER_DEADLINE < Timestamp::now()
+                {
+                    Some(member.info.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        for dead_member in &dead_members {
+            members.remove_member(dead_member.id);
+        }
+
+        dead_members
     }
 
     async fn ping(&self, peer: NodeInfo) {
@@ -440,6 +465,21 @@ async fn drive_gossip(state: Arc<GossipState>, runtime: &Runtime) -> Result<(), 
         loop {
             ticker.tick().await;
             state.rebuild_ring();
+        }
+    });
+
+    // Remove dead members
+    let state_clone = state.clone();
+    runtime.spawn(async move {
+        let state = state_clone;
+        let mut ticker = timer().interval(DEFAULT_MEMBER_DEADLINE);
+        loop {
+            ticker.tick().await;
+            let dead_members = state.remove_dead_members();
+            if !dead_members.is_empty() {
+                log::info!("removed dead members: {:?}", dead_members);
+                state.rebuild_ring();
+            }
         }
     });
 

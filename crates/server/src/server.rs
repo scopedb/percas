@@ -23,6 +23,7 @@ use mea::shutdown::ShutdownSend;
 use mea::waitgroup::WaitGroup;
 use percas_client::ClientBuilder;
 use percas_cluster::Proxy;
+use percas_cluster::RouteDest;
 use percas_core::Runtime;
 use percas_core::timer;
 use percas_metrics::GlobalMetrics;
@@ -127,12 +128,12 @@ where
 
         if let Some(proxy) = &self.proxy {
             match proxy.route(&key) {
-                percas_cluster::Route::Local => self
+                RouteDest::Local => self
                     .endpoint
                     .call(req)
                     .await
                     .map(IntoResponse::into_response),
-                percas_cluster::Route::Remote(addr) => {
+                RouteDest::RemoteAddr(addr) => {
                     let client = ClientBuilder::new(format!("http://{addr}"))
                         .build()
                         .unwrap();
