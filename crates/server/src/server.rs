@@ -130,7 +130,9 @@ where
                 .await
                 .map(IntoResponse::into_response),
             percas_cluster::Route::Remote(addr) => {
-                let client = ClientBuilder::new(addr).build().unwrap();
+                let client = ClientBuilder::new(format!("http://{addr}"))
+                    .build()
+                    .unwrap();
                 match *req.method() {
                     Method::GET => {
                         let resp = client.get(&key).await;
@@ -155,7 +157,7 @@ where
                         let body = req.take_body().into_bytes().await?;
                         let resp = client.put(&key, &body).await;
                         match resp {
-                            Ok(()) => Ok(Response::builder().status(StatusCode::CREATED).finish()),
+                            Ok(()) => Ok(put_success()),
                             Err(err) => {
                                 log::error!("failed to put from remote: {err}");
                                 req.set_body(body);
@@ -169,9 +171,7 @@ where
                     Method::DELETE => {
                         let resp = client.delete(&key).await;
                         match resp {
-                            Ok(()) => {
-                                Ok(Response::builder().status(StatusCode::NO_CONTENT).finish())
-                            }
+                            Ok(()) => Ok(delete_success()),
                             Err(err) => {
                                 log::error!("failed to delete from remote: {err}");
                                 self.endpoint

@@ -27,6 +27,7 @@ use jiff::Timestamp;
 use percas_core::JoinHandle;
 use percas_core::Runtime;
 use percas_core::timer;
+use poem::EndpointExt;
 use poem::IntoResponse;
 use poem::Response;
 use poem::Route;
@@ -34,7 +35,6 @@ use poem::handler;
 use poem::listener::Acceptor;
 use poem::listener::Listener;
 use poem::listener::TcpListener;
-use poem::post;
 use poem::web::Data;
 use poem::web::Json;
 use reqwest::Client;
@@ -100,12 +100,17 @@ impl GossipState {
         rt: &Runtime,
         listen_peer_addr: String,
     ) -> Result<JoinHandle<std::result::Result<(), std::io::Error>>, ClusterError> {
-        let route = Route::new().at("/gossip", post(gossip));
+        let route = Route::new()
+            .at("/gossip", poem::post(gossip).data(self.clone()))
+            .at("/members", poem::get(list_members).data(self.clone()));
 
         // Listen on the peer address
         let server_fut = rt.spawn(async move {
             let acceptor = TcpListener::bind(listen_peer_addr).into_acceptor().await?;
-            log::info!("starting gossip server on {}", &acceptor.local_addr()[0]);
+            log::info!(
+                "gossip server has started on [{}]",
+                &acceptor.local_addr()[0]
+            );
             poem::Server::new_with_acceptor(acceptor).run(route).await
         });
 
@@ -117,23 +122,33 @@ impl GossipState {
     }
 
     fn handle_message(&self, message: Message) -> Option<Message> {
+        log::debug!("received message: {:?}", message);
         match message {
             Message::Ping(info) => {
-                self.membership.write().unwrap().update_member(MemberState {
-                    info: info.clone(),
-                    status: MemberStatus::Alive,
-                    heartbeat: Timestamp::now(),
-                });
+                if let Some(current) = self.membership.read().unwrap().members().get(&info.id) {
+                    if current.info.incarnation < info.incarnation {
+                        self.membership.write().unwrap().update_member(MemberState {
+                            info: info.clone(),
+                            status: MemberStatus::Alive,
+                            heartbeat: Timestamp::now(),
+                        });
+                    }
+                }
 
                 // Respond with an ack
                 Some(Message::Ack(self.current_node.clone()))
             }
             Message::Ack(info) => {
-                self.membership.write().unwrap().update_member(MemberState {
-                    info,
-                    status: MemberStatus::Alive,
-                    heartbeat: Timestamp::now(),
-                });
+                if let Some(current) = self.membership.read().unwrap().members().get(&info.id) {
+                    if current.info.incarnation < info.incarnation {
+                        self.membership.write().unwrap().update_member(MemberState {
+                            info: info.clone(),
+                            status: MemberStatus::Alive,
+                            heartbeat: Timestamp::now(),
+                        });
+                    }
+                }
+
                 None
             }
             Message::Sync { members } => {
@@ -141,7 +156,9 @@ impl GossipState {
                 for member in members {
                     if let Some(current) = snapshot.get(&member.info.id) {
                         // Update the member state
-                        if current.heartbeat < member.heartbeat {
+                        if current.heartbeat < member.heartbeat
+                            && current.info.incarnation < member.info.incarnation
+                        {
                             self.membership.write().unwrap().update_member(member);
                         }
                     } else {
@@ -168,7 +185,12 @@ impl GossipState {
 
     async fn ping(&self, peer: NodeInfo) {
         let message = Message::Ping(self.current_node.clone());
-        let do_send = || async { self.transport.send(&peer.peer_addr, &message).await };
+        let do_send = || async {
+            self.transport
+                .send(&peer.peer_addr, &message)
+                .await
+                .inspect_err(|e| log::error!("failed to send ping message: {:?}", e))
+        };
         let with_retry = do_send.retry(
             ConstantBuilder::new()
                 .with_delay(DEFAULT_RETRY_INTERVAL)
@@ -190,7 +212,12 @@ impl GossipState {
         let message = Message::Sync {
             members: self.membership().members().values().cloned().collect(),
         };
-        let do_send = || async { self.transport.send(&peer.peer_addr, &message).await };
+        let do_send = || async {
+            self.transport
+                .send(&peer.peer_addr, &message)
+                .await
+                .inspect_err(|e| log::error!("failed to send sync message: {:?}", e))
+        };
         let with_retry = do_send.retry(
             ConstantBuilder::new()
                 .with_delay(DEFAULT_RETRY_INTERVAL)
@@ -210,7 +237,12 @@ impl GossipState {
     async fn fast_bootstrap(&self) {
         for peer in &self.initial_peers {
             let message = Message::Ping(self.current_node.clone());
-            let do_send = || async { self.transport.send(peer, &message).await };
+            let do_send = || async {
+                self.transport
+                    .send(peer, &message)
+                    .await
+                    .inspect_err(|e| log::error!("failed to send ping message: {:?}", e))
+            };
             let with_retry = do_send.retry(
                 ConstantBuilder::new()
                     .with_delay(DEFAULT_RETRY_INTERVAL)
@@ -225,7 +257,12 @@ impl GossipState {
             let message = Message::Sync {
                 members: self.membership().members().values().cloned().collect(),
             };
-            let do_send = || async { self.transport.send(peer, &message).await };
+            let do_send = || async {
+                self.transport
+                    .send(peer, &message)
+                    .await
+                    .inspect_err(|e| log::error!("failed to send sync message: {:?}", e))
+            };
             let with_retry = do_send.retry(
                 ConstantBuilder::new()
                     .with_delay(DEFAULT_RETRY_INTERVAL)
@@ -283,7 +320,11 @@ impl Transport {
     pub async fn send(&self, endpoint: &str, message: &Message) -> Result<Message, ClusterError> {
         let make_error =
             || ClusterError::Transport(format!("failed to send message to {endpoint}"));
-        let url = Url::parse(endpoint).change_context_lazy(make_error)?;
+
+        let url = Url::parse(&format!("http://{endpoint}"))
+            .change_context_lazy(make_error)?
+            .join("gossip")
+            .change_context_lazy(make_error)?;
 
         let resp = self
             .client
@@ -339,6 +380,7 @@ async fn drive_gossip(state: Arc<GossipState>, runtime: &Runtime) -> Result<(), 
                 .iter()
                 .nth(random::<usize>() % membership.members().len())
             {
+                log::debug!("pinging member: {member:?}");
                 state.ping(member.info.clone()).await;
             } else {
                 log::error!("no members found in the cluster");
@@ -361,6 +403,7 @@ async fn drive_gossip(state: Arc<GossipState>, runtime: &Runtime) -> Result<(), 
                 .iter()
                 .nth(random::<usize>() % membership.members().len())
             {
+                log::debug!("syncing member: {member:?}");
                 state.sync(member.info.clone()).await;
             } else {
                 log::error!("no members found in the cluster");
@@ -392,4 +435,9 @@ async fn gossip(Json(msg): Json<Message>, Data(state): Data<&Arc<GossipState>>) 
     } else {
         ().into_response()
     }
+}
+
+#[handler]
+async fn list_members(Data(state): Data<&Arc<GossipState>>) -> Response {
+    Json(state.membership().members()).into_response()
 }

@@ -43,6 +43,10 @@ impl NodeInfo {
         }
     }
 
+    pub fn advance_incarnation(&mut self) {
+        self.incarnation += 1;
+    }
+
     pub fn persist(&self, path: &Path) -> Result<(), std::io::Error> {
         let data = serde_json::to_string_pretty(self).unwrap();
         std::fs::write(path, data)?;

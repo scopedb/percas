@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![feature(addr_parse_ascii)]
+#![feature(ip)]
+
 use clap::Parser;
 use error_stack::Result;
 use percas_styled::styled;
