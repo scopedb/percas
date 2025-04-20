@@ -1,0 +1,48 @@
+# Copyright 2025 ScopeDB <contact@scopedb.io>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+[server]
+mode = "cluster"
+dir = ".percas-cluster/node-1"
+listen_addr = "0.0.0.0:7656"
+advertise_addr = "127.0.0.1:7656"
+listen_peer_addr = "0.0.0.0:7657"
+advertise_peer_addr = "127.0.0.1:7657"
+initial_advertise_peer_addrs = ["127.0.0.1:7655"]
+
+[storage]
+data_dir = ".percas-cluster/node-1/data"
+disk_capacity = 1_000_000_000
+
+[telemetry.logs.file]
+filter = "INFO"
+dir = "logs"
+max_files = 64
+
+[telemetry.logs.stderr]
+filter = "INFO"
+
+[telemetry.logs.opentelemetry]
+filter = "INFO"
+otlp_endpoint = "http://127.0.0.1:4317"
+
+[telemetry.traces]
+capture_log_filter = "INFO"
+
+[telemetry.traces.opentelemetry]
+otlp_endpoint = "http://127.0.0.1:4317"
+
+[telemetry.metrics.opentelemetry]
+otlp_endpoint = "http://127.0.0.1:4317"
+push_interval = "30s"

@@ -3,4 +3,6 @@
 
 # temporary files
 .percas
+.percas-cluster
 logs
+*.log
