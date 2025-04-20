@@ -52,7 +52,7 @@ pub enum ServerConfig {
         #[serde(skip_serializing_if = "Option::is_none")]
         advertise_peer_addr: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        initial_peer_addrs: Option<Vec<String>>,
+        initial_advertise_peer_addrs: Option<Vec<String>>,
     },
 }
 

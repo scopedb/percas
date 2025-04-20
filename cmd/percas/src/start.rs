@@ -108,7 +108,7 @@ impl From<&ServerConfig> for FlattenConfig {
                 advertise_addr,
                 listen_peer_addr,
                 advertise_peer_addr,
-                initial_peer_addrs,
+                initial_advertise_peer_addrs,
             } => FlattenConfig {
                 mode: ServerMode::Cluster,
                 dir: dir.clone(),
@@ -116,7 +116,7 @@ impl From<&ServerConfig> for FlattenConfig {
                 advertise_addr: advertise_addr.clone(),
                 listen_peer_addr: Some(listen_peer_addr.clone()),
                 advertise_peer_addr: advertise_peer_addr.clone(),
-                initial_peer_addrs: initial_peer_addrs.clone(),
+                initial_peer_addrs: initial_advertise_peer_addrs.clone(),
             },
         }
     }
