@@ -2551,6 +2551,7 @@ dependencies = [
  "fastimer",
  "fastrace",
  "fastrace-opentelemetry",
+ "insta",
  "jiff",
  "local-ip-address",
  "log",

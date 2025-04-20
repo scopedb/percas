@@ -48,7 +48,7 @@ use crate::member::MemberState;
 use crate::member::MemberStatus;
 use crate::member::Membership;
 use crate::member::NodeInfo;
-use crate::ring::Ring;
+use crate::ring::HashRing;
 
 const DEFAULT_PING_INTERVAL: Duration = Duration::from_secs(1);
 const DEFAULT_SYNC_INTERVAL: Duration = Duration::from_secs(5);
@@ -64,14 +64,14 @@ pub struct GossipState {
     transport: Transport,
 
     membership: RwLock<Membership>,
-    ring: RwLock<Arc<Ring<Uuid>>>,
+    ring: RwLock<Arc<HashRing<Uuid>>>,
 }
 
 impl GossipState {
     pub fn new(current_node: NodeInfo, initial_peers: Vec<String>) -> Self {
         let members = RwLock::new(Membership::default());
         let transport = Transport::new();
-        let ring = RwLock::new(Arc::new(Ring::default()));
+        let ring = RwLock::new(Arc::new(HashRing::default()));
         Self {
             initial_peers,
             current_node,
@@ -89,7 +89,7 @@ impl GossipState {
         self.membership.read().unwrap().clone()
     }
 
-    pub fn ring(&self) -> Arc<Ring<Uuid>> {
+    pub fn ring(&self) -> Arc<HashRing<Uuid>> {
         self.ring.read().unwrap().clone()
     }
 
@@ -205,7 +205,7 @@ impl GossipState {
     fn rebuild_ring(&self) {
         let members = self.membership.read().unwrap();
 
-        *self.ring.write().unwrap() = Arc::new(Ring::from(members.members().keys().cloned()));
+        *self.ring.write().unwrap() = Arc::new(HashRing::from(members.members().keys().cloned()));
     }
 
     fn mark_dead(&self, peer: &NodeInfo) {

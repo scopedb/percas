@@ -54,5 +54,8 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }
 
+[dev-dependencies]
+insta = { workspace = true }
+
 [lints]
 workspace = true

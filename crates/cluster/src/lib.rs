@@ -23,6 +23,7 @@ mod ring;
 
 pub use gossip::GossipState;
 pub use proxy::Proxy;
+pub use ring::HashRing;
 
 #[derive(Debug, Error)]
 pub enum ClusterError {
