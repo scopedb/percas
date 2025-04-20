@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -30,6 +29,7 @@ use percas_core::make_runtime;
 use percas_core::node_file_path;
 use percas_core::num_cpus;
 use percas_server::PercasContext;
+use percas_server::server::resolve_advertise_addr;
 use percas_server::telemetry;
 
 use crate::Error;
@@ -122,25 +122,6 @@ impl From<&ServerConfig> for FlattenConfig {
     }
 }
 
-fn resolve_advertise_addr(addr: &str) -> String {
-    if let Ok(parsed) = SocketAddr::parse_ascii(addr.as_bytes()) {
-        if parsed.ip() == std::net::Ipv4Addr::UNSPECIFIED
-            || parsed.ip() == std::net::Ipv4Addr::LOCALHOST
-        {
-            // TODO: resolve to a more reasonable address
-            SocketAddr::new(
-                std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
-                parsed.port(),
-            )
-            .to_string()
-        } else {
-            addr.to_string()
-        }
-    } else {
-        addr.to_string()
-    }
-}
-
 async fn run_server(rt: &Runtime, config: Config) -> Result<(), Error> {
     let make_error = || Error("failed to start server".to_string());
 
@@ -157,17 +138,18 @@ async fn run_server(rt: &Runtime, config: Config) -> Result<(), Error> {
     let flatten_config = FlattenConfig::from(&config.server);
 
     let listen_addr = flatten_config.listen_addr.clone();
-    let advertise_addr = flatten_config
-        .advertise_addr
-        .unwrap_or_else(|| resolve_advertise_addr(&listen_addr));
-
+    let advertise_addr =
+        resolve_advertise_addr(&listen_addr, flatten_config.advertise_addr.as_deref())
+            .change_context_lazy(make_error)?;
     let cluster_proxy = if flatten_config.mode == ServerMode::Cluster {
         let listen_peer_addr = flatten_config
             .listen_peer_addr
             .ok_or_else(|| Error("listen peer address is required for cluster mode".to_string()))?;
-        let advertise_peer_addr = flatten_config
-            .advertise_peer_addr
-            .unwrap_or_else(|| resolve_advertise_addr(&listen_peer_addr));
+        let advertise_peer_addr = resolve_advertise_addr(
+            &listen_peer_addr,
+            flatten_config.advertise_peer_addr.as_deref(),
+        )
+        .change_context_lazy(make_error)?;
         let initial_peer_addrs = flatten_config.initial_peer_addrs.ok_or_else(|| {
             Error("initial peer addresses are required for cluster mode".to_string())
         })?;

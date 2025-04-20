@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::io;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -84,11 +85,11 @@ where
 }
 
 struct ClusterProxyMiddleware {
-    proxy: Proxy,
+    proxy: Option<Proxy>,
 }
 
 impl ClusterProxyMiddleware {
-    pub fn new(proxy: Proxy) -> Self {
+    pub fn new(proxy: Option<Proxy>) -> Self {
         Self { proxy }
     }
 }
@@ -109,7 +110,7 @@ where
 }
 
 struct ClusterProxyEndpoint<E> {
-    proxy: Proxy,
+    proxy: Option<Proxy>,
     endpoint: E,
 }
 
@@ -123,72 +124,79 @@ where
     async fn call(&self, mut req: Request) -> Result<Self::Output, poem::Error> {
         let key = req.path_params::<String>()?;
 
-        match self.proxy.route(&key) {
-            percas_cluster::Route::Local => self
-                .endpoint
-                .call(req)
-                .await
-                .map(IntoResponse::into_response),
-            percas_cluster::Route::Remote(addr) => {
-                let client = ClientBuilder::new(format!("http://{addr}"))
-                    .build()
-                    .unwrap();
-                match *req.method() {
-                    Method::GET => {
-                        let resp = client.get(&key).await;
-                        match resp {
-                            Ok(resp) => {
-                                if let Some(value) = resp {
-                                    Ok(get_success(value))
-                                } else {
-                                    Ok(get_not_found())
+        if let Some(proxy) = &self.proxy {
+            match proxy.route(&key) {
+                percas_cluster::Route::Local => self
+                    .endpoint
+                    .call(req)
+                    .await
+                    .map(IntoResponse::into_response),
+                percas_cluster::Route::Remote(addr) => {
+                    let client = ClientBuilder::new(format!("http://{addr}"))
+                        .build()
+                        .unwrap();
+                    match *req.method() {
+                        Method::GET => {
+                            let resp = client.get(&key).await;
+                            match resp {
+                                Ok(resp) => {
+                                    if let Some(value) = resp {
+                                        Ok(get_success(value))
+                                    } else {
+                                        Ok(get_not_found())
+                                    }
+                                }
+                                Err(err) => {
+                                    log::error!("failed to get from remote: {err}");
+                                    self.endpoint
+                                        .call(req)
+                                        .await
+                                        .map(IntoResponse::into_response)
                                 }
                             }
-                            Err(err) => {
-                                log::error!("failed to get from remote: {err}");
-                                self.endpoint
-                                    .call(req)
-                                    .await
-                                    .map(IntoResponse::into_response)
+                        }
+                        Method::PUT => {
+                            let body = req.take_body().into_bytes().await?;
+                            let resp = client.put(&key, &body).await;
+                            match resp {
+                                Ok(()) => Ok(put_success()),
+                                Err(err) => {
+                                    log::error!("failed to put from remote: {err}");
+                                    req.set_body(body);
+                                    self.endpoint
+                                        .call(req)
+                                        .await
+                                        .map(IntoResponse::into_response)
+                                }
                             }
                         }
-                    }
-                    Method::PUT => {
-                        let body = req.take_body().into_bytes().await?;
-                        let resp = client.put(&key, &body).await;
-                        match resp {
-                            Ok(()) => Ok(put_success()),
-                            Err(err) => {
-                                log::error!("failed to put from remote: {err}");
-                                req.set_body(body);
-                                self.endpoint
-                                    .call(req)
-                                    .await
-                                    .map(IntoResponse::into_response)
+                        Method::DELETE => {
+                            let resp = client.delete(&key).await;
+                            match resp {
+                                Ok(()) => Ok(delete_success()),
+                                Err(err) => {
+                                    log::error!("failed to delete from remote: {err}");
+                                    self.endpoint
+                                        .call(req)
+                                        .await
+                                        .map(IntoResponse::into_response)
+                                }
                             }
                         }
-                    }
-                    Method::DELETE => {
-                        let resp = client.delete(&key).await;
-                        match resp {
-                            Ok(()) => Ok(delete_success()),
-                            Err(err) => {
-                                log::error!("failed to delete from remote: {err}");
-                                self.endpoint
-                                    .call(req)
-                                    .await
-                                    .map(IntoResponse::into_response)
-                            }
-                        }
-                    }
 
-                    _ => self
-                        .endpoint
-                        .call(req)
-                        .await
-                        .map(IntoResponse::into_response),
+                        _ => self
+                            .endpoint
+                            .call(req)
+                            .await
+                            .map(IntoResponse::into_response),
+                    }
                 }
             }
+        } else {
+            self.endpoint
+                .call(req)
+                .await
+                .map(IntoResponse::into_response)
         }
     }
 }
@@ -229,6 +237,26 @@ impl ServerState {
     }
 }
 
+pub fn resolve_advertise_addr(
+    listen_addr: &str,
+    advertise_addr: Option<&str>,
+) -> Result<String, std::io::Error> {
+    match (advertise_addr, listen_addr.parse::<SocketAddr>().ok()) {
+        (None, Some(listen_addr)) => {
+            if listen_addr.ip().is_unspecified() {
+                let ip = local_ip_address::local_ip().map_err(std::io::Error::other)?;
+                let port = listen_addr.port();
+                Ok(SocketAddr::new(ip, port).to_string())
+            } else {
+                Ok(listen_addr.to_string())
+            }
+        }
+        (Some(advertise_addr), _) => Ok(advertise_addr.to_string()),
+
+        _ => Ok(listen_addr.to_string()),
+    }
+}
+
 pub async fn start_server(
     rt: &Runtime,
     ctx: Arc<PercasContext>,
@@ -254,7 +282,7 @@ pub async fn start_server(
                 "/*key",
                 poem::get(get).put(put).delete(delete).with_if(
                     cluster_proxy.is_some(),
-                    ClusterProxyMiddleware::new(cluster_proxy.unwrap()),
+                    ClusterProxyMiddleware::new(cluster_proxy),
                 ),
             )
             .data(ctx.clone())

@@ -25,6 +25,7 @@ use percas_core::ServerConfig;
 use percas_core::StorageConfig;
 use percas_core::TelemetryConfig;
 use percas_server::server::ServerState;
+use percas_server::server::resolve_advertise_addr;
 use percas_server::telemetry;
 
 pub fn make_test_name<TestFn>() -> String {
@@ -104,7 +105,7 @@ pub fn start_test_server(_test_name: &str, rt: &Runtime) -> Option<TestServerSta
             rt,
             ctx,
             listen_addr.to_string(),
-            listen_addr.to_string(),
+            resolve_advertise_addr(listen_addr.to_string().as_str(), None).unwrap(),
             None,
         )
         .await
