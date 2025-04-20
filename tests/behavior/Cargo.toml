@@ -28,7 +28,7 @@ release = false
 [dependencies]
 insta = { workspace = true }
 percas-client = { workspace = true }
-percas-server = { workspace = true }
+percas-core = { workspace = true }
 pretty-hex = { workspace = true }
 test-harness = { workspace = true }
 tests-toolkit = { workspace = true }

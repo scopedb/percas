@@ -40,7 +40,6 @@ opentelemetry-otlp = { workspace = true }
 opentelemetry_sdk = { workspace = true }
 percas-core = { workspace = true }
 percas-metrics = { workspace = true }
-pin-project = { workspace = true }
 poem = { workspace = true }
 scopeguard = { workspace = true }
 tokio = { workspace = true }

@@ -16,7 +16,7 @@ use std::process::ExitCode;
 
 use percas_client::Client;
 use percas_client::ClientBuilder;
-use percas_server::runtime::make_runtime;
+use percas_core::make_runtime;
 use tests_toolkit::make_test_name;
 
 pub struct Testkit {

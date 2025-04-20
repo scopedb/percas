@@ -12,14 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![feature(ip)]
+#![feature(random)]
 
-use percas_core::FoyerEngine;
+use thiserror::Error;
 
-pub mod scheduled;
-pub mod server;
-pub mod telemetry;
+mod gossip;
+mod member;
+mod proxy;
+mod ring;
 
-pub struct PercasContext {
-    pub engine: FoyerEngine,
+pub use gossip::GossipState;
+pub use proxy::Proxy;
+pub use ring::HashRing;
+
+#[derive(Debug, Error)]
+pub enum ClusterError {
+    #[error("{0}")]
+    Transport(String),
+
+    #[error("{0}")]
+    Internal(String),
 }

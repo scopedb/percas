@@ -76,10 +76,10 @@ impl fastimer::Spawn for Runtime {
 }
 
 #[derive(Debug)]
-pub struct Timer(());
+struct Timer;
 
-pub fn timer() -> Timer {
-    Timer(())
+pub fn timer() -> impl fastimer::MakeDelay {
+    Timer
 }
 
 impl fastimer::MakeDelay for Timer {

@@ -13,10 +13,10 @@
 # limitations under the License.
 
 [package]
-name = "percas"
+name = "percas-cluster"
 publish = false
 
-description = "A persistent cache service."
+description = "The cluster service for Percas."
 
 edition.workspace = true
 license.workspace = true
@@ -28,16 +28,21 @@ version.workspace = true
 release = false
 
 [dependencies]
-clap = { workspace = true }
-ctrlc = { workspace = true }
+backon = { workspace = true }
 error-stack = { workspace = true }
+fastimer = { workspace = true }
+jiff = { workspace = true }
 log = { workspace = true }
 percas-core = { workspace = true }
-percas-server = { workspace = true }
-percas-styled = { workspace = true }
-percas-version = { workspace = true }
+poem = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+sha2 = { workspace = true }
 thiserror = { workspace = true }
-toml = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
 
 [lints]
 workspace = true
