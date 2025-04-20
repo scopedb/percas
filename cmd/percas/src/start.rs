@@ -84,6 +84,7 @@ struct FlattenConfig {
     listen_peer_addr: Option<String>,
     advertise_peer_addr: Option<String>,
     initial_peer_addrs: Option<Vec<String>>,
+    cluster_id: Option<String>,
 }
 
 impl From<&ServerConfig> for FlattenConfig {
@@ -101,6 +102,7 @@ impl From<&ServerConfig> for FlattenConfig {
                 listen_peer_addr: None,
                 advertise_peer_addr: None,
                 initial_peer_addrs: None,
+                cluster_id: None,
             },
             ServerConfig::Cluster {
                 dir,
@@ -109,6 +111,7 @@ impl From<&ServerConfig> for FlattenConfig {
                 listen_peer_addr,
                 advertise_peer_addr,
                 initial_advertise_peer_addrs,
+                cluster_id,
             } => FlattenConfig {
                 mode: ServerMode::Cluster,
                 dir: dir.clone(),
@@ -117,6 +120,7 @@ impl From<&ServerConfig> for FlattenConfig {
                 listen_peer_addr: Some(listen_peer_addr.clone()),
                 advertise_peer_addr: advertise_peer_addr.clone(),
                 initial_peer_addrs: initial_advertise_peer_addrs.clone(),
+                cluster_id: Some(cluster_id.clone()),
             },
         }
     }
@@ -153,6 +157,9 @@ async fn run_server(rt: &Runtime, config: Config) -> Result<(), Error> {
         let initial_peer_addrs = flatten_config.initial_peer_addrs.ok_or_else(|| {
             Error("initial peer addresses are required for cluster mode".to_string())
         })?;
+        let cluster_id = flatten_config
+            .cluster_id
+            .ok_or_else(|| Error("cluster id is required for cluster mode".to_string()))?;
 
         let current_node = if let Some(mut node) =
             NodeInfo::load(&node_file_path(&flatten_config.dir)).change_context_lazy(make_error)?
@@ -165,6 +172,7 @@ async fn run_server(rt: &Runtime, config: Config) -> Result<(), Error> {
             let node = NodeInfo::init(
                 None,
                 "percas".to_string(),
+                cluster_id,
                 advertise_addr.clone(),
                 advertise_peer_addr,
             );
