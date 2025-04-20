@@ -35,6 +35,7 @@ jiff = { workspace = true }
 log = { workspace = true }
 pin-project = { workspace = true }
 serde = { workspace = true }
+sysinfo = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 

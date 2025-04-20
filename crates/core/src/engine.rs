@@ -25,9 +25,12 @@ use foyer::HybridCachePolicy;
 use foyer::RecoverMode;
 use foyer::RuntimeOptions;
 use foyer::TokioRuntimeOptions;
+use sysinfo::Pid;
 use thiserror::Error;
 
 use crate::num_cpus;
+
+const DEFAULT_MEMORY_CAPACITY_FACTOR: f64 = 0.9;
 
 #[derive(Debug, Error)]
 #[error("{0}")]
@@ -41,7 +44,7 @@ pub struct FoyerEngine {
 impl FoyerEngine {
     pub async fn try_new(
         data_dir: &Path,
-        memory_capacity: u64,
+        memory_capacity: Option<u64>,
         disk_capacity: u64,
     ) -> Result<Self, EngineError> {
         let _ = std::fs::create_dir_all(data_dir);
@@ -55,7 +58,18 @@ impl FoyerEngine {
         let parallelism = num_cpus().get();
         let cache = HybridCacheBuilder::new()
             .with_policy(HybridCachePolicy::WriteOnInsertion)
-            .memory(memory_capacity as usize)
+            .memory(
+                (memory_capacity.map_or_else(
+                    || {
+                        let s = sysinfo::System::new_all();
+                        s.process(Pid::from_u32(std::process::id()))
+                            .unwrap()
+                            .memory() as usize
+                    },
+                    |v| v as usize,
+                ) as f64
+                    * DEFAULT_MEMORY_CAPACITY_FACTOR) as usize,
+            )
             .with_shards(parallelism)
             .with_eviction_config(FifoConfig::default())
             .storage(foyer::Engine::Large)
@@ -112,7 +126,7 @@ mod tests {
     async fn test_get() {
         let temp_dir = tempfile::tempdir().unwrap();
 
-        let engine = FoyerEngine::try_new(temp_dir.path(), 512 * 1024, 1024 * 1024)
+        let engine = FoyerEngine::try_new(temp_dir.path(), Some(512 * 1024), 1024 * 1024)
             .await
             .unwrap();
         engine.put(b"foo".to_vec().as_ref(), b"bar".to_vec().as_ref());
