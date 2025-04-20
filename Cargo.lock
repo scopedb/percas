@@ -2522,7 +2522,6 @@ dependencies = [
  "clap",
  "ctrlc",
  "error-stack",
- "local-ip-address",
  "log",
  "percas-cluster",
  "percas-core",

@@ -31,7 +31,6 @@ release = false
 clap = { workspace = true }
 ctrlc = { workspace = true }
 error-stack = { workspace = true }
-local-ip-address = { workspace = true }
 log = { workspace = true }
 percas-cluster = { workspace = true }
 percas-core = { workspace = true }
