@@ -202,6 +202,38 @@ impl GossipState {
         }
     }
 
+    async fn fast_bootstrap(&self) {
+        for peer in &self.initial_peers {
+            let message = Message::Ping(self.current_node.clone());
+            let do_send = || async { self.transport.send(peer, &message).await };
+            let with_retry = do_send.retry(
+                ConstantBuilder::new()
+                    .with_delay(DEFAULT_RETRY_INTERVAL)
+                    .with_max_times(DEFAULT_RETRIES),
+            );
+            if let Ok(msg @ Message::Ack(_)) = with_retry.await {
+                self.handle_message(msg);
+            }
+        }
+
+        for peer in &self.initial_peers {
+            let message = Message::Sync {
+                members: self.membership().members().values().cloned().collect(),
+            };
+            let do_send = || async { self.transport.send(peer, &message).await };
+            let with_retry = do_send.retry(
+                ConstantBuilder::new()
+                    .with_delay(DEFAULT_RETRY_INTERVAL)
+                    .with_max_times(DEFAULT_RETRIES),
+            );
+            if let Ok(msg @ Message::Sync { .. }) = with_retry.await {
+                self.handle_message(msg);
+            }
+        }
+
+        self.rebuild_ring();
+    }
+
     fn rebuild_ring(&self) {
         let members = self.membership.read().unwrap();
 
@@ -277,34 +309,7 @@ async fn drive_gossip(state: Arc<GossipState>, runtime: &Runtime) -> Result<(), 
     let state_clone = state.clone();
     runtime
         .spawn(async move {
-            let state = state_clone;
-            for peer in &state.initial_peers {
-                let message = Message::Ping(state.current_node.clone());
-                let do_send = || async { state.transport.send(peer, &message).await };
-                let with_retry = do_send.retry(
-                    ConstantBuilder::new()
-                        .with_delay(DEFAULT_RETRY_INTERVAL)
-                        .with_max_times(DEFAULT_RETRIES),
-                );
-                if let Ok(msg @ Message::Ack(_)) = with_retry.await {
-                    state.handle_message(msg);
-                }
-            }
-
-            for peer in &state.initial_peers {
-                let message = Message::Sync {
-                    members: state.membership().members().values().cloned().collect(),
-                };
-                let do_send = || async { state.transport.send(peer, &message).await };
-                let with_retry = do_send.retry(
-                    ConstantBuilder::new()
-                        .with_delay(DEFAULT_RETRY_INTERVAL)
-                        .with_max_times(DEFAULT_RETRIES),
-                );
-                if let Ok(msg @ Message::Sync { .. }) = with_retry.await {
-                    state.handle_message(msg);
-                }
-            }
+            state_clone.fast_bootstrap().await;
         })
         .await;
 
@@ -329,6 +334,9 @@ async fn drive_gossip(state: Arc<GossipState>, runtime: &Runtime) -> Result<(), 
                 .nth(random::<usize>() % membership.members().len())
             {
                 state.ping(member.info.clone()).await;
+            } else {
+                log::error!("no members found in the cluster");
+                state.fast_bootstrap().await;
             }
         }
     });
@@ -348,6 +356,9 @@ async fn drive_gossip(state: Arc<GossipState>, runtime: &Runtime) -> Result<(), 
                 .nth(random::<usize>() % membership.members().len())
             {
                 state.sync(member.info.clone()).await;
+            } else {
+                log::error!("no members found in the cluster");
+                state.fast_bootstrap().await;
             }
         }
     });
