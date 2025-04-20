@@ -42,6 +42,7 @@ use poem::listener::Acceptor;
 use poem::listener::Listener;
 use poem::listener::TcpListener;
 use poem::web::Data;
+use poem::web::LocalAddr;
 use poem::web::Path;
 use poem::web::headers::ContentType;
 
@@ -205,7 +206,7 @@ pub(crate) type ServerFuture<T> = tokio::task::JoinHandle<Result<T, io::Error>>;
 
 #[derive(Debug)]
 pub struct ServerState {
-    server_advertise_addr: String,
+    listen_addr: LocalAddr,
     server_fut: ServerFuture<()>,
 
     shutdown_rx_server: ShutdownRecv,
@@ -213,8 +214,8 @@ pub struct ServerState {
 }
 
 impl ServerState {
-    pub fn server_advertise_addr(&self) -> String {
-        self.server_advertise_addr.clone()
+    pub fn listen_addr(&self) -> LocalAddr {
+        self.listen_addr.clone()
     }
 
     pub async fn await_shutdown(self) {
@@ -261,7 +262,7 @@ pub async fn start_server(
     rt: &Runtime,
     ctx: Arc<PercasContext>,
     listen_addr: String,
-    advertise_addr: String,
+    _advertise_addr: String,
     cluster_proxy: Option<Proxy>,
 ) -> Result<(ServerState, ShutdownSend), io::Error> {
     let (shutdown_tx_server, shutdown_rx_server) = mea::shutdown::new_pair();
@@ -287,6 +288,7 @@ pub async fn start_server(
             )
             .data(ctx.clone())
             .with(LoggerMiddleware);
+        let listen_addr = listen_addr.clone();
         let signal = async move {
             log::info!("server has started on [{listen_addr}]");
             drop(wg_clone);
@@ -317,7 +319,7 @@ pub async fn start_server(
     shutdown_tx_actions.push(shutdown_tx);
 
     let state = ServerState {
-        server_advertise_addr: advertise_addr.clone(),
+        listen_addr,
         server_fut,
         shutdown_rx_server,
         shutdown_tx_actions,

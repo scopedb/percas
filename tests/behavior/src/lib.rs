@@ -36,7 +36,13 @@ where
     };
 
     rt.block_on(async move {
-        let server_addr = format!("http://{}/", state.server_state.server_advertise_addr());
+        let addr = state
+            .server_state
+            .listen_addr()
+            .as_socket_addr()
+            .cloned()
+            .unwrap();
+        let server_addr = format!("http://{}/", addr);
         let client = ClientBuilder::new(server_addr).build().unwrap();
 
         let exit_code = test(Testkit { client }).await.report();
