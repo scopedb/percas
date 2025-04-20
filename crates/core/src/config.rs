@@ -53,6 +53,8 @@ pub enum ServerConfig {
         advertise_peer_addr: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         initial_advertise_peer_addrs: Option<Vec<String>>,
+        #[serde(default = "default_cluster_id")]
+        cluster_id: String,
     },
 }
 
@@ -79,6 +81,10 @@ fn default_dir() -> PathBuf {
 
 fn default_data_dir() -> PathBuf {
     PathBuf::from("/var/lib/percas/data")
+}
+
+fn default_cluster_id() -> String {
+    "percas-cluster".to_string()
 }
 
 pub fn node_file_path(base_dir: &Path) -> PathBuf {

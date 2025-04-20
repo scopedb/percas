@@ -25,20 +25,28 @@ use crate::ClusterError;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NodeInfo {
-    pub id: Uuid,
-    pub name: String,
-    pub addr: String,
-    pub peer_addr: String,
+    pub node_id: Uuid,
+    pub node_name: String,
+    pub cluster_id: String,
+    pub advertise_addr: String,
+    pub advertise_peer_addr: String,
     pub incarnation: u64,
 }
 
 impl NodeInfo {
-    pub fn init(id: Option<Uuid>, name: String, addr: String, peer_addr: String) -> Self {
+    pub fn init(
+        node_id: Option<Uuid>,
+        node_name: String,
+        cluster_id: String,
+        addr: String,
+        peer_addr: String,
+    ) -> Self {
         Self {
-            id: id.unwrap_or_else(Uuid::new_v4),
-            name,
-            addr,
-            peer_addr,
+            node_id: node_id.unwrap_or_else(Uuid::new_v4),
+            node_name,
+            cluster_id,
+            advertise_addr: addr,
+            advertise_peer_addr: peer_addr,
             incarnation: 0,
         }
     }

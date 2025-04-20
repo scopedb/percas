@@ -132,7 +132,8 @@ impl GossipState {
         log::debug!("received message: {:?}", message);
         let result = match message {
             Message::Ping(info) => {
-                if let Some(current) = self.membership.read().unwrap().members().get(&info.id) {
+                if let Some(current) = self.membership.read().unwrap().members().get(&info.node_id)
+                {
                     if current.info.incarnation < info.incarnation {
                         self.membership.write().unwrap().update_member(MemberState {
                             info: info.clone(),
@@ -146,7 +147,8 @@ impl GossipState {
                 Some(Message::Ack(self.current()))
             }
             Message::Ack(info) => {
-                if let Some(current) = self.membership.read().unwrap().members().get(&info.id) {
+                if let Some(current) = self.membership.read().unwrap().members().get(&info.node_id)
+                {
                     if current.info.incarnation < info.incarnation {
                         self.membership.write().unwrap().update_member(MemberState {
                             info: info.clone(),
@@ -161,7 +163,7 @@ impl GossipState {
             Message::Sync { members } => {
                 let snapshot = self.membership.read().unwrap().members().clone();
                 for member in members {
-                    if let Some(current) = snapshot.get(&member.info.id) {
+                    if let Some(current) = snapshot.get(&member.info.node_id) {
                         // Update the member state
                         if current.heartbeat < member.heartbeat
                             && current.info.incarnation < member.info.incarnation
@@ -189,7 +191,12 @@ impl GossipState {
             }
         };
 
-        if self.membership.read().unwrap().is_dead(self.current().id) {
+        if self
+            .membership
+            .read()
+            .unwrap()
+            .is_dead(self.current().node_id)
+        {
             log::info!("current node is marked as dead, advancing incarnation");
             self.advance_incarnation();
         }
@@ -222,7 +229,7 @@ impl GossipState {
             .collect();
 
         for dead_member in &dead_members {
-            members.remove_member(dead_member.id);
+            members.remove_member(dead_member.node_id);
         }
 
         dead_members
@@ -232,7 +239,7 @@ impl GossipState {
         let message = Message::Ping(self.current());
         let do_send = || async {
             self.transport
-                .send(&peer.peer_addr, &message)
+                .send(&peer.advertise_peer_addr, &message)
                 .await
                 .inspect_err(|e| log::error!("failed to send ping message: {:?}", e))
         };
@@ -259,7 +266,7 @@ impl GossipState {
         };
         let do_send = || async {
             self.transport
-                .send(&peer.peer_addr, &message)
+                .send(&peer.advertise_peer_addr, &message)
                 .await
                 .inspect_err(|e| log::error!("failed to send sync message: {:?}", e))
         };
@@ -329,7 +336,7 @@ impl GossipState {
 
     fn mark_dead(&self, peer: &NodeInfo) {
         let mut members = self.membership.write().unwrap();
-        if let Some(last_seen) = members.members().get(&peer.id).map(|m| m.heartbeat) {
+        if let Some(last_seen) = members.members().get(&peer.node_id).map(|m| m.heartbeat) {
             let member = MemberState {
                 info: peer.clone(),
                 status: MemberStatus::Dead,

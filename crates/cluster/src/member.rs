@@ -64,7 +64,7 @@ impl Membership {
     }
 
     pub fn update_member(&mut self, member: MemberState) {
-        match self.members.entry(member.info.id) {
+        match self.members.entry(member.info.node_id) {
             Entry::Occupied(mut entry) => {
                 let current = entry.get_mut();
                 if current.info.incarnation < member.info.incarnation {

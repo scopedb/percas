@@ -48,11 +48,11 @@ impl Proxy {
             false
         }) {
             if let Some(target) = members.get(&id) {
-                if target.info.id == self.gossip.current().id {
+                if target.info.node_id == self.gossip.current().node_id {
                     return RouteDest::Local;
                 }
 
-                RouteDest::RemoteAddr(target.info.addr.clone())
+                RouteDest::RemoteAddr(target.info.advertise_addr.clone())
             } else {
                 RouteDest::Local
             }
