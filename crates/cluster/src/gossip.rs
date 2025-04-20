@@ -362,10 +362,7 @@ struct Transport {
 
 impl Transport {
     pub fn new() -> Self {
-        let client = ClientBuilder::new()
-            .http2_prior_knowledge()
-            .build()
-            .unwrap();
+        let client = ClientBuilder::new().build().unwrap();
         Transport { client }
     }
 
