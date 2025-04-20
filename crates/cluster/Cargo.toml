@@ -31,27 +31,14 @@ release = false
 backon = { workspace = true }
 error-stack = { workspace = true }
 fastimer = { workspace = true }
-fastrace = { workspace = true }
-fastrace-opentelemetry = { workspace = true }
 jiff = { workspace = true }
-local-ip-address = { workspace = true }
 log = { workspace = true }
-logforth = { workspace = true }
-mea = { workspace = true }
-opentelemetry = { workspace = true }
-opentelemetry-otlp = { workspace = true }
-opentelemetry_sdk = { workspace = true }
 percas-core = { workspace = true }
-percas-metrics = { workspace = true }
-pin-project = { workspace = true }
 poem = { workspace = true }
 reqwest = { workspace = true }
-scopeguard = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
