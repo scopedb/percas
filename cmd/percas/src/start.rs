@@ -158,6 +158,8 @@ async fn run_server(rt: &Runtime, config: Config) -> Result<(), Error> {
             NodeInfo::load(&node_file_path(&flatten_config.dir)).change_context_lazy(make_error)?
         {
             node.advance_incarnation();
+            node.persist(&node_file_path(&flatten_config.dir))
+                .change_context_lazy(make_error)?;
             node
         } else {
             let node = NodeInfo::init(
