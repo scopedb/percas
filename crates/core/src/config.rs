@@ -61,7 +61,8 @@ pub struct StorageConfig {
     #[serde(default = "default_data_dir")]
     pub data_dir: PathBuf,
     pub disk_capacity: u64,
-    pub memory_capacity: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memory_capacity: Option<u64>,
 }
 
 fn default_listen_addr() -> String {
@@ -181,7 +182,7 @@ impl Default for Config {
             storage: StorageConfig {
                 data_dir: default_data_dir(),
                 disk_capacity: 512 * 1024 * 1024,
-                memory_capacity: 64 * 1024 * 1024,
+                memory_capacity: None,
             },
             telemetry: TelemetryConfig {
                 logs: LogsConfig {

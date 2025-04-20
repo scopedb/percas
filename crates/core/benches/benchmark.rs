@@ -32,7 +32,7 @@ fn foyer_engine(c: &mut Criterion) {
     {
         let dir = tempdir_in("/tmp").unwrap();
         let engine = runtime.block_on(async {
-            FoyerEngine::try_new(dir.path(), 0, 4 * 1024 * 1024 * 1024)
+            FoyerEngine::try_new(dir.path(), Some(0), 4 * 1024 * 1024 * 1024)
                 .await
                 .unwrap()
         });
@@ -59,7 +59,7 @@ fn foyer_engine(c: &mut Criterion) {
             .for_each(|len| {
                 let dir = tempdir_in("/tmp").unwrap();
                 let engine = runtime.block_on(async {
-                    FoyerEngine::try_new(dir.path(), 0, 4 * 1024 * 1024 * 1024)
+                    FoyerEngine::try_new(dir.path(), Some(0), 4 * 1024 * 1024 * 1024)
                         .await
                         .unwrap()
                 });
