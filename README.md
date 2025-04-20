@@ -30,7 +30,9 @@ To quickly start a simple 3-node cluster for development or testing, you can run
 ./target/debug/percas start --config-file dev/cluster/config-2.toml >dev/cluster/node-2.log 2>&1 &
 ```
 
-You can interact with the cluster through any node. Percas will automatically handle data distribution and request routing across all nodes.
+You can interact with the cluster through any node, in this example they are `localhost:7654`, `localhost:7656` and `localhost:7658`.
+
+Percas will automatically handle data distribution and request routing across all nodes.
 
 ## License
 
