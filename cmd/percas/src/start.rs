@@ -173,7 +173,11 @@ async fn run_server(rt: &Runtime, config: Config) -> Result<(), Error> {
             node
         };
 
-        let gossip = Arc::new(GossipState::new(current_node, initial_peer_addrs));
+        let gossip = Arc::new(GossipState::new(
+            current_node,
+            initial_peer_addrs,
+            flatten_config.dir.clone(),
+        ));
 
         // TODO: gracefully shutdown gossip
         gossip

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::path::PathBuf;
 use std::random::random;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -26,6 +27,7 @@ use fastimer::MakeDelayExt;
 use jiff::Timestamp;
 use percas_core::JoinHandle;
 use percas_core::Runtime;
+use percas_core::node_file_path;
 use percas_core::timer;
 use poem::EndpointExt;
 use poem::IntoResponse;
@@ -61,8 +63,9 @@ const DEFAULT_REBUILD_RING_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Debug)]
 pub struct GossipState {
+    dir: PathBuf,
     initial_peers: Vec<String>,
-    current_node: NodeInfo,
+    current_node: RwLock<NodeInfo>,
     transport: Transport,
 
     membership: RwLock<Membership>,
@@ -70,11 +73,13 @@ pub struct GossipState {
 }
 
 impl GossipState {
-    pub fn new(current_node: NodeInfo, initial_peers: Vec<String>) -> Self {
+    pub fn new(current_node: NodeInfo, initial_peers: Vec<String>, dir: PathBuf) -> Self {
+        let current_node = RwLock::new(current_node);
         let members = RwLock::new(Membership::default());
         let transport = Transport::new();
         let ring = RwLock::new(Arc::new(HashRing::default()));
         Self {
+            dir,
             initial_peers,
             current_node,
             membership: members,
@@ -83,8 +88,8 @@ impl GossipState {
         }
     }
 
-    pub fn current(&self) -> &NodeInfo {
-        &self.current_node
+    pub fn current(&self) -> NodeInfo {
+        self.current_node.read().unwrap().clone()
     }
 
     pub fn membership(&self) -> Membership {
@@ -123,7 +128,7 @@ impl GossipState {
 
     fn handle_message(&self, message: Message) -> Option<Message> {
         log::debug!("received message: {:?}", message);
-        match message {
+        let result = match message {
             Message::Ping(info) => {
                 if let Some(current) = self.membership.read().unwrap().members().get(&info.id) {
                     if current.info.incarnation < info.incarnation {
@@ -136,7 +141,7 @@ impl GossipState {
                 }
 
                 // Respond with an ack
-                Some(Message::Ack(self.current_node.clone()))
+                Some(Message::Ack(self.current()))
             }
             Message::Ack(info) => {
                 if let Some(current) = self.membership.read().unwrap().members().get(&info.id) {
@@ -169,7 +174,7 @@ impl GossipState {
 
                 // Ensure the current node is alive
                 self.membership.write().unwrap().update_member(MemberState {
-                    info: self.current_node.clone(),
+                    info: self.current(),
                     status: MemberStatus::Alive,
                     heartbeat: Timestamp::now(),
                 });
@@ -180,11 +185,26 @@ impl GossipState {
                     members: members.values().cloned().collect(),
                 })
             }
+        };
+
+        if self.membership.read().unwrap().is_dead(self.current().id) {
+            log::info!("current node is marked as dead, advancing incarnation");
+            self.advance_incarnation();
         }
+
+        result
+    }
+
+    fn advance_incarnation(&self) {
+        let mut current = self.current_node.write().unwrap();
+        current.advance_incarnation();
+        current
+            .persist(&node_file_path(&self.dir))
+            .expect("unrecoverable error");
     }
 
     async fn ping(&self, peer: NodeInfo) {
-        let message = Message::Ping(self.current_node.clone());
+        let message = Message::Ping(self.current());
         let do_send = || async {
             self.transport
                 .send(&peer.peer_addr, &message)
@@ -236,7 +256,7 @@ impl GossipState {
 
     async fn fast_bootstrap(&self) {
         for peer in &self.initial_peers {
-            let message = Message::Ping(self.current_node.clone());
+            let message = Message::Ping(self.current());
             let do_send = || async {
                 self.transport
                     .send(peer, &message)
@@ -349,7 +369,7 @@ async fn drive_gossip(state: Arc<GossipState>, runtime: &Runtime) -> Result<(), 
         .write()
         .unwrap()
         .update_member(MemberState {
-            info: state.current_node.clone(),
+            info: state.current(),
             status: MemberStatus::Alive,
             heartbeat: Timestamp::now(),
         });
