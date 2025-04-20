@@ -26,12 +26,13 @@ use fastimer::MakeDelayExt;
 use jiff::Timestamp;
 use percas_core::JoinHandle;
 use percas_core::Runtime;
-use percas_core::make_runtime;
 use percas_core::timer;
 use poem::IntoResponse;
 use poem::Response;
 use poem::Route;
 use poem::handler;
+use poem::listener::Acceptor;
+use poem::listener::Listener;
 use poem::listener::TcpListener;
 use poem::post;
 use poem::web::Data;
@@ -47,7 +48,7 @@ use crate::ClusterError;
 use crate::member::MemberState;
 use crate::member::MemberStatus;
 use crate::member::Membership;
-use crate::member::NodeInfo;
+use crate::node::NodeInfo;
 use crate::ring::HashRing;
 
 const DEFAULT_PING_INTERVAL: Duration = Duration::from_secs(1);
@@ -58,6 +59,7 @@ const DEFAULT_RETRIES: usize = 3;
 
 const DEFAULT_REBUILD_RING_INTERVAL: Duration = Duration::from_secs(10);
 
+#[derive(Debug)]
 pub struct GossipState {
     initial_peers: Vec<String>,
     current_node: NodeInfo,
@@ -95,18 +97,21 @@ impl GossipState {
 
     pub async fn start(
         self: Arc<Self>,
+        rt: &Runtime,
+        listen_peer_addr: String,
     ) -> Result<JoinHandle<std::result::Result<(), std::io::Error>>, ClusterError> {
-        let rt = make_runtime("gossip", "gossip", 1);
         let route = Route::new().at("/gossip", post(gossip));
 
         // Listen on the peer address
-        let addr = self.current_node.peer_addr.clone();
-        let server_fut =
-            rt.spawn(async move { poem::Server::new(TcpListener::bind(&addr)).run(route).await });
+        let server_fut = rt.spawn(async move {
+            let acceptor = TcpListener::bind(listen_peer_addr).into_acceptor().await?;
+            log::info!("starting gossip server on {}", &acceptor.local_addr()[0]);
+            poem::Server::new_with_acceptor(acceptor).run(route).await
+        });
 
         // Start the gossip protocol
         let state = self.clone();
-        drive_gossip(state, &rt).await?;
+        drive_gossip(state, rt).await?;
 
         Ok(server_fut)
     }
@@ -261,6 +266,7 @@ enum Message {
     Sync { members: Vec<MemberState> },
 }
 
+#[derive(Debug)]
 struct Transport {
     client: Client,
 }

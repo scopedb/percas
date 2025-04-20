@@ -71,16 +71,17 @@ pub fn start_test_server(_test_name: &str, rt: &Runtime) -> Option<TestServerSta
     let temp_dir = tempfile::tempdir().unwrap();
 
     let host = local_ip_address::local_ip().unwrap();
-    let listen_addr = SocketAddr::new(host, 0).to_string();
+    let listen_addr = SocketAddr::new(host, 0);
 
     let default_config = Config::default();
     let config = Config {
-        server: ServerConfig {
-            listen_addr,
+        server: ServerConfig::Standalone {
+            dir: temp_dir.path().to_path_buf(),
+            listen_addr: listen_addr.to_string(),
             advertise_addr: None,
         },
         storage: StorageConfig {
-            data_dir: temp_dir.path().to_path_buf(),
+            data_dir: temp_dir.path().to_path_buf().join("data"),
             ..default_config.storage
         },
         telemetry: TelemetryConfig {
@@ -99,9 +100,15 @@ pub fn start_test_server(_test_name: &str, rt: &Runtime) -> Option<TestServerSta
         .await
         .unwrap();
         let ctx = Arc::new(percas_server::PercasContext { engine });
-        percas_server::server::start_server(rt, &config.server, ctx)
-            .await
-            .unwrap()
+        percas_server::server::start_server(
+            rt,
+            ctx,
+            listen_addr.to_string(),
+            listen_addr.to_string(),
+            None,
+        )
+        .await
+        .unwrap()
     });
 
     drop_guard.push(Box::new(temp_dir));

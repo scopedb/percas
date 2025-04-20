@@ -17,11 +17,13 @@ use std::sync::Arc;
 use crate::gossip::GossipState;
 use crate::member::MemberStatus;
 
+#[derive(Debug, Clone)]
 pub enum Route {
     Local,
     Remote(String),
 }
 
+#[derive(Debug, Clone)]
 pub struct Proxy {
     gossip: Arc<GossipState>,
 }
