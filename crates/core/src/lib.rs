@@ -14,6 +14,7 @@
 
 mod config;
 mod engine;
+mod newtype;
 mod runtime;
 
 pub use config::*;

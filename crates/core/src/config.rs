@@ -15,18 +15,22 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use jiff::SignedDuration;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+use crate::newtype::SignedDuration;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     pub server: ServerConfig,
     pub storage: StorageConfig,
     pub telemetry: TelemetryConfig,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 #[serde(tag = "mode")]
 pub enum ServerConfig {
@@ -58,7 +62,9 @@ pub enum ServerConfig {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct StorageConfig {
     #[serde(default = "default_data_dir")]
     pub data_dir: PathBuf,
@@ -92,6 +98,7 @@ pub fn node_file_path(base_dir: &Path) -> PathBuf {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct TelemetryConfig {
     #[serde(default = "LogsConfig::disabled")]
@@ -103,6 +110,7 @@ pub struct TelemetryConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct LogsConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -124,6 +132,7 @@ impl LogsConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct FileAppenderConfig {
     pub filter: String,
@@ -132,12 +141,14 @@ pub struct FileAppenderConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct StderrAppenderConfig {
     pub filter: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OpentelemetryAppenderConfig {
     pub filter: String,
@@ -145,6 +156,7 @@ pub struct OpentelemetryAppenderConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct TracesConfig {
     pub capture_log_filter: String,
@@ -153,12 +165,14 @@ pub struct TracesConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OpentelemetryTracesConfig {
     pub otlp_endpoint: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MetricsConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -166,6 +180,7 @@ pub struct MetricsConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OpentelemetryMetricsConfig {
     pub otlp_endpoint: String,
@@ -174,7 +189,7 @@ pub struct OpentelemetryMetricsConfig {
 }
 
 fn default_metrics_push_interval() -> SignedDuration {
-    SignedDuration::from_secs(30)
+    jiff::SignedDuration::from_secs(30).into()
 }
 
 impl Default for Config {
@@ -214,10 +229,256 @@ impl Default for Config {
                 metrics: Some(MetricsConfig {
                     opentelemetry: Some(OpentelemetryMetricsConfig {
                         otlp_endpoint: "http://127.0.0.1:4317".to_string(),
-                        push_interval: SignedDuration::from_secs(30),
+                        push_interval: jiff::SignedDuration::from_secs(30).into(),
                     }),
                 }),
             },
+        }
+    }
+}
+
+#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
+pub struct OptionEntry {
+    /// The name of the environment variable.
+    pub env_name: &'static str,
+    /// The path in the config file.
+    pub ent_path: &'static str,
+    /// The type of the value.
+    pub ent_type: &'static str,
+}
+
+pub const fn known_option_entries() -> &'static [OptionEntry] {
+    &[
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_SERVER_ADVERTISE_ADDR",
+            ent_path: "server.advertise_addr",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_SERVER_ADVERTISE_PEER_ADDR",
+            ent_path: "server.advertise_peer_addr",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_SERVER_CLUSTER_ID",
+            ent_path: "server.cluster_id",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_SERVER_DIR",
+            ent_path: "server.dir",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_SERVER_INITIAL_ADVERTISE_PEER_ADDRS",
+            ent_path: "server.initial_advertise_peer_addrs",
+            ent_type: "array",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_SERVER_LISTEN_ADDR",
+            ent_path: "server.listen_addr",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_SERVER_LISTEN_PEER_ADDR",
+            ent_path: "server.listen_peer_addr",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_SERVER_MODE",
+            ent_path: "server.mode",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_DATA_DIR",
+            ent_path: "storage.data_dir",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_DISK_CAPACITY",
+            ent_path: "storage.disk_capacity",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_MEMORY_CAPACITY",
+            ent_path: "storage.memory_capacity",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_TELEMETRY_LOGS_FILE_DIR",
+            ent_path: "telemetry.logs.file.dir",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_TELEMETRY_LOGS_FILE_FILTER",
+            ent_path: "telemetry.logs.file.filter",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_TELEMETRY_LOGS_FILE_MAX_FILES",
+            ent_path: "telemetry.logs.file.max_files",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_TELEMETRY_LOGS_OPENTELEMETRY_FILTER",
+            ent_path: "telemetry.logs.opentelemetry.filter",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_TELEMETRY_LOGS_OPENTELEMETRY_OTLP_ENDPOINT",
+            ent_path: "telemetry.logs.opentelemetry.otlp_endpoint",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_TELEMETRY_LOGS_STDERR_FILTER",
+            ent_path: "telemetry.logs.stderr.filter",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_TELEMETRY_METRICS_OPENTELEMETRY_OTLP_ENDPOINT",
+            ent_path: "telemetry.metrics.opentelemetry.otlp_endpoint",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_TELEMETRY_METRICS_OPENTELEMETRY_PUSH_INTERVAL",
+            ent_path: "telemetry.metrics.opentelemetry.push_interval",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_TELEMETRY_TRACES_CAPTURE_LOG_FILTER",
+            ent_path: "telemetry.traces.capture_log_filter",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_TELEMETRY_TRACES_OPENTELEMETRY_OTLP_ENDPOINT",
+            ent_path: "telemetry.traces.opentelemetry.otlp_endpoint",
+            ent_type: "string",
+        },
+    ]
+}
+
+#[cfg(test)]
+mod codegen {
+    use std::collections::BTreeMap;
+    use std::collections::btree_map::Entry;
+
+    use googletest::assert_that;
+    use googletest::prelude::container_eq;
+    use schemars::schema_for;
+
+    use super::*;
+
+    type Object = serde_json::Map<String, serde_json::Value>;
+    type EntryMap = BTreeMap<String, OwnedOptionEntry>;
+
+    #[derive(Clone, Debug)]
+    struct OwnedOptionEntry {
+        env_name: String,
+        ent_path: String,
+        ent_type: String,
+    }
+
+    impl PartialEq<OwnedOptionEntry> for OptionEntry {
+        fn eq(&self, other: &OwnedOptionEntry) -> bool {
+            self.env_name == other.env_name
+                && self.ent_path == other.ent_path
+                && self.ent_type == other.ent_type
+        }
+    }
+
+    impl PartialEq<OptionEntry> for OwnedOptionEntry {
+        fn eq(&self, other: &OptionEntry) -> bool {
+            self.env_name == other.env_name
+                && self.ent_path == other.ent_path
+                && self.ent_type == other.ent_type
+        }
+    }
+
+    #[test]
+    fn test_config_schema() {
+        let mut result = EntryMap::new();
+
+        let schema = schema_for!(Config);
+        let defs = schema.get("$defs").unwrap().as_object().unwrap();
+        let o = schema.as_object().unwrap();
+        dump_config_schema("", defs, o, &mut result);
+
+        let options = result.into_values().collect::<Vec<_>>();
+        let known_option_entries = known_option_entries().to_vec();
+        assert_that!(options, container_eq(known_option_entries));
+    }
+
+    fn fetch_ref_object<'a>(defs: &'a Object, r: &str) -> &'a Object {
+        const DEFS_PREFIX_LEN: usize = "#/$defs/".len();
+        defs.get(&r[DEFS_PREFIX_LEN..])
+            .unwrap()
+            .as_object()
+            .unwrap()
+    }
+
+    fn dump_config_schema(prefix: &str, defs: &Object, o: &Object, result: &mut EntryMap) {
+        if let Some(r) = o.get("$ref") {
+            let r = r.as_str().unwrap();
+            let o = fetch_ref_object(defs, r);
+            return dump_config_schema(prefix, defs, o, result);
+        }
+
+        if let Some(one_of) = o.get("oneOf") {
+            let one_of = one_of.as_array().unwrap();
+            for o in one_of {
+                dump_config_schema(prefix, defs, o.as_object().unwrap(), result);
+            }
+            return;
+        }
+
+        if let Some(any_of) = o.get("anyOf") {
+            let any_of = any_of.as_array().unwrap();
+            for o in any_of {
+                dump_config_schema(prefix, defs, o.as_object().unwrap(), result);
+            }
+            return;
+        }
+
+        let ty = o.get("type").unwrap();
+        let types = if let Some(types) = ty.as_array() {
+            types.clone()
+        } else {
+            vec![ty.clone()]
+        };
+
+        for ty in types {
+            let ty = ty.as_str().unwrap();
+            match ty {
+                "null" => {}
+                "object" => {
+                    let props = o.get("properties").unwrap().as_object().unwrap();
+                    for (k, v) in props {
+                        let prefix = if prefix.is_empty() {
+                            k.clone()
+                        } else {
+                            format!("{prefix}.{k}")
+                        };
+                        dump_config_schema(&prefix, defs, v.as_object().unwrap(), result);
+                    }
+                }
+                ty => {
+                    let path = prefix;
+                    let name = prefix.to_ascii_uppercase().replace(".", "_");
+                    let name = format!("PERCAS_CONFIG_{name}");
+                    match result.entry(prefix.to_string()) {
+                        Entry::Vacant(ent) => {
+                            ent.insert(OwnedOptionEntry {
+                                env_name: name,
+                                ent_path: path.to_string(),
+                                ent_type: ty.to_string(),
+                            });
+                        }
+                        Entry::Occupied(ent) => {
+                            assert_eq!(ent.get().ent_type, ty);
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -33,6 +33,8 @@ use percas_server::server::resolve_advertise_addr;
 use percas_server::telemetry;
 
 use crate::Error;
+use crate::config::LoadConfigResult;
+use crate::config::load_config;
 
 #[derive(Debug, clap::Parser)]
 pub struct CommandStart {
@@ -45,17 +47,15 @@ impl CommandStart {
         // Configure error stack to not print with colors
         error_stack::Report::set_color_mode(error_stack::fmt::ColorMode::None);
 
-        let file = self.config_file;
-        let config = std::fs::read_to_string(&file).change_context_lazy(|| {
-            Error(format!("failed to read config file: {}", file.display()))
-        })?;
-        let config = toml::from_str::<Config>(config.as_str())
-            .change_context_lazy(|| Error("failed to parse config content".to_string()))?;
+        let LoadConfigResult { config, warnings } = load_config(self.config_file)?;
 
         let telemetry_runtime = make_telemetry_runtime();
         let mut drop_guards =
             telemetry::init(&telemetry_runtime, "percas", config.telemetry.clone());
         drop_guards.push(Box::new(telemetry_runtime));
+        for warning in warnings {
+            log::warn!("{warning}");
+        }
         log::info!("Percas is starting with loaded config: {config:#?}");
 
         let server_runtime = make_server_runtime();

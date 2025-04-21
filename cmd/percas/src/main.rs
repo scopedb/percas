@@ -18,6 +18,7 @@ use percas_styled::styled;
 use percas_version::version;
 use thiserror::Error;
 
+mod config;
 mod start;
 
 #[derive(Debug, clap::Parser)]
