@@ -74,14 +74,16 @@ where
     type Output = Response;
 
     async fn call(&self, req: Request) -> Result<Self::Output, poem::Error> {
-        log::debug!("{} {}", req.method(), req.uri());
+        let method = req.method().clone();
+        let uri = req.uri().clone();
+        log::debug!("{method} {uri} called");
         let resp = self.0.call(req).await.inspect_err(|err| {
             if err.status() != StatusCode::NOT_FOUND {
-                log::info!("{}: {}", err.status(), err);
+                log::error!("{method} {uri} {}: {err}", err.status());
             }
         })?;
         let resp = resp.into_response();
-        log::debug!("{}", resp.status());
+        log::debug!("{method} {uri} returns {}", resp.status());
         Ok(resp)
     }
 }
