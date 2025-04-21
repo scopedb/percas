@@ -124,6 +124,9 @@ pub fn load_config(config_file: PathBuf) -> Result<LoadConfigResult, Error> {
 mod tests {
     use std::path::PathBuf;
 
+    use percas_core::ServerConfig;
+    use percas_core::default_data_dir;
+    use percas_core::default_dir;
     use sealed_test::prelude::rusty_fork_test;
     use sealed_test::prelude::sealed_test;
     use sealed_test::prelude::tempfile;
@@ -133,22 +136,46 @@ mod tests {
     #[test]
     fn test_default_config() {
         let workspace = env!("CARGO_WORKSPACE_DIR");
-        let dev_config = load_config(PathBuf::from(format!(
+        let mut dev_config = load_config(PathBuf::from(format!(
             "{workspace}/dev/standalone/config.toml"
         )))
         .unwrap()
         .config;
+
+        dev_config.storage.data_dir = default_data_dir();
+        if let ServerConfig::Standalone {
+            dir,
+            advertise_addr,
+            ..
+        } = &mut dev_config.server
+        {
+            *dir = default_dir();
+            *advertise_addr = None;
+        }
+
         assert_eq!(dev_config, Config::default());
     }
 
     #[sealed_test(env = [("PERCAS_FOO_BAR", "baz")])]
     fn test_percas_prefix_no_conflict() {
         let workspace = env!("CARGO_WORKSPACE_DIR");
-        let dev_config = load_config(PathBuf::from(format!(
+        let mut dev_config = load_config(PathBuf::from(format!(
             "{workspace}/dev/standalone/config.toml"
         )))
         .unwrap()
         .config;
+
+        dev_config.storage.data_dir = default_data_dir();
+        if let ServerConfig::Standalone {
+            dir,
+            advertise_addr,
+            ..
+        } = &mut dev_config.server
+        {
+            *dir = default_dir();
+            *advertise_addr = None;
+        }
+
         assert_eq!(dev_config, Config::default());
     }
 

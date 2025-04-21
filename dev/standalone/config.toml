@@ -20,7 +20,7 @@ advertise_addr = "127.0.0.1:7654"
 
 [storage]
 data_dir = ".percas/data"
-disk_capacity = 1_000_000_000
+disk_capacity = 536_870_912
 
 [telemetry.logs.file]
 filter = "INFO"

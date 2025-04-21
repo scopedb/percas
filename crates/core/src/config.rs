@@ -81,11 +81,11 @@ fn default_listen_peer_addr() -> String {
     "0.0.0.0:7655".to_string()
 }
 
-fn default_dir() -> PathBuf {
+pub fn default_dir() -> PathBuf {
     PathBuf::from("/var/lib/percas")
 }
 
-fn default_data_dir() -> PathBuf {
+pub fn default_data_dir() -> PathBuf {
     PathBuf::from("/var/lib/percas/data")
 }
 
