@@ -79,7 +79,7 @@ where
         log::debug!("{method} {uri} called");
         let resp = self.0.call(req).await.inspect_err(|err| {
             if err.status() != StatusCode::NOT_FOUND {
-                log::debug!("{method} {uri} {}: {err}", err.status());
+                log::error!("{method} {uri} {}: {err}", err.status());
             }
         })?;
         let resp = resp.into_response();
