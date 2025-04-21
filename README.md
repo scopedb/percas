@@ -24,7 +24,7 @@ To get started with Percas, you can follow these steps:
 To run a standalone instance of Percas, you can use the following command:
 
 ```shell
-./target/debug/percas start --config-file dev/standalone/config.toml >dev/standalone/node.log 2>&1 &
+./target/debug/percas start --config-file dev/standalone/config.toml
 ```
 
 This will start a standalone instance of Percas listening on `localhost:7654`.
@@ -36,9 +36,9 @@ Percas is a decentralized distributed cache service. Each node in the cluster op
 To quickly start a simple 3-node cluster for development or testing, you can run:
 
 ```shell
-./target/debug/percas start --config-file dev/cluster/config-0.toml >dev/cluster/node-0.log 2>&1 &
-./target/debug/percas start --config-file dev/cluster/config-1.toml >dev/cluster/node-1.log 2>&1 &
-./target/debug/percas start --config-file dev/cluster/config-2.toml >dev/cluster/node-2.log 2>&1 &
+./target/debug/percas start --config-file dev/cluster/config-0.toml &
+./target/debug/percas start --config-file dev/cluster/config-1.toml &
+./target/debug/percas start --config-file dev/cluster/config-2.toml &
 ```
 
 You can interact with the cluster through any node, in this example they are `localhost:7654`, `localhost:7656` and `localhost:7658`.
