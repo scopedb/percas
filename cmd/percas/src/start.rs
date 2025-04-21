@@ -42,6 +42,9 @@ pub struct CommandStart {
 
 impl CommandStart {
     pub fn run(self) -> Result<(), Error> {
+        // Configure error stack to not print with colors
+        error_stack::Report::set_color_mode(error_stack::fmt::ColorMode::None);
+
         let file = self.config_file;
         let config = std::fs::read_to_string(&file).change_context_lazy(|| {
             Error(format!("failed to read config file: {}", file.display()))
