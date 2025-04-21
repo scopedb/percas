@@ -22,6 +22,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: typos-cli,taplo-cli
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Describe
+        run: |
+          cargo x --version
+          cargo --version
+          rustc --version
+      - uses: pre-commit/action@v3.0.1
+
   test:
     name: Run test
     runs-on: ubuntu-24.04
@@ -40,12 +60,14 @@ jobs:
     timeout-minutes: 10
     if: ${{ always() }}
     needs:
+      - check
       - test
     steps:
       - name: Guardian
         run: |
           if [[ ! ( \
-                 "${{ needs.test.result }}" == "success" \
+                 "${{ needs.check.result }}" == "success" \
+              && "${{ needs.test.result }}" == "success" \
               ) ]]; then
             echo "Required jobs haven't been completed successfully."
             exit -1

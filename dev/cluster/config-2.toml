@@ -30,9 +30,6 @@ filter = "INFO"
 dir = "logs"
 max_files = 64
 
-[telemetry.logs.stderr]
-filter = "INFO"
-
 [telemetry.logs.opentelemetry]
 filter = "INFO"
 otlp_endpoint = "http://127.0.0.1:4317"
