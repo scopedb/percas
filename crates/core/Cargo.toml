@@ -41,8 +41,11 @@ tokio = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
+googletest = { workspace = true }
 humansize = { workspace = true }
 insta = { workspace = true }
+schemars = { workspace = true }
+serde_json = { workspace = true }
 tempfile = { workspace = true }
 
 [lints]

@@ -23,7 +23,7 @@ initial_advertise_peer_addrs = ["127.0.0.1:7655"]
 
 [storage]
 data_dir = ".percas-cluster/node-1/data"
-disk_capacity = 1_000_000_000
+disk_capacity = 536_870_912
 
 [telemetry.logs.file]
 filter = "INFO"
