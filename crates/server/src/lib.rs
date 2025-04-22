@@ -14,6 +14,7 @@
 
 use percas_core::FoyerEngine;
 
+pub mod middleware;
 pub mod scheduled;
 pub mod server;
 pub mod telemetry;

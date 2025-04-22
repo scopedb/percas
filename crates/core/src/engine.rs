@@ -24,13 +24,12 @@ use foyer::HybridCacheBuilder;
 use foyer::HybridCachePolicy;
 use foyer::RecoverMode;
 use foyer::RuntimeOptions;
-use foyer::TokioRuntimeOptions;
 use sysinfo::Pid;
 use thiserror::Error;
 
 use crate::num_cpus;
 
-const DEFAULT_MEMORY_CAPACITY_FACTOR: f64 = 0.9;
+const DEFAULT_MEMORY_CAPACITY_FACTOR: f64 = 0.5;
 
 #[derive(Debug, Error)]
 #[error("{0}")]
@@ -76,13 +75,10 @@ impl FoyerEngine {
             .with_device_options(
                 DirectFsDeviceOptions::new(data_dir)
                     .with_capacity(disk_capacity as usize)
-                    .with_file_size(32 * 1024 * 1024),
+                    .with_file_size(64 * 1024 * 1024),
             )
             .with_recover_mode(RecoverMode::Quiet)
-            .with_runtime_options(RuntimeOptions::Unified(TokioRuntimeOptions {
-                worker_threads: parallelism,
-                max_blocking_threads: parallelism * 2,
-            }))
+            .with_runtime_options(RuntimeOptions::Unified(Default::default()))
             .build()
             .await
             .map_err(|err| report!(EngineError(err.to_string())))?;

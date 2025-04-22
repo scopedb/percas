@@ -57,7 +57,10 @@ impl Proxy {
                 RouteDest::Local
             }
         } else {
-            log::error!("no target found for key: {key}");
+            log::debug!(
+                "no target found for key: [{key}] , current ring: {:#?}",
+                ring
+            );
             RouteDest::Local
         }
     }
