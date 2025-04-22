@@ -68,6 +68,7 @@ impl Membership {
             Entry::Occupied(mut entry) => {
                 let current = entry.get_mut();
                 if current.info.incarnation < member.info.incarnation {
+                    log::info!(target: "gossip", "advancing member incarnation from [{}] to [{}]: {member:?}", current.info.incarnation, member.info.incarnation);
                     *current = member;
                     return;
                 }
@@ -76,15 +77,20 @@ impl Membership {
                 }
                 // If the incarnation is the same, we only accept downgrades
                 current.status.downgrade_to(&member.status);
+                if member.status == MemberStatus::Dead {
+                    log::info!(target: "gossip", "member confirmed dead: {member:?}");
+                }
                 current.heartbeat = current.heartbeat.max(member.heartbeat);
             }
             Entry::Vacant(entry) => {
+                log::info!(target: "gossip", "adding new member: {member:?}");
                 entry.insert(member);
             }
         }
     }
 
     pub fn remove_member(&mut self, id: Uuid) {
+        log::info!(target: "gossip", "removing member: {id}");
         self.members.remove(&id);
     }
 }

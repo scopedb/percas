@@ -59,7 +59,7 @@ const DEFAULT_SYNC_INTERVAL: Duration = Duration::from_secs(5);
 const DEFAULT_RETRY_INTERVAL: Duration = Duration::from_secs(1);
 const DEFAULT_RETRIES: usize = 3;
 
-const DEFAULT_REBUILD_RING_INTERVAL: Duration = Duration::from_secs(10);
+const DEFAULT_REBUILD_RING_INTERVAL: Duration = Duration::from_secs(5);
 
 const DEFAULT_MEMBER_DEADLINE: Duration = Duration::from_secs(30);
 
@@ -329,9 +329,16 @@ impl GossipState {
     }
 
     fn rebuild_ring(&self) {
-        let members = self.membership.read().unwrap();
+        // Ensure the current node is alive
+        let mut membership = self.membership.write().unwrap();
+        membership.update_member(MemberState {
+            info: self.current(),
+            status: MemberStatus::Alive,
+            heartbeat: Timestamp::now(),
+        });
 
-        *self.ring.write().unwrap() = Arc::new(HashRing::from(members.members().keys().cloned()));
+        *self.ring.write().unwrap() =
+            Arc::new(HashRing::from(membership.members().keys().cloned()));
     }
 
     fn mark_dead(&self, peer: &NodeInfo) {
@@ -429,6 +436,10 @@ async fn drive_gossip(state: Arc<GossipState>, runtime: &Runtime) -> Result<(), 
                 .iter()
                 .nth(random::<usize>() % membership.members().len())
             {
+                if member.status == MemberStatus::Dead {
+                    log::debug!("skipping dead member: {member:?}");
+                    continue;
+                }
                 log::debug!("pinging member: {member:?}");
                 state.ping(member.info.clone()).await;
             } else {
@@ -452,6 +463,10 @@ async fn drive_gossip(state: Arc<GossipState>, runtime: &Runtime) -> Result<(), 
                 .iter()
                 .nth(random::<usize>() % membership.members().len())
             {
+                if member.status == MemberStatus::Dead {
+                    log::debug!("skipping dead member: {member:?}");
+                    continue;
+                }
                 log::debug!("syncing member: {member:?}");
                 state.sync(member.info.clone()).await;
             } else {
