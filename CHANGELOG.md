@@ -4,6 +4,13 @@ All significant changes to this project will be documented in this file.
 
 ## Unreleased
 
+## v0.1.2
+
+### Improvements
+
+* Added rate limiter to reject unprocessable requests.
+* Improved default configuration for foyer.
+
 ## v0.1.1
 
 ### New Features
