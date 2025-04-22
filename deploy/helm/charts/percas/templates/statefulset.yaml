@@ -1,0 +1,226 @@
+{{/*
+Copyright 2025 ScopeDB <contact@scopedb.io>
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/}}
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "percas.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{ include "percas.statefulSetLabels" . | nindent 4 }}
+  annotations: {{ include "percas.statefulSetAnnotations" . | nindent 4 }}
+spec:
+  serviceName: {{ include "percas.headlessService.name" . }}
+
+  replicas: {{ .Values.statefulSet.replicas }}
+
+  selector:
+    matchLabels: {{ include "percas.selectorLabels" . | nindent 6 }}
+
+  {{- if .Values.statefulSet.updateStrategy }}
+  updateStrategy: {{ toYaml .Values.statefulSet.updateStrategy | nindent 4 }}
+  {{- end }}
+
+  {{- if .Values.statefulSet.podManagementPolicy }}
+  podManagementPolicy: {{ .Values.statefulSet.podManagementPolicy }}
+  {{- end }}
+
+  {{- if .Values.statefulSet.persistentVolumeClaimRetentionPolicy }}
+  persistentVolumeClaimRetentionPolicy:
+    {{- toYaml .Values.statefulSet.persistentVolumeClaimRetentionPolicy | nindent 4 }}
+  {{- end }}
+
+  volumeClaimTemplates: {{ include "percas.volumeClaimTemplate" . | nindent 4 }}
+
+  {{- if .Values.statefulSet.minReadySeconds }}
+  minReadySeconds: {{ .Values.statefulSet.minReadySeconds }}
+  {{- end }}
+
+  {{- if .Values.statefulSet.ordinals }}
+  ordinals:
+    {{- toYaml .Values.statefulSet.ordinals | nindent 4 }}
+  {{- end }}
+
+  template:
+    metadata:
+      labels: {{ include "percas.podLabels" . | nindent 8 }}
+      annotations: {{ include "percas.podAnnotations" . | nindent 8 }}
+    spec:
+      {{- if .Values.statefulSet.priorityClassName }}
+      priorityClassName: {{ .Values.statefulSet.priorityClassName }}
+      {{- end }}
+
+      serviceAccountName: {{ include "percas.serviceAccountName" . }}
+
+      {{/* Intentionally disable service links to avoid long environment variables */}}
+      enableServiceLinks: false
+
+      {{- if .Values.image.pullSecrets }}
+      imagePullSecrets:
+      {{- toYaml .Values.image.pullSecrets | nindent 12 }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.statefulSet.podSecurityContext | nindent 8 }}
+      {{- end }}
+
+      volumes: {{ include "percas.volumes" . | nindent 8 }}
+
+      {{- if .Values.statefulSet.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.statefulSet.nodeSelector | nindent 8 }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.tolerations }}
+      tolerations:
+        {{- toYaml .Values.statefulSet.tolerations | nindent 8 }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.affinity }}
+      affinity:
+        {{- toYaml .Values.statefulSet.affinity | nindent 8 }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.statefulSet.terminationGracePeriodSeconds }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.dnsConfig }}
+      dnsConfig:
+        {{- toYaml .Values.statefulSet.dnsConfig | nindent 8 }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.dnsPolicy }}
+      dnsPolicy: {{ .Values.statefulSet.dnsPolicy }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.hostAliases }}
+      hostAliases:
+        {{- toYaml .Values.statefulSet.hostAliases | nindent 8 }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.hostPID }}
+      hostPID: {{ .Values.statefulSet.hostPID }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.hostIPC }}
+      hostIPC: {{ .Values.statefulSet.hostIPC }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.os }}
+      os:
+        {{- toYaml .Values.statefulSet.os | nindent 8 }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.runtimeClassName }}
+      runtimeClassName: {{ .Values.statefulSet.runtimeClassName }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.restartPolicy }}
+      restartPolicy: {{ .Values.statefulSet.restartPolicy }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.schedulerName }}
+      schedulerName: {{ .Values.statefulSet.schedulerName }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.setHostnameAsFQDN }}
+      setHostnameAsFQDN: {{ .Values.statefulSet.setHostnameAsFQDN }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.shareProcessNamespace }}
+      shareProcessNamespace: {{ .Values.statefulSet.shareProcessNamespace }}
+      {{- end }}
+
+      {{- if .Values.statefulSet.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml .Values.statefulSet.topologySpreadConstraints | nindent 8 }}
+      {{- end }}
+
+      containers:
+        - name: {{ include "percas.name" . }}
+          image: {{ include "percas.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          {{- if .Values.statefulSet.securityContext }}
+          securityContext:
+            {{- toYaml .Values.statefulSet.securityContext | nindent 12 }}
+          {{- end }}
+
+          {{- if or .Values.statefulSet.resources (ne .Values.statefulSet.resourcesPreset "none") }}
+          resources:
+            {{- if .Values.statefulSet.resources }}
+            {{- toYaml .Values.statefulSet.resources | nindent 12 }}
+            {{- else  }}
+              {{- include "common.resources.preset" (dict "type" .Values.statefulSet.resourcesPreset) | nindent 12 }}
+            {{- end }}
+          {{- end }}
+
+          volumeMounts: {{ include "percas.volumeMounts" . | nindent 12 }}
+
+          ports:
+            - containerPort: {{ .Values.service.port }}
+              name: http
+              protocol: TCP
+            - containerPort: {{ .Values.service.peerPort }}
+              name: peer
+              protocol: TCP
+
+          {{- if not .Values.diagnostics.enabled }}
+          livenessProbe:
+            initialDelaySeconds: 1
+            periodSeconds: 10
+            tcpSocket:
+              port: {{ .Values.service.port }}
+          {{- end }}
+
+          {{- if not .Values.diagnostics.enabled}}
+          readinessProbe:
+            initialDelaySeconds: 1
+            periodSeconds: 10
+            tcpSocket:
+              port: {{ .Values.service.port }}
+          {{- end }}
+
+          {{/* Command and args */}}
+          {{- if not .Values.diagnostics.enabled }}
+          command: {{ include "percas.command" . | nindent 12 }}
+          args: {{ include "percas.args" . | nindent 12 }}
+          {{- else }}
+          command: ["bash", "-c", "trap : TERM INT; sleep infinity & wait"]
+          {{- end }}
+
+          env:
+            {{- include "percas.env" . | nindent 12 }}
+            {{- if .Values.statefulSet.env }}
+            {{- range .Values.statefulSet.env }}
+            - {{- toYaml . | nindent 14 }}
+            {{- end }}
+            {{- end }}
+
+          envFrom:
+            {{- include "percas.envFrom" . | nindent 12 }}
+            {{- if .Values.statefulSet.envFrom }}
+            {{- range .Values.statefulSet.envFrom }}
+            - {{- toYaml . | nindent 14 }}
+            {{- end }}
+            {{- end }}
+
+      {{- if .Values.statefulSet.sidecarContainers }}
+      {{- range .Values.statefulSet.sidecarContainers }}
+        - {{- toYaml . | nindent 10 }}
+      {{- end }}
+      {{- end }}

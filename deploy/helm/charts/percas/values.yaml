@@ -1,0 +1,454 @@
+# Copyright 2025 Percas <contact@scopedb.io>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+## @param nameOverride The name of the Percas release to override.
+## @default ""
+nameOverride: ""
+
+## @param fullnameOverride The full name of the Percas release to override.
+## @default ""
+fullnameOverride: ""
+
+## @param commonLabels Labels to add to all resources.
+## @default {}
+commonLabels: {}
+
+## @param commonAnnotations Annotations to add to all resources.
+## @default {}
+commonAnnotations: {}
+
+## @param clusterDomain The cluster domain.
+## @default "cluster.local"
+clusterDomain: "cluster.local"
+
+## @section Image
+image:
+  ## @param image.registry The registry for the Percas image.
+  ## @default docker.io
+  registry: docker.io
+
+  ## @param image.repository The repository for the Percas image.
+  ## @default scopedb/percas
+  repository: scopedb/percas
+
+  ## @param image.pullPolicy The pull policy for the Percas image.
+  ## @default IfNotPresent
+  pullPolicy: IfNotPresent
+
+  ## @param image.tag The tag for the Percas image.
+  ## Tags are available at https://hub.docker.com/r/scopedb/percas/tags
+  ## @default ""
+  tag: ""
+
+  ## @param image.pullSecrets The image pull secrets for the Percas image.
+  ## @default []
+  pullSecrets: []
+
+  ## @param image.debug Whether to enable debug mode.
+  ## Containers will run with the DEBUG environment variable set.
+  ## @default false
+  debug: false
+
+## @section Percas
+percas:
+  ## @param percas.clusterID The cluster ID. Defaults to <release-name>.<namespace>.
+  ## @default ""
+  clusterID: ""
+
+  ## @param percas.config The config for the Percas. If not set, the default config will be used.
+  ## @default null
+  ## Example:
+  ## config:
+  ##   telemetry:
+  ##     logs:
+  ##       opentelemetry:
+  ##         filter: INFO
+  ##         otlp_endpoint: http://127.0.0.1:4317
+  config:
+    telemetry:
+      logs:
+        stderr:
+          filter: INFO
+
+## @section Persistence
+persistence:
+  ## @param persistence.enabled Whether to enable persistence.
+  ## @default false
+  enabled: false
+
+  ## @param persistence.labels Labels to add to the persistent volume claim.
+  ## @default {}
+  labels: {}
+
+  ## @param persistence.annotations Annotations to add to the persistent volume claim.
+  ## @default {}
+  annotations: {}
+
+  ## @param persistence.storageClass The storage class for the persistence.
+  ## @default ""
+  storageClass: ""
+
+  ## @param persistence.accessModes The access modes for the persistence.
+  ## @default ["ReadWriteOnce"]
+  accessModes: ["ReadWriteOnce"]
+
+  ## @param persistence.size The size of the persistence.
+  ## @default 10Gi
+  size: 10Gi
+
+## @section StatefulSet
+statefulSet:
+  ## @param statefulSet.replicas The number of replicas for the StatefulSet.
+  ## @default 1
+  replicas: 1
+
+  ## @param statefulSet.labels Labels to add to the statefulSet.
+  ## @default {}
+  labels: {}
+
+  ## @param statefulSet.annotations Annotations to add to the statefulSet.
+  ## @default {}
+  annotations: {}
+
+  ## @param statefulSet.podAnnotations Annotations to add to the pod.
+  ## @default {}
+  podAnnotations: {}
+
+  ## @param statefulSet.podLabels Labels to add to the pod.
+  ## @default {}
+  podLabels: {}
+
+  ## @param statefulSet.podSecurityContext The security context for the pod.
+  ## @default {}
+  podSecurityContext: {}
+  ## Example:
+  ##   fsGroup: 2000
+
+  ## @param statefulSet.securityContext The security context for the container.
+  ## @default {}
+  securityContext: {}
+  ## Example:
+  ##   capabilities:
+  ##     drop:
+  ##     - ALL
+  ##   readOnlyRootFilesystem: true
+  ##   runAsNonRoot: true
+  ##   runAsUser: 1000
+
+  ## @param statefulSet.resources The resources for the container.
+  ## @default {}
+  resources: {}
+  ## Example:
+  ##   limits:
+  ##     cpu: 100m
+  ##     memory: 128Mi
+  ##   requests:
+  ##     cpu: 100m
+  ##     memory: 128Mi
+
+  ## @param statefulSet.resourcesPreset Set container resources according to one common preset
+  ## (allowed values: none, nano, micro, small, medium, large, xlarge, 2xlarge). This is ignored
+  ## if resources is set (resources is recommended for production).
+  ## More information: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_resources.tpl#L15
+  ## @default "none"
+  resourcesPreset: "none"
+
+  ## @param statefulSet.minReadySeconds The minimum number of seconds for which a newly created pod should be ready.
+  ## @default 0
+  minReadySeconds: 0
+
+  ## @param statefulSet.ordinals The ordinals for the statefulSet.
+  ## @default {}
+  ## Example:
+  ## ordinals:
+  ##   start: 1
+  ordinals: {}
+
+  ## @param statefulSet.terminationGracePeriodSeconds The termination grace period for the container.
+  ## @default 30
+  terminationGracePeriodSeconds: 30
+
+  ## @param statefulSet.dnsConfig The DNS configuration for the pod.
+  ## https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
+  ## @default {}
+  ## Example:
+  ##   dnsConfig:
+  ##     nameservers:
+  ##       - 1.1.1.1
+  ##       - 8.8.8.8
+  ##     searches:
+  ##       - example.com
+  ##     options:
+  ##       - name: ndots
+  ##         value: "2"
+  dnsConfig: {}
+
+  ## @param statefulSet.dnsPolicy The DNS policy for the pod.
+  ## https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+  ## @default ""
+  ## Example:
+  ##   dnsPolicy: ClusterFirst
+  dnsPolicy: ""
+
+  ## @param statefulSet.priorityClassName The priority class name for the pod.
+  ## @default ""
+  priorityClassName: ""
+
+  ## @param statefulSet.hostAliases Additional host aliases for the pod.
+  ## https://kubernetes.io/docs/tasks/network/customize-hosts-file-for-pods/#adding-additional-entries-with-hostaliases
+  ## @default []
+  ## Example:
+  ## - ip: "1.2.3.4"
+  ##   hostnames:
+  ##     - "foo.local"
+  hostAliases: []
+
+  ## @param statefulSet.hostPID Whether to use the host PID.
+  ## @default false
+  hostPID: false
+
+  ## @param statefulSet.hostIPC Whether to use the host IPC.
+  ## @default false
+  hostIPC: false
+
+  ## @param statefulSet.os OS specific settings for the pod. Leave empty for default.
+  ## https://kubernetes.io/docs/concepts/workloads/pods/#pod-os
+  ## @default {}
+  os: {}
+
+  ## @param statefulSet.runtimeClassName The runtime class name for the pod.
+  ## @default ""
+  runtimeClassName: ""
+
+  ## @param statefulSet.restartPolicy The restart policy for the pod.
+  ## @default ""
+  restartPolicy: ""
+
+  ## @param statefulSet.schedulerName The scheduler name for the pod.
+  ## @default ""
+  schedulerName: ""
+
+  ## @param statefulSet.setHostnameAsFQDN Whether to set the hostname as the FQDN.
+  ## @default false
+  setHostnameAsFQDN: false
+
+  ## @param statefulSet.shareProcessNamespace Whether to share the process namespace.
+  ## @default false
+  shareProcessNamespace: false
+
+  ## @param statefulSet.topologySpreadConstraints TopologySpreadConstraints for the pod.
+  ## https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/#topologyspreadconstraints-field
+  ## @default []
+  topologySpreadConstraints: []
+
+  ## @param statefulSet.env Additional environment variables for the container.
+  ## @default []
+  env: []
+  ## Example:
+  ## - name: FOO
+  ##   value: bar
+
+  ## @param statefulSet.envFrom Additional environment variables from a source.
+  ## @default []
+  envFrom: []
+  ## Example:
+  ## - configMapRef:
+  ##     name: myconfigmap
+
+  ## @param statefulSet.volumes Additional volumes on the output StatefulSet definition.
+  ## @default []
+  volumes: []
+  ## Example:
+  ## - name: foo
+  ##   secret:
+  ##     secretName: mysecret
+  ##     optional: false
+
+  ## @section PersistentVolumeClaimRetentionPolicy
+  persistentVolumeClaimRetentionPolicy:
+    ## @param statefulSet.persistentVolumeClaimRetentionPolicy.whenDeleted The policy for the persistent volume claim when deleted.
+    ## @default Delete
+    whenDeleted: Delete
+
+    ## @param statefulSet.persistentVolumeClaimRetentionPolicy.whenScaled The policy for the persistent volume claim when scaled.
+    ## @default Delete
+    whenScaled: Delete
+
+  ## @param statefulSet.volumeClaimTemplates Additional PVC templates on the output StatefulSet definition.
+  ## @default []
+  volumeClaimTemplates: []
+  ## Example:
+  ## - metadata:
+  ##     name: foo
+  ##   spec:
+  ##     storageClassName: "my-storage-class"
+  ##     accessModes:
+  ##     - ReadWriteOnce
+  ##     resources:
+  ##       requests:
+  ##         storage: 1Gi
+
+  ## @param statefulSet.volumeMounts Additional volumeMounts on the output StatefulSet definition.
+  ## @default []
+  volumeMounts: []
+  ## Example:
+  ## - name: foo
+  ##   mountPath: "/etc/foo"
+  ##   readOnly: true
+
+  ## @param statefulSet.nodeSelector NodeSelector for the pod.
+  ## @default {}
+  nodeSelector: {}
+
+  ## @param statefulSet.tolerations Tolerations for the pod.
+  ## @default []
+  tolerations: []
+
+  ## @param statefulSet.affinity Affinity for the pod.
+  ## @default {}
+  affinity: {}
+
+  ## @param statefulSet.updateStrategy The update strategy for the statefulSet.
+  ## @default {}
+  updateStrategy: {}
+
+  ## @param statefulSet.podManagementPolicy The pod management policy for the statefulSet.
+  ## @default Parallel
+  podManagementPolicy: Parallel
+
+  ## @param statefulSet.sidecarContainers Additional sidecar containers on the output StatefulSet definition.
+  ## @default []
+  sidecarContainers: []
+
+  ## @param statefulSet.podDisruptionBudget.enabled Whether to enable the pod disruption budget.
+  ## @default false
+  podDisruptionBudget:
+    ## @param statefulSet.podDisruptionBudget.enabled Whether to enable the pod disruption budget.
+    ## @default false
+    enabled: false
+
+    ## @param statefulSet.podDisruptionBudget.minAvailable The minimum number of pods that must be available.
+    ## minAvailable and maxUnavailable are mutually exclusive. Set one of them to null.
+    ## @default null
+    minAvailable: null
+
+    ## @param statefulSet.podDisruptionBudget.maxUnavailable The maximum number of pods that can be unavailable.
+    ## minAvailable and maxUnavailable are mutually exclusive. Set one of them to null.
+    ## @default null
+    maxUnavailable: null
+
+## @section Diagnostics
+diagnostics:
+  ## @param diagnostics.enabled Whether to enable diagnostics.
+  ## When enabled, the container will run with sleep infinity.
+  ## This is useful for debugging the container.
+  ## @default false
+  enabled: false
+
+## @section ServiceAccount
+serviceAccount:
+  ## @param serviceAccount.create Whether to create a service account.
+  ## @default true
+  create: true
+
+  ## @param serviceAccount.name The name of the service account.
+  ## If not set and create is true, a name is generated with the percas.fullname template.
+  ## @default ""
+  name: ""
+
+  ## @param serviceAccount.automount Whether to automatically mount the service account's API credentials.
+  ## @default true
+  automount: true
+
+  ## @param serviceAccount.labels Labels to add to the service account.
+  ## @default {}
+  labels: {}
+
+  ## @param serviceAccount.annotations Annotations to add to the service account.
+  ## @default {}
+  annotations: {}
+
+## @section Service
+service:
+  ## @param service.type The type of service to create. More information can be found here:
+  ## https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types.
+  ## @default ClusterIP
+  type: ClusterIP
+
+  ## @param service.port The port for the service.
+  ## @default 7654
+  port: 7654
+
+  ## @param service.peerPort The port for the peer discovery service.
+  ## @default 7655
+  peerPort: 7655
+
+  ## @param service.extraPorts Extra ports to add to the service.
+  ## @default []
+  extraPorts: []
+
+  ## @param service.annotations Annotations to add to the service.
+  ## @default {}
+  annotations: {}
+
+  ## @param service.labels Labels to add to the service.
+  ## @default {}
+  labels: {}
+
+  ## @param service.internalTrafficPolicy The internal traffic policy for the service.
+  ## @default ""
+  internalTrafficPolicy: ""
+
+  ## @param service.externalTrafficPolicy The external traffic policy for the service.
+  ## @default ""
+  externalTrafficPolicy: ""
+
+  ## @param service.externalIPs The external IPs for the service.
+  ## @default []
+  externalIPs: []
+
+  ## @param service.sessionAffinity The session affinity for the service.
+  ## https://kubernetes.io/docs/reference/networking/virtual-ips/#session-affinity
+  ## @default ""
+  sessionAffinity: ""
+
+  ## @param service.sessionAffinityConfig The session affinity config for the service.
+  ## @default {}
+  sessionAffinityConfig: {}
+
+## @section NetworkPolicy on the pods
+networkPolicy:
+  ## @param networkPolicy.create Whether to create the network policy.
+  ## @default false
+  create: false
+
+  ## @param networkPolicy.labels Labels to add to the network policy.
+  ## @default {}
+  labels: {}
+
+  ## @param networkPolicy.annotations Annotations to add to the network policy.
+  ## @default {}
+  annotations: {}
+
+  ## @param networkPolicy.policyTypes The policy types for the network policy.
+  ## @default []
+  policyTypes: []
+
+  ## @param networkPolicy.egress The egress for the network policy.
+  ## @default []
+  egress: []
+
+  ## @param networkPolicy.ingress The ingress for the network policy.
+  ## @default []
+  ingress: []
