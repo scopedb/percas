@@ -59,7 +59,8 @@ impl CommandStart {
         log::info!("Percas is starting with loaded config: {config:#?}");
 
         let server_runtime = make_server_runtime();
-        server_runtime.block_on(run_server(&server_runtime, config))
+        let gossip_runtime = make_gossip_runtime();
+        server_runtime.block_on(run_server(&server_runtime, &gossip_runtime, config))
     }
 }
 
@@ -70,6 +71,10 @@ fn make_telemetry_runtime() -> Runtime {
 fn make_server_runtime() -> Runtime {
     let parallelism = num_cpus().get();
     make_runtime("server_runtime", "server_thread", parallelism)
+}
+
+fn make_gossip_runtime() -> Runtime {
+    make_runtime("gossip_runtime", "gossip_thread", 1)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -129,7 +134,7 @@ impl From<&ServerConfig> for FlattenConfig {
     }
 }
 
-async fn run_server(rt: &Runtime, config: Config) -> Result<(), Error> {
+async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) -> Result<(), Error> {
     let make_error = || Error("failed to start server".to_string());
 
     let engine = FoyerEngine::try_new(
@@ -193,7 +198,7 @@ async fn run_server(rt: &Runtime, config: Config) -> Result<(), Error> {
         // TODO: gracefully shutdown gossip
         gossip
             .clone()
-            .start(rt, listen_peer_addr.clone())
+            .start(gossip_rt, listen_peer_addr.clone())
             .await
             .change_context_lazy(make_error)?;
 
@@ -202,12 +207,15 @@ async fn run_server(rt: &Runtime, config: Config) -> Result<(), Error> {
         None
     };
 
-    let (server, shutdown_tx) =
-        percas_server::server::start_server(rt, ctx, listen_addr, advertise_addr, cluster_proxy)
-            .await
-            .change_context_lazy(|| {
-                Error("A fatal error has occurred in server process.".to_string())
-            })?;
+    let (server, shutdown_tx) = percas_server::server::start_server(
+        server_rt,
+        ctx,
+        listen_addr,
+        advertise_addr,
+        cluster_proxy,
+    )
+    .await
+    .change_context_lazy(|| Error("A fatal error has occurred in server process.".to_string()))?;
 
     ctrlc::set_handler(move || shutdown_tx.shutdown())
         .change_context_lazy(|| Error("failed to setup ctrl-c signal handle".to_string()))?;

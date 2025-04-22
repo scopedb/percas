@@ -21,23 +21,17 @@ use fastimer::schedule::SimpleActionExt;
 use mea::shutdown::ShutdownRecv;
 use mea::shutdown::ShutdownSend;
 use mea::waitgroup::WaitGroup;
-use percas_client::ClientBuilder;
 use percas_cluster::Proxy;
-use percas_cluster::RouteDest;
 use percas_core::Runtime;
+use percas_core::num_cpus;
 use percas_core::timer;
 use percas_metrics::GlobalMetrics;
 use percas_metrics::OperationMetrics;
 use poem::Body;
-use poem::Endpoint;
 use poem::EndpointExt;
-use poem::IntoResponse;
-use poem::Middleware;
-use poem::Request;
 use poem::Response;
 use poem::Route;
 use poem::handler;
-use poem::http::Method;
 use poem::http::StatusCode;
 use poem::listener::Acceptor;
 use poem::listener::Listener;
@@ -48,162 +42,10 @@ use poem::web::Path;
 use poem::web::headers::ContentType;
 
 use crate::PercasContext;
+use crate::middleware::ClusterProxyMiddleware;
+use crate::middleware::LoggerMiddleware;
+use crate::middleware::RateLimitMiddleware;
 use crate::scheduled::ReportMetricsAction;
-
-struct LoggerMiddleware;
-
-impl<E> Middleware<E> for LoggerMiddleware
-where
-    E: Endpoint,
-    E::Output: IntoResponse,
-{
-    type Output = LoggerEndpoint<E>;
-
-    fn transform(&self, endpoint: E) -> Self::Output {
-        LoggerEndpoint(endpoint)
-    }
-}
-
-struct LoggerEndpoint<E>(E);
-
-impl<E> Endpoint for LoggerEndpoint<E>
-where
-    E: Endpoint,
-    E::Output: IntoResponse,
-{
-    type Output = Response;
-
-    async fn call(&self, req: Request) -> Result<Self::Output, poem::Error> {
-        let method = req.method().clone();
-        let uri = req.uri().clone();
-        log::debug!("{method} {uri} called");
-        let resp = self.0.call(req).await.inspect_err(|err| {
-            if err.status() != StatusCode::NOT_FOUND {
-                log::error!("{method} {uri} {}: {err}", err.status());
-            }
-        })?;
-        let resp = resp.into_response();
-        log::debug!("{method} {uri} returns {}", resp.status());
-        Ok(resp)
-    }
-}
-
-struct ClusterProxyMiddleware {
-    proxy: Option<Proxy>,
-}
-
-impl ClusterProxyMiddleware {
-    pub fn new(proxy: Option<Proxy>) -> Self {
-        Self { proxy }
-    }
-}
-
-impl<E> Middleware<E> for ClusterProxyMiddleware
-where
-    E: Endpoint,
-    E::Output: IntoResponse,
-{
-    type Output = ClusterProxyEndpoint<E>;
-
-    fn transform(&self, endpoint: E) -> Self::Output {
-        ClusterProxyEndpoint {
-            proxy: self.proxy.clone(),
-            endpoint,
-        }
-    }
-}
-
-struct ClusterProxyEndpoint<E> {
-    proxy: Option<Proxy>,
-    endpoint: E,
-}
-
-impl<E> Endpoint for ClusterProxyEndpoint<E>
-where
-    E: Endpoint,
-    E::Output: IntoResponse,
-{
-    type Output = Response;
-
-    async fn call(&self, mut req: Request) -> Result<Self::Output, poem::Error> {
-        let key = req.path_params::<String>()?;
-
-        if let Some(proxy) = &self.proxy {
-            match proxy.route(&key) {
-                RouteDest::Local => self
-                    .endpoint
-                    .call(req)
-                    .await
-                    .map(IntoResponse::into_response),
-                RouteDest::RemoteAddr(addr) => {
-                    let client = ClientBuilder::new(format!("http://{addr}"))
-                        .build()
-                        .unwrap();
-                    match *req.method() {
-                        Method::GET => {
-                            let resp = client.get(&key).await;
-                            match resp {
-                                Ok(resp) => {
-                                    if let Some(value) = resp {
-                                        Ok(get_success(value))
-                                    } else {
-                                        Ok(get_not_found())
-                                    }
-                                }
-                                Err(err) => {
-                                    log::error!("failed to get from remote: {err}");
-                                    self.endpoint
-                                        .call(req)
-                                        .await
-                                        .map(IntoResponse::into_response)
-                                }
-                            }
-                        }
-                        Method::PUT => {
-                            let body = req.take_body().into_bytes().await?;
-                            let resp = client.put(&key, &body).await;
-                            match resp {
-                                Ok(()) => Ok(put_success()),
-                                Err(err) => {
-                                    log::error!("failed to put from remote: {err}");
-                                    req.set_body(body);
-                                    self.endpoint
-                                        .call(req)
-                                        .await
-                                        .map(IntoResponse::into_response)
-                                }
-                            }
-                        }
-                        Method::DELETE => {
-                            let resp = client.delete(&key).await;
-                            match resp {
-                                Ok(()) => Ok(delete_success()),
-                                Err(err) => {
-                                    log::error!("failed to delete from remote: {err}");
-                                    self.endpoint
-                                        .call(req)
-                                        .await
-                                        .map(IntoResponse::into_response)
-                                }
-                            }
-                        }
-
-                        _ => self
-                            .endpoint
-                            .call(req)
-                            .await
-                            .map(IntoResponse::into_response),
-                    }
-                }
-            }
-        } else {
-            self.endpoint
-                .call(req)
-                .await
-                .map(IntoResponse::into_response)
-        }
-    }
-}
 
 pub(crate) type ServerFuture<T> = tokio::task::JoinHandle<Result<T, io::Error>>;
 
@@ -284,12 +126,13 @@ pub async fn start_server(
         let route = Route::new()
             .at(
                 "/*key",
-                poem::get(get).put(put).delete(delete).with_if(
-                    cluster_proxy.is_some(),
-                    ClusterProxyMiddleware::new(cluster_proxy),
-                ),
+                poem::get(get)
+                    .put(put)
+                    .delete(delete)
+                    .with(ClusterProxyMiddleware::new(cluster_proxy)),
             )
             .data(ctx.clone())
+            .with(RateLimitMiddleware::new(num_cpus().get() * 100))
             .with(LoggerMiddleware);
         let listen_addr = listen_addr.clone();
         let signal = async move {
@@ -330,14 +173,14 @@ pub async fn start_server(
     Ok((state, shutdown_tx_server))
 }
 
-fn get_success(body: impl Into<Body>) -> Response {
+pub fn get_success(body: impl Into<Body>) -> Response {
     Response::builder()
         .status(StatusCode::OK)
         .typed_header(ContentType::octet_stream())
         .body(body)
 }
 
-fn get_not_found() -> Response {
+pub fn get_not_found() -> Response {
     Response::builder()
         .status(StatusCode::NOT_FOUND)
         .typed_header(ContentType::text())
@@ -381,14 +224,14 @@ pub async fn get(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Res
     }
 }
 
-fn put_success() -> Response {
+pub fn put_success() -> Response {
     Response::builder()
         .status(StatusCode::CREATED)
         .typed_header(ContentType::text())
         .body(StatusCode::CREATED.to_string())
 }
 
-fn put_bad_request() -> Response {
+pub fn put_bad_request() -> Response {
     Response::builder()
         .status(StatusCode::BAD_REQUEST)
         .typed_header(ContentType::text())
@@ -432,7 +275,7 @@ pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>, body: 
     }
 }
 
-fn delete_success() -> Response {
+pub fn delete_success() -> Response {
     Response::builder().status(StatusCode::NO_CONTENT).finish()
 }
 

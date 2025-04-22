@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use error_stack::Result;
-use error_stack::ResultExt;
-use error_stack::bail;
 use reqwest::IntoUrl;
 use reqwest::StatusCode;
 use reqwest::Url;
@@ -71,57 +68,58 @@ impl Client {
 }
 
 async fn do_get(client: &Client, key: &str) -> Result<Option<Vec<u8>>, Error> {
-    let make_error = || Error::Other("failed to get".to_string());
-
-    let url = client.base_url.join(key).change_context_lazy(make_error)?;
-    let resp = client
-        .client
-        .get(url)
-        .send()
-        .await
-        .change_context_lazy(make_error)?;
+    let url = client
+        .base_url
+        .join(key)
+        .map_err(|e| Error::Other(e.to_string()))?;
+    let resp = client.client.get(url).send().await.map_err(Error::Http)?;
 
     match resp.status() {
-        StatusCode::NOT_FOUND => Ok(None),
+        StatusCode::NOT_FOUND | StatusCode::TOO_MANY_REQUESTS => Ok(None),
         StatusCode::OK => {
-            let body = resp.bytes().await.change_context_lazy(make_error)?;
+            let body = resp.bytes().await.map_err(Error::Http)?;
             Ok(Some(body.to_vec()))
         }
-        _ => bail!(Error::Other(resp.status().to_string())),
+        _ => Err(Error::Other(resp.status().to_string())),
     }
 }
 
 async fn do_put(client: &Client, key: &str, value: &[u8]) -> Result<(), Error> {
-    let make_error = || Error::Other("failed to put".to_string());
-
-    let url = client.base_url.join(key).change_context_lazy(make_error)?;
+    let url = client
+        .base_url
+        .join(key)
+        .map_err(|e| Error::Other(e.to_string()))?;
     let resp = client
         .client
         .put(url)
         .body(value.to_vec())
         .send()
         .await
-        .change_context_lazy(make_error)?;
+        .map_err(Error::Http)?;
 
     match resp.status() {
-        StatusCode::OK | StatusCode::CREATED => Ok(()),
-        _ => bail!(Error::Other(resp.status().to_string())),
+        StatusCode::OK
+        | StatusCode::CREATED
+        | StatusCode::NO_CONTENT
+        | StatusCode::TOO_MANY_REQUESTS => Ok(()),
+        _ => Err(Error::Other(resp.status().to_string())),
     }
 }
 
 async fn do_delete(client: &Client, key: &str) -> Result<(), Error> {
-    let make_error = || Error::Other("failed to delete".to_string());
-
-    let url = client.base_url.join(key).change_context_lazy(make_error)?;
+    let url = client
+        .base_url
+        .join(key)
+        .map_err(|e| Error::Other(e.to_string()))?;
     let resp = client
         .client
         .delete(url)
         .send()
         .await
-        .change_context_lazy(make_error)?;
+        .map_err(Error::Http)?;
 
     match resp.status() {
-        StatusCode::OK | StatusCode::NO_CONTENT => Ok(()),
-        _ => bail!(Error::Other(resp.status().to_string())),
+        StatusCode::OK | StatusCode::NO_CONTENT | StatusCode::TOO_MANY_REQUESTS => Ok(()),
+        _ => Err(Error::Other(resp.status().to_string())),
     }
 }
