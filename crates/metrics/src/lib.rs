@@ -45,7 +45,7 @@ impl GlobalMetrics {
 pub struct StorageMetrics {
     pub capacity: Gauge<u64>,
     pub used: Gauge<u64>,
-    pub entries: Gauge<u64>,
+    pub io: StorageIOMetrics,
 }
 
 impl StorageMetrics {
@@ -61,11 +61,38 @@ impl StorageMetrics {
                 .with_description("The used capacity of the storage")
                 .with_unit("byte")
                 .build(),
-            entries: meter
-                .u64_gauge("percas.storage.entries")
-                .with_description("The number of entries in the storage")
+
+            io: StorageIOMetrics::new(meter),
+        }
+    }
+}
+
+pub struct StorageIOMetrics {
+    pub count: Counter<u64>,
+    pub bytes: Counter<u64>,
+}
+
+impl StorageIOMetrics {
+    pub fn new(meter: Meter) -> Self {
+        Self {
+            count: meter
+                .u64_counter("percas.storage.io.count")
+                .with_description("The number of IOs")
+                .build(),
+            bytes: meter
+                .u64_counter("percas.storage.io.bytes")
+                .with_description("The number of IO bytes")
+                .with_unit("byte")
                 .build(),
         }
+    }
+
+    pub const OPERATION_READ: &str = "read";
+    pub const OPERATION_WRITE: &str = "write";
+    pub const OPERATION_FLUSH: &str = "flush";
+
+    pub fn operation_labels(operation: &str) -> [KeyValue; 1] {
+        [KeyValue::new("operation", operation.to_string())]
     }
 }
 
