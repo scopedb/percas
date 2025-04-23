@@ -60,6 +60,23 @@ impl ReportMetricsAction {
             stats.flush_ios.load(std::sync::atomic::Ordering::Relaxed) as u64,
             &flush_label,
         );
+
+        // Reset the stats
+        stats
+            .read_ios
+            .store(0, std::sync::atomic::Ordering::Relaxed);
+        stats
+            .read_bytes
+            .store(0, std::sync::atomic::Ordering::Relaxed);
+        stats
+            .write_ios
+            .store(0, std::sync::atomic::Ordering::Relaxed);
+        stats
+            .write_bytes
+            .store(0, std::sync::atomic::Ordering::Relaxed);
+        stats
+            .flush_ios
+            .store(0, std::sync::atomic::Ordering::Relaxed);
     }
 }
 
