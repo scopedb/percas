@@ -4,6 +4,12 @@ All significant changes to this project will be documented in this file.
 
 ## Unreleased
 
+## v0.1.4
+
+### Bug Fixes
+
+* Fixed the issue that percas cannot limit memory usage as expected.
+
 ## v0.1.3
 
 ### Bug Fixes
