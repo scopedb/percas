@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::path::Path;
+use std::sync::Arc;
 
 use error_stack::Result;
 use error_stack::bail;
@@ -29,7 +30,7 @@ use thiserror::Error;
 
 use crate::num_cpus;
 
-const DEFAULT_MEMORY_CAPACITY_FACTOR: f64 = 0.5;
+const DEFAULT_MEMORY_CAPACITY_FACTOR: f64 = 0.8;
 
 #[derive(Debug, Error)]
 #[error("{0}")]
@@ -69,6 +70,11 @@ impl FoyerEngine {
                 ) as f64
                     * DEFAULT_MEMORY_CAPACITY_FACTOR) as usize,
             )
+            .with_weighter(|key: &Vec<u8>, value: &Vec<u8>| {
+                let key_size = key.len();
+                let value_size = value.len();
+                key_size + value_size
+            })
             .with_shards(parallelism)
             .with_eviction_config(FifoConfig::default())
             .storage(foyer::Engine::Large)
@@ -109,6 +115,10 @@ impl FoyerEngine {
 
     pub fn capacity(&self) -> u64 {
         self.capacity
+    }
+
+    pub fn stats(&self) -> Arc<foyer::DeviceStats> {
+        self.inner.stats()
     }
 }
 

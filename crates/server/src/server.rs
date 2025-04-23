@@ -23,7 +23,6 @@ use mea::shutdown::ShutdownSend;
 use mea::waitgroup::WaitGroup;
 use percas_cluster::Proxy;
 use percas_core::Runtime;
-use percas_core::num_cpus;
 use percas_core::timer;
 use percas_metrics::GlobalMetrics;
 use percas_metrics::OperationMetrics;
@@ -132,7 +131,7 @@ pub async fn start_server(
                     .with(ClusterProxyMiddleware::new(cluster_proxy)),
             )
             .data(ctx.clone())
-            .with(RateLimitMiddleware::new(num_cpus().get() * 100))
+            .with(RateLimitMiddleware::new())
             .with(LoggerMiddleware);
         let listen_addr = listen_addr.clone();
         let signal = async move {

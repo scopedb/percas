@@ -15,6 +15,7 @@
 use std::sync::Arc;
 
 use percas_metrics::GlobalMetrics;
+use percas_metrics::StorageIOMetrics;
 
 use crate::PercasContext;
 
@@ -34,6 +35,31 @@ impl ReportMetricsAction {
         metrics.storage.capacity.record(engine.capacity(), &[]);
         // Foyer will reserve all the space in the disk, so the used space is meaningless
         metrics.storage.used.record(engine.capacity(), &[]);
+
+        let stats = engine.stats();
+        let read_label = StorageIOMetrics::operation_labels(StorageIOMetrics::OPERATION_READ);
+        let write_label = StorageIOMetrics::operation_labels(StorageIOMetrics::OPERATION_WRITE);
+        let flush_label = StorageIOMetrics::operation_labels(StorageIOMetrics::OPERATION_FLUSH);
+        metrics.storage.io.bytes.add(
+            stats.read_bytes.load(std::sync::atomic::Ordering::Relaxed) as u64,
+            &read_label,
+        );
+        metrics.storage.io.bytes.add(
+            stats.write_bytes.load(std::sync::atomic::Ordering::Relaxed) as u64,
+            &write_label,
+        );
+        metrics.storage.io.count.add(
+            stats.read_ios.load(std::sync::atomic::Ordering::Relaxed) as u64,
+            &read_label,
+        );
+        metrics.storage.io.count.add(
+            stats.write_ios.load(std::sync::atomic::Ordering::Relaxed) as u64,
+            &write_label,
+        );
+        metrics.storage.io.count.add(
+            stats.flush_ios.load(std::sync::atomic::Ordering::Relaxed) as u64,
+            &flush_label,
+        );
     }
 }
 
