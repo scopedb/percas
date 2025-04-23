@@ -169,8 +169,12 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
             .cluster_id
             .ok_or_else(|| Error("cluster id is required for cluster mode".to_string()))?;
 
-        let current_node = if let Some(mut node) =
-            NodeInfo::load(&node_file_path(&flatten_config.dir)).change_context_lazy(make_error)?
+        let current_node = if let Some(mut node) = NodeInfo::load(
+            &node_file_path(&flatten_config.dir),
+            advertise_addr.clone(),
+            advertise_peer_addr.clone(),
+        )
+        .change_context_lazy(make_error)?
         {
             node.advance_incarnation();
             node.persist(&node_file_path(&flatten_config.dir))

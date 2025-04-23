@@ -23,6 +23,55 @@ use uuid::Uuid;
 
 use crate::ClusterError;
 
+/// PersistentNodeInfo is used to store the node information in a file.
+/// The `advertise_addr` and `advertise_peer_addr` fields are not included in this struct, since
+/// addr may change after the node is restarted if the node is deployed in cloud environments.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PersistentNodeInfo {
+    pub node_id: Uuid,
+    pub node_name: String,
+    pub cluster_id: String,
+    pub incarnation: u64,
+}
+
+impl From<NodeInfo> for PersistentNodeInfo {
+    fn from(node_info: NodeInfo) -> Self {
+        Self {
+            node_id: node_info.node_id,
+            node_name: node_info.node_name,
+            cluster_id: node_info.cluster_id,
+            incarnation: node_info.incarnation,
+        }
+    }
+}
+
+impl PersistentNodeInfo {
+    pub fn load(path: &Path) -> Result<Option<Self>, ClusterError> {
+        let make_error = || {
+            ClusterError::Internal(format!(
+                "failed to load node info from file: {}",
+                path.display()
+            ))
+        };
+
+        if path.exists() {
+            let data = std::fs::read_to_string(path).change_context_lazy(make_error)?;
+            if let Ok(info) = serde_json::from_str::<Self>(&data) {
+                return Ok(Some(info));
+            } else {
+                bail!(make_error());
+            }
+        }
+        Ok(None)
+    }
+
+    pub fn persist(&self, path: &Path) -> Result<(), std::io::Error> {
+        let data = serde_json::to_string_pretty(self).unwrap();
+        std::fs::write(path, data)?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NodeInfo {
     pub node_id: Uuid,
@@ -55,28 +104,27 @@ impl NodeInfo {
         self.incarnation += 1;
     }
 
-    pub fn persist(&self, path: &Path) -> Result<(), std::io::Error> {
-        let data = serde_json::to_string_pretty(self).unwrap();
-        std::fs::write(path, data)?;
-        Ok(())
+    pub fn load(
+        path: &Path,
+        advertise_addr: String,
+        advertise_peer_addr: String,
+    ) -> Result<Option<Self>, ClusterError> {
+        if let Some(info) = PersistentNodeInfo::load(path)? {
+            Ok(Some(Self {
+                node_id: info.node_id,
+                node_name: info.node_name,
+                cluster_id: info.cluster_id,
+                advertise_addr,
+                advertise_peer_addr,
+                incarnation: info.incarnation,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
-    pub fn load(path: &Path) -> Result<Option<Self>, ClusterError> {
-        let make_error = || {
-            ClusterError::Internal(format!(
-                "failed to load node info from file: {}",
-                path.display()
-            ))
-        };
-
-        if path.exists() {
-            let data = std::fs::read_to_string(path).change_context_lazy(make_error)?;
-            if let Ok(info) = serde_json::from_str::<Self>(&data) {
-                return Ok(Some(info));
-            } else {
-                bail!(make_error());
-            }
-        }
-        Ok(None)
+    pub fn persist(&self, path: &Path) -> Result<(), std::io::Error> {
+        let persistent_info = PersistentNodeInfo::from(self.clone());
+        persistent_info.persist(path)
     }
 }
