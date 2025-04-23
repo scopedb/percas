@@ -18,6 +18,7 @@ use mea::semaphore::Semaphore;
 use percas_client::ClientBuilder;
 use percas_cluster::Proxy;
 use percas_cluster::RouteDest;
+use percas_core::num_cpus;
 use poem::Endpoint;
 use poem::IntoResponse;
 use poem::Middleware;
@@ -187,13 +188,18 @@ where
 }
 
 pub struct RateLimitMiddleware {
-    permit: Arc<Semaphore>,
+    wait_permit: Arc<Semaphore>,
+    run_permit: Arc<Semaphore>,
 }
 
 impl RateLimitMiddleware {
-    pub fn new(limit: usize) -> Self {
+    pub fn new() -> Self {
+        let run_limit = num_cpus().get() * 100;
+        let wait_limit = run_limit * 5;
+
         Self {
-            permit: Arc::new(Semaphore::new(limit)),
+            wait_permit: Arc::new(Semaphore::new(wait_limit)),
+            run_permit: Arc::new(Semaphore::new(run_limit)),
         }
     }
 }
@@ -207,14 +213,16 @@ where
 
     fn transform(&self, endpoint: E) -> Self::Output {
         RateLimitEndpoint {
-            permit: self.permit.clone(),
+            wait_permit: self.wait_permit.clone(),
+            run_permit: self.run_permit.clone(),
             endpoint,
         }
     }
 }
 
 pub struct RateLimitEndpoint<E> {
-    permit: Arc<Semaphore>,
+    wait_permit: Arc<Semaphore>,
+    run_permit: Arc<Semaphore>,
     endpoint: E,
 }
 
@@ -226,11 +234,13 @@ where
     type Output = Response;
 
     async fn call(&self, req: Request) -> Result<Self::Output, poem::Error> {
-        let Some(_permit) = self.permit.try_acquire(1) else {
+        let Some(_wait_permit) = self.wait_permit.try_acquire(1) else {
             return Ok(Response::builder()
                 .status(StatusCode::TOO_MANY_REQUESTS)
                 .body(StatusCode::TOO_MANY_REQUESTS.to_string()));
         };
+        let _run_permit = self.run_permit.acquire(1).await;
+
         self.endpoint
             .call(req)
             .await
