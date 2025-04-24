@@ -25,6 +25,8 @@ use error_stack::ResultExt;
 use error_stack::bail;
 use fastimer::MakeDelayExt;
 use jiff::Timestamp;
+use mea::shutdown::ShutdownRecv;
+use mea::waitgroup::WaitGroup;
 use percas_core::JoinHandle;
 use percas_core::Runtime;
 use percas_core::node_file_path;
@@ -35,8 +37,7 @@ use poem::Response;
 use poem::Route;
 use poem::handler;
 use poem::listener::Acceptor;
-use poem::listener::Listener;
-use poem::listener::TcpListener;
+use poem::listener::TcpAcceptor;
 use poem::web::Data;
 use poem::web::Json;
 use reqwest::Client;
@@ -63,6 +64,8 @@ const DEFAULT_RETRIES: usize = 3;
 const DEFAULT_REBUILD_RING_INTERVAL: Duration = Duration::from_secs(5);
 
 const DEFAULT_MEMBER_DEADLINE: Duration = Duration::from_secs(30);
+
+pub type GossipFuture = JoinHandle<Result<(), ClusterError>>;
 
 #[derive(Debug)]
 pub struct GossipState {
@@ -106,27 +109,44 @@ impl GossipState {
     pub async fn start(
         self: Arc<Self>,
         rt: &Runtime,
-        listen_peer_addr: String,
-    ) -> Result<JoinHandle<std::result::Result<(), std::io::Error>>, ClusterError> {
+        shutdown_rx: ShutdownRecv,
+        acceptor: TcpAcceptor,
+    ) -> Result<Vec<GossipFuture>, ClusterError> {
+        let wg = WaitGroup::new();
         let route = Route::new()
             .at("/gossip", poem::post(gossip).data(self.clone()))
             .at("/members", poem::get(list_members).data(self.clone()));
 
+        let mut gossip_futs = vec![];
+
         // Listen on the peer address
-        let server_fut = rt.spawn(async move {
-            let acceptor = TcpListener::bind(listen_peer_addr).into_acceptor().await?;
-            log::info!(
-                "gossip server has started on [{}]",
-                &acceptor.local_addr()[0]
-            );
-            poem::Server::new_with_acceptor(acceptor).run(route).await
-        });
+        let server_fut = {
+            let wg = wg.clone();
+            let shutdown = shutdown_rx.clone();
+            rt.spawn(async move {
+                let listen_addr = acceptor.local_addr()[0].clone();
+                let signal = async move {
+                    log::info!("gossip proxy has started on [{listen_addr}]");
+                    drop(wg);
+
+                    shutdown.is_shutdown().await;
+                    log::info!("gossip proxy is closing");
+                };
+                poem::Server::new_with_acceptor(acceptor)
+                    .run_with_graceful_shutdown(route, signal, Some(Duration::from_secs(10)))
+                    .await
+                    .change_context_lazy(|| {
+                        ClusterError::Internal("failed to run gossip proxy".to_string())
+                    })
+            })
+        };
+        wg.await;
+        gossip_futs.push(server_fut);
 
         // Start the gossip protocol
-        let state = self.clone();
-        drive_gossip(state, rt).await?;
+        drive_gossip(rt, shutdown_rx, &mut gossip_futs, self).await?;
 
-        Ok(server_fut)
+        Ok(gossip_futs)
     }
 
     fn handle_message(&self, message: Message) -> Option<Message> {
@@ -400,7 +420,12 @@ impl Transport {
     }
 }
 
-async fn drive_gossip(state: Arc<GossipState>, runtime: &Runtime) -> Result<(), ClusterError> {
+async fn drive_gossip(
+    rt: &Runtime,
+    shutdown_rx: ShutdownRecv,
+    gossip_futs: &mut Vec<GossipFuture>,
+    state: Arc<GossipState>,
+) -> Result<(), ClusterError> {
     // Fast bootstrap
     state
         .membership
@@ -411,12 +436,12 @@ async fn drive_gossip(state: Arc<GossipState>, runtime: &Runtime) -> Result<(), 
             status: MemberStatus::Alive,
             heartbeat: Timestamp::now(),
         });
+
     let state_clone = state.clone();
-    runtime
-        .spawn(async move {
-            state_clone.fast_bootstrap().await;
-        })
-        .await;
+    rt.spawn(async move {
+        state_clone.fast_bootstrap().await;
+    })
+    .await;
 
     if state.membership().members().is_empty() {
         bail!(ClusterError::Internal(
@@ -426,83 +451,130 @@ async fn drive_gossip(state: Arc<GossipState>, runtime: &Runtime) -> Result<(), 
 
     // Ping
     let state_clone = state.clone();
-    runtime.spawn(async move {
-        let state = state_clone;
-        let mut ticker = timer().interval(DEFAULT_PING_INTERVAL);
-        loop {
-            ticker.tick().await;
+    let shutdown_rx_clone = shutdown_rx.clone();
+    let ping_fut = rt.spawn(async move {
+        let fut = async move {
+            let state = state_clone;
+            let mut ticker = timer().interval(DEFAULT_PING_INTERVAL);
+            loop {
+                ticker.tick().await;
 
-            let membership = state.membership();
-            if let Some((_, member)) = membership
-                .members()
-                .iter()
-                .nth(random::<usize>() % membership.members().len())
-            {
-                if member.status == MemberStatus::Dead {
-                    log::debug!("skipping dead member: {member:?}");
-                    continue;
+                let membership = state.membership();
+                if let Some((_, member)) = membership
+                    .members()
+                    .iter()
+                    .nth(random::<usize>() % membership.members().len())
+                {
+                    if member.status == MemberStatus::Dead {
+                        log::debug!("skipping dead member: {member:?}");
+                        continue;
+                    }
+                    log::debug!("pinging member: {member:?}");
+                    state.ping(member.info.clone()).await;
+                } else {
+                    log::error!("no members found in the cluster");
+                    state.fast_bootstrap().await;
                 }
-                log::debug!("pinging member: {member:?}");
-                state.ping(member.info.clone()).await;
-            } else {
-                log::error!("no members found in the cluster");
-                state.fast_bootstrap().await;
+            }
+        };
+
+        tokio::select! {
+            _ = fut => Ok(()),
+            _ = shutdown_rx_clone.is_shutdown() => {
+                log::info!("gossip ping task is shutting down");
+                Ok(())
             }
         }
     });
+    gossip_futs.push(ping_fut);
 
     // Anti-entropy
     let state_clone = state.clone();
-    runtime.spawn(async move {
-        let state = state_clone;
-        let mut ticker = timer().interval(DEFAULT_SYNC_INTERVAL);
-        loop {
-            ticker.tick().await;
-
-            let membership = state.membership();
-            if let Some((_, member)) = membership
-                .members()
-                .iter()
-                .nth(random::<usize>() % membership.members().len())
-            {
-                if member.status == MemberStatus::Dead {
-                    log::debug!("skipping dead member: {member:?}");
-                    continue;
+    let shutdown_rx_clone = shutdown_rx.clone();
+    let anti_entropy_fut = rt.spawn(async move {
+        let fut = async move {
+            let state = state_clone;
+            let mut ticker = timer().interval(DEFAULT_SYNC_INTERVAL);
+            loop {
+                ticker.tick().await;
+                let membership = state.membership();
+                if let Some((_, member)) = membership
+                    .members()
+                    .iter()
+                    .nth(random::<usize>() % membership.members().len())
+                {
+                    if member.status == MemberStatus::Dead {
+                        log::debug!("skipping dead member: {member:?}");
+                        continue;
+                    }
+                    log::debug!("syncing member: {member:?}");
+                    state.sync(member.info.clone()).await;
+                } else {
+                    log::error!("no members found in the cluster");
+                    state.fast_bootstrap().await;
                 }
-                log::debug!("syncing member: {member:?}");
-                state.sync(member.info.clone()).await;
-            } else {
-                log::error!("no members found in the cluster");
-                state.fast_bootstrap().await;
+            }
+        };
+
+        tokio::select! {
+            _ = fut => Ok(()),
+            _ = shutdown_rx_clone.is_shutdown() => {
+                log::info!("gossip anti-entropy task is shutting down");
+                Ok(())
             }
         }
     });
+    gossip_futs.push(anti_entropy_fut);
 
     // Rebuild ring
     let state_clone = state.clone();
-    runtime.spawn(async move {
-        let state = state_clone;
-        let mut ticker = timer().interval(DEFAULT_REBUILD_RING_INTERVAL);
-        loop {
-            ticker.tick().await;
-            state.rebuild_ring();
-        }
-    });
-
-    // Remove dead members
-    let state_clone = state.clone();
-    runtime.spawn(async move {
-        let state = state_clone;
-        let mut ticker = timer().interval(DEFAULT_MEMBER_DEADLINE);
-        loop {
-            ticker.tick().await;
-            let dead_members = state.remove_dead_members();
-            if !dead_members.is_empty() {
-                log::info!("removed dead members: {:?}", dead_members);
+    let shutdown_rx_clone = shutdown_rx.clone();
+    let rebuild_ring_fut = rt.spawn(async move {
+        let fut = async move {
+            let state = state_clone;
+            let mut ticker = timer().interval(DEFAULT_REBUILD_RING_INTERVAL);
+            loop {
+                ticker.tick().await;
                 state.rebuild_ring();
+            }
+        };
+
+        tokio::select! {
+            _ = fut => Ok(()),
+            _ = shutdown_rx_clone.is_shutdown() => {
+                log::info!("gossip rebuild ring task is shutting down");
+                Ok(())
             }
         }
     });
+    gossip_futs.push(rebuild_ring_fut);
+
+    // Remove dead members
+    let state_clone = state.clone();
+    let shutdown_rx_clone = shutdown_rx.clone();
+    let remove_dead_members_fut = rt.spawn(async move {
+        let fut = async move {
+            let state = state_clone;
+            let mut ticker = timer().interval(DEFAULT_MEMBER_DEADLINE);
+            loop {
+                ticker.tick().await;
+                let dead_members = state.remove_dead_members();
+                if !dead_members.is_empty() {
+                    log::info!("removed dead members: {:?}", dead_members);
+                    state.rebuild_ring();
+                }
+            }
+        };
+
+        tokio::select! {
+            _ = fut => Ok(()),
+            _ = shutdown_rx_clone.is_shutdown() => {
+                log::info!("gossip remove dead members task is shutting down");
+                Ok(())
+            }
+        }
+    });
+    gossip_futs.push(remove_dead_members_fut);
 
     Ok(())
 }

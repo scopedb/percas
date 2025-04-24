@@ -2175,9 +2175,9 @@ dependencies = [
 
 [[package]]
 name = "mea"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d374b4dbb6246f27947f394b468bc2cbe66ec82610831284c70994068075c570"
+checksum = "40f001b3567cd55693dcc9432c64a104268a12bc33e290df4eaf7d1cfa71c015"
 dependencies = [
  "slab",
 ]
@@ -2576,6 +2576,7 @@ dependencies = [
  "ctrlc",
  "error-stack",
  "log",
+ "mea",
  "percas-cluster",
  "percas-core",
  "percas-server",
@@ -2584,7 +2585,6 @@ dependencies = [
  "sealed_test",
  "serde",
  "thiserror 2.0.12",
- "toml",
  "toml_edit",
 ]
 
@@ -2607,6 +2607,7 @@ dependencies = [
  "insta",
  "jiff",
  "log",
+ "mea",
  "percas-core",
  "poem",
  "reqwest",
@@ -2614,6 +2615,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror 2.0.12",
+ "tokio",
  "uuid",
 ]
 
@@ -2654,6 +2656,7 @@ dependencies = [
  "fastimer",
  "fastrace",
  "fastrace-opentelemetry",
+ "futures-util",
  "local-ip-address",
  "log",
  "logforth",
@@ -3804,7 +3807,6 @@ dependencies = [
 name = "tests-toolkit"
 version = "0.1.4"
 dependencies = [
- "local-ip-address",
  "mea",
  "percas-core",
  "percas-server",

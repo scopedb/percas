@@ -22,6 +22,7 @@ mod node;
 mod proxy;
 mod ring;
 
+pub use gossip::GossipFuture;
 pub use gossip::GossipState;
 pub use node::NodeInfo;
 pub use proxy::Proxy;

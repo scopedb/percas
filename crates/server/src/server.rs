@@ -21,6 +21,7 @@ use fastimer::schedule::SimpleActionExt;
 use mea::shutdown::ShutdownRecv;
 use mea::shutdown::ShutdownSend;
 use mea::waitgroup::WaitGroup;
+use percas_cluster::GossipFuture;
 use percas_cluster::Proxy;
 use percas_core::Runtime;
 use percas_core::timer;
@@ -34,9 +35,9 @@ use poem::handler;
 use poem::http::StatusCode;
 use poem::listener::Acceptor;
 use poem::listener::Listener;
+use poem::listener::TcpAcceptor;
 use poem::listener::TcpListener;
 use poem::web::Data;
-use poem::web::LocalAddr;
 use poem::web::Path;
 use poem::web::headers::ContentType;
 
@@ -50,16 +51,17 @@ pub(crate) type ServerFuture<T> = tokio::task::JoinHandle<Result<T, io::Error>>;
 
 #[derive(Debug)]
 pub struct ServerState {
-    listen_addr: LocalAddr,
+    advertise_addr: SocketAddr,
     server_fut: ServerFuture<()>,
+    gossip_futs: Vec<GossipFuture>,
 
     shutdown_rx_server: ShutdownRecv,
     shutdown_tx_actions: Vec<ShutdownSend>,
 }
 
 impl ServerState {
-    pub fn listen_addr(&self) -> LocalAddr {
-        self.listen_addr.clone()
+    pub fn advertise_addr(&self) -> SocketAddr {
+        self.advertise_addr
     }
 
     pub async fn await_shutdown(self) {
@@ -79,44 +81,60 @@ impl ServerState {
             Ok(_) => log::info!("percas server stopped."),
             Err(err) => log::error!(err:?; "percas server failed."),
         }
+
+        match futures_util::future::try_join_all(self.gossip_futs).await {
+            Ok(_) => log::info!("percas gossip stopped."),
+            Err(err) => log::error!(err:?; "percas gossip failed."),
+        }
     }
 }
 
-pub fn resolve_advertise_addr(
+pub async fn make_acceptor_and_advertise_addr(
     listen_addr: &str,
     advertise_addr: Option<&str>,
-) -> Result<String, std::io::Error> {
-    match (advertise_addr, listen_addr.parse::<SocketAddr>().ok()) {
-        (None, Some(listen_addr)) => {
+) -> Result<(TcpAcceptor, SocketAddr), io::Error> {
+    log::info!("listening on {}", listen_addr);
+
+    let acceptor = TcpListener::bind(&listen_addr).into_acceptor().await?;
+    let listen_addr = acceptor.local_addr()[0]
+        .as_socket_addr()
+        .cloned()
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::AddrNotAvailable,
+                "failed to get local listen addr",
+            )
+        })?;
+
+    let advertise_addr = match advertise_addr {
+        None => {
             if listen_addr.ip().is_unspecified() {
-                let ip = local_ip_address::local_ip().map_err(std::io::Error::other)?;
+                let ip = local_ip_address::local_ip().map_err(io::Error::other)?;
                 let port = listen_addr.port();
-                Ok(SocketAddr::new(ip, port).to_string())
+                SocketAddr::new(ip, port)
             } else {
-                Ok(listen_addr.to_string())
+                listen_addr
             }
         }
-        (Some(advertise_addr), _) => Ok(advertise_addr.to_string()),
+        Some(advertise_addr) => advertise_addr
+            .parse::<SocketAddr>()
+            .map_err(io::Error::other)?,
+    };
 
-        _ => Ok(listen_addr.to_string()),
-    }
+    Ok((acceptor, advertise_addr))
 }
 
 pub async fn start_server(
     rt: &Runtime,
+    shutdown_rx: ShutdownRecv,
     ctx: Arc<PercasContext>,
-    listen_addr: String,
-    _advertise_addr: String,
+    acceptor: TcpAcceptor,
+    advertise_addr: SocketAddr,
     cluster_proxy: Option<Proxy>,
-) -> Result<(ServerState, ShutdownSend), io::Error> {
-    let (shutdown_tx_server, shutdown_rx_server) = mea::shutdown::new_pair();
-
+    gossip_futs: Vec<GossipFuture>,
+) -> Result<ServerState, io::Error> {
     let wg = WaitGroup::new();
-
-    log::info!("listening on {}", listen_addr);
-
-    let acceptor = TcpListener::bind(&listen_addr).into_acceptor().await?;
-    let listen_addr = acceptor.local_addr()[0].clone();
+    let shutdown_rx_server = shutdown_rx;
 
     let server_fut = {
         let shutdown_clone = shutdown_rx_server.clone();
@@ -133,7 +151,7 @@ pub async fn start_server(
             .data(ctx.clone())
             .with(RateLimitMiddleware::new())
             .with(LoggerMiddleware);
-        let listen_addr = listen_addr.clone();
+        let listen_addr = acceptor.local_addr()[0].clone();
         let signal = async move {
             log::info!("server has started on [{listen_addr}]");
             drop(wg_clone);
@@ -144,7 +162,7 @@ pub async fn start_server(
 
         tokio::spawn(async move {
             poem::Server::new_with_acceptor(acceptor)
-                .run_with_graceful_shutdown(route, signal, Some(Duration::from_secs(30)))
+                .run_with_graceful_shutdown(route, signal, Some(Duration::from_secs(10)))
                 .await
         })
     };
@@ -163,13 +181,13 @@ pub async fn start_server(
     );
     shutdown_tx_actions.push(shutdown_tx);
 
-    let state = ServerState {
-        listen_addr,
+    Ok(ServerState {
+        advertise_addr,
         server_fut,
+        gossip_futs,
         shutdown_rx_server,
         shutdown_tx_actions,
-    };
-    Ok((state, shutdown_tx_server))
+    })
 }
 
 pub fn get_success(body: impl Into<Body>) -> Response {

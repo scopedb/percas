@@ -18,6 +18,8 @@ use std::sync::Arc;
 use clap::ValueHint;
 use error_stack::Result;
 use error_stack::ResultExt;
+use mea::shutdown::ShutdownRecv;
+use percas_cluster::GossipFuture;
 use percas_cluster::GossipState;
 use percas_cluster::NodeInfo;
 use percas_cluster::Proxy;
@@ -29,7 +31,7 @@ use percas_core::make_runtime;
 use percas_core::node_file_path;
 use percas_core::num_cpus;
 use percas_server::PercasContext;
-use percas_server::server::resolve_advertise_addr;
+use percas_server::server::make_acceptor_and_advertise_addr;
 use percas_server::telemetry;
 
 use crate::Error;
@@ -145,78 +147,37 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
     .await
     .change_context_lazy(make_error)?;
 
+    let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
     let ctx = Arc::new(PercasContext { engine });
 
     let flatten_config = FlattenConfig::from(&config.server);
 
-    let listen_addr = flatten_config.listen_addr.clone();
-    let advertise_addr =
-        resolve_advertise_addr(&listen_addr, flatten_config.advertise_addr.as_deref())
-            .change_context_lazy(make_error)?;
-    let cluster_proxy = if flatten_config.mode == ServerMode::Cluster {
-        let listen_peer_addr = flatten_config
-            .listen_peer_addr
-            .ok_or_else(|| Error("listen peer address is required for cluster mode".to_string()))?;
-        let advertise_peer_addr = resolve_advertise_addr(
-            &listen_peer_addr,
-            flatten_config.advertise_peer_addr.as_deref(),
-        )
-        .change_context_lazy(make_error)?;
-        let initial_peer_addrs = flatten_config.initial_peer_addrs.ok_or_else(|| {
-            Error("initial peer addresses are required for cluster mode".to_string())
-        })?;
-        let cluster_id = flatten_config
-            .cluster_id
-            .ok_or_else(|| Error("cluster id is required for cluster mode".to_string()))?;
+    let (acceptor, advertise_addr) = make_acceptor_and_advertise_addr(
+        flatten_config.listen_addr.as_str(),
+        flatten_config.advertise_addr.as_deref(),
+    )
+    .await
+    .change_context_lazy(make_error)?;
 
-        let current_node = if let Some(mut node) = NodeInfo::load(
-            &node_file_path(&flatten_config.dir),
-            advertise_addr.clone(),
-            advertise_peer_addr.clone(),
-        )
-        .change_context_lazy(make_error)?
-        {
-            node.advance_incarnation();
-            node.persist(&node_file_path(&flatten_config.dir))
-                .change_context_lazy(make_error)?;
-            node
-        } else {
-            let node = NodeInfo::init(
-                None,
-                "percas".to_string(),
-                cluster_id,
-                advertise_addr.clone(),
-                advertise_peer_addr,
-            );
-            node.persist(&node_file_path(&flatten_config.dir))
-                .change_context_lazy(make_error)?;
-            node
-        };
-
-        let gossip = Arc::new(GossipState::new(
-            current_node,
-            initial_peer_addrs,
-            flatten_config.dir.clone(),
-        ));
-
-        // TODO: gracefully shutdown gossip
-        gossip
-            .clone()
-            .start(gossip_rt, listen_peer_addr.clone())
-            .await
-            .change_context_lazy(make_error)?;
-
-        Some(Proxy::new(gossip))
-    } else {
-        None
+    let (cluster_proxy, gossip_futs) = match flatten_config.mode {
+        ServerMode::Standalone => (None, vec![]),
+        ServerMode::Cluster => {
+            let advertise_addr = advertise_addr.to_string();
+            let shutdown_rx = shutdown_rx.clone();
+            let (proxy, futs) =
+                run_gossip_proxy(gossip_rt, shutdown_rx, flatten_config, advertise_addr).await?;
+            (Some(proxy), futs)
+        }
     };
 
-    let (server, shutdown_tx) = percas_server::server::start_server(
+    let server = percas_server::server::start_server(
         server_rt,
+        shutdown_rx,
         ctx,
-        listen_addr,
+        acceptor,
         advertise_addr,
         cluster_proxy,
+        gossip_futs,
     )
     .await
     .change_context_lazy(|| Error("A fatal error has occurred in server process.".to_string()))?;
@@ -226,4 +187,70 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
 
     server.await_shutdown().await;
     Ok(())
+}
+
+async fn run_gossip_proxy(
+    gossip_rt: &Runtime,
+    shutdown_rx: ShutdownRecv,
+    flatten_config: FlattenConfig,
+    advertise_addr: String,
+) -> Result<(Proxy, Vec<GossipFuture>), Error> {
+    let make_error = || Error("failed to start gossip proxy".to_string());
+
+    let listen_peer_addr = flatten_config
+        .listen_peer_addr
+        .ok_or_else(|| Error("listen peer address is required for cluster mode".to_string()))?;
+
+    let (acceptor, advertise_peer_addr) = make_acceptor_and_advertise_addr(
+        listen_peer_addr.as_str(),
+        flatten_config.advertise_peer_addr.as_deref(),
+    )
+    .await
+    .change_context_lazy(make_error)?;
+    let advertise_peer_addr = advertise_peer_addr.to_string();
+
+    let initial_peer_addrs = flatten_config
+        .initial_peer_addrs
+        .ok_or_else(|| Error("initial peer addresses are required for cluster mode".to_string()))?;
+    let cluster_id = flatten_config
+        .cluster_id
+        .ok_or_else(|| Error("cluster id is required for cluster mode".to_string()))?;
+
+    let current_node = if let Some(mut node) = NodeInfo::load(
+        &node_file_path(&flatten_config.dir),
+        advertise_addr.clone(),
+        advertise_peer_addr.clone(),
+    )
+    .change_context_lazy(make_error)?
+    {
+        node.advance_incarnation();
+        node.persist(&node_file_path(&flatten_config.dir))
+            .change_context_lazy(make_error)?;
+        node
+    } else {
+        let node = NodeInfo::init(
+            None,
+            "percas".to_string(),
+            cluster_id,
+            advertise_addr.clone(),
+            advertise_peer_addr,
+        );
+        node.persist(&node_file_path(&flatten_config.dir))
+            .change_context_lazy(make_error)?;
+        node
+    };
+
+    let gossip = Arc::new(GossipState::new(
+        current_node,
+        initial_peer_addrs,
+        flatten_config.dir.clone(),
+    ));
+
+    let futs = gossip
+        .clone()
+        .start(gossip_rt, shutdown_rx, acceptor)
+        .await
+        .change_context_lazy(make_error)?;
+
+    Ok((Proxy::new(gossip), futs))
 }
