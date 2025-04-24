@@ -151,8 +151,7 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
 
     let listen_addr = flatten_config.listen_addr.clone();
     let advertise_addr =
-        resolve_advertise_addr(&listen_addr, flatten_config.advertise_addr.as_deref())
-            .change_context_lazy(make_error)?;
+        resolve_advertise_addr(&listen_addr, flatten_config.advertise_addr.as_deref());
     let cluster_proxy = if flatten_config.mode == ServerMode::Cluster {
         let listen_peer_addr = flatten_config
             .listen_peer_addr
@@ -160,8 +159,7 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
         let advertise_peer_addr = resolve_advertise_addr(
             &listen_peer_addr,
             flatten_config.advertise_peer_addr.as_deref(),
-        )
-        .change_context_lazy(make_error)?;
+        );
         let initial_peer_addrs = flatten_config.initial_peer_addrs.ok_or_else(|| {
             Error("initial peer addresses are required for cluster mode".to_string())
         })?;

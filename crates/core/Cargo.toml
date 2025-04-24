@@ -37,7 +37,7 @@ pin-project = { workspace = true }
 serde = { workspace = true }
 sysinfo = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [dev-dependencies]
 criterion = { workspace = true }

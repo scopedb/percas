@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::io;
+use std::net::AddrParseError;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -82,24 +83,23 @@ impl ServerState {
     }
 }
 
-pub fn resolve_advertise_addr(
-    listen_addr: &str,
-    advertise_addr: Option<&str>,
-) -> Result<String, std::io::Error> {
-    match (advertise_addr, listen_addr.parse::<SocketAddr>().ok()) {
-        (None, Some(listen_addr)) => {
-            if listen_addr.ip().is_unspecified() {
-                let ip = local_ip_address::local_ip().map_err(std::io::Error::other)?;
-                let port = listen_addr.port();
-                Ok(SocketAddr::new(ip, port).to_string())
-            } else {
-                Ok(listen_addr.to_string())
-            }
-        }
-        (Some(advertise_addr), _) => Ok(advertise_addr.to_string()),
-
-        _ => Ok(listen_addr.to_string()),
+pub fn resolve_advertise_addr(listen_addr: &str, advertise_addr: Option<&str>) -> String {
+    if let Some(advertise_addr) = advertise_addr {
+        return advertise_addr.to_string();
     }
+
+    if let Ok(listen_addr) = listen_addr.parse::<SocketAddr>() {
+        if !listen_addr.ip().is_unspecified() {
+            return listen_addr.to_string();
+        }
+
+        if let Ok(ip) = local_ip_address::local_ip() {
+            let port = listen_addr.port();
+            return SocketAddr::new(ip, port).to_string();
+        }
+    }
+
+    listen_addr.to_string()
 }
 
 pub async fn start_server(
