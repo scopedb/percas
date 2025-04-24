@@ -145,6 +145,7 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
     .await
     .change_context_lazy(make_error)?;
 
+    let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
     let ctx = Arc::new(PercasContext { engine });
 
     let flatten_config = FlattenConfig::from(&config.server);
@@ -161,8 +162,9 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
         }
     };
 
-    let (server, shutdown_tx) = percas_server::server::start_server(
+    let server = percas_server::server::start_server(
         server_rt,
+        shutdown_rx,
         ctx,
         listen_addr,
         advertise_addr,

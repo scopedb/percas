@@ -2576,6 +2576,7 @@ dependencies = [
  "ctrlc",
  "error-stack",
  "log",
+ "mea",
  "percas-cluster",
  "percas-core",
  "percas-server",
@@ -2584,7 +2585,6 @@ dependencies = [
  "sealed_test",
  "serde",
  "thiserror 2.0.12",
- "toml",
  "toml_edit",
 ]
 

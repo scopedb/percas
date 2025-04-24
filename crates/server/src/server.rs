@@ -103,14 +103,14 @@ pub fn resolve_advertise_addr(listen_addr: &str, advertise_addr: Option<&str>) -
 
 pub async fn start_server(
     rt: &Runtime,
+    shutdown_rx: ShutdownRecv,
     ctx: Arc<PercasContext>,
     listen_addr: String,
     advertise_addr: String,
     cluster_proxy: Option<Proxy>,
-) -> Result<(ServerState, ShutdownSend), io::Error> {
-    let (shutdown_tx_server, shutdown_rx_server) = mea::shutdown::new_pair();
-
+) -> Result<ServerState, io::Error> {
     let wg = WaitGroup::new();
+    let shutdown_rx_server = shutdown_rx;
 
     log::info!("listening on {}", listen_addr);
 
@@ -162,13 +162,12 @@ pub async fn start_server(
     );
     shutdown_tx_actions.push(shutdown_tx);
 
-    let state = ServerState {
+    Ok(ServerState {
         advertise_addr,
         server_fut,
         shutdown_rx_server,
         shutdown_tx_actions,
-    };
-    Ok((state, shutdown_tx_server))
+    })
 }
 
 pub fn get_success(body: impl Into<Body>) -> Response {
