@@ -42,13 +42,13 @@ type DropGuard = Box<dyn Any>;
 #[derive(Debug)]
 pub struct TestServerState {
     pub server_state: ServerState,
-    shutdown_tx_server: ShutdownSend,
+    shutdown_tx: ShutdownSend,
     _drop_guards: Vec<DropGuard>,
 }
 
 impl TestServerState {
     pub async fn shutdown(self) {
-        self.shutdown_tx_server.shutdown();
+        self.shutdown_tx.shutdown();
         self.server_state.await_shutdown().await;
     }
 }
@@ -92,7 +92,8 @@ pub fn start_test_server(_test_name: &str, rt: &Runtime) -> Option<TestServerSta
         },
     };
 
-    let (server_state, shutdown_tx_server) = rt.block_on(async move {
+    let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
+    let server_state = rt.block_on(async move {
         let engine = FoyerEngine::try_new(
             &config.storage.data_dir,
             config.storage.memory_capacity,
@@ -102,15 +103,23 @@ pub fn start_test_server(_test_name: &str, rt: &Runtime) -> Option<TestServerSta
         .unwrap();
         let ctx = Arc::new(percas_server::PercasContext { engine });
         let advertise_addr = resolve_advertise_addr(listen_addr.as_str(), None);
-        percas_server::server::start_server(rt, ctx, listen_addr, advertise_addr, None)
-            .await
-            .unwrap()
+        percas_server::server::start_server(
+            rt,
+            shutdown_rx,
+            ctx,
+            listen_addr,
+            advertise_addr,
+            None,
+            vec![],
+        )
+        .await
+        .unwrap()
     });
 
     drop_guard.push(Box::new(temp_dir));
     Some(TestServerState {
         server_state,
-        shutdown_tx_server,
+        shutdown_tx,
         _drop_guards: drop_guard,
     })
 }

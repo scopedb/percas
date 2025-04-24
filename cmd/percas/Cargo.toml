@@ -40,7 +40,7 @@ percas-styled = { workspace = true }
 percas-version = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-toml_edit = { workspace = true }
+toml_edit = { workspace = true, features = ["serde"] }
 
 [dev-dependencies]
 sealed_test = { workspace = true }
