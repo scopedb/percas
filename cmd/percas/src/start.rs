@@ -31,7 +31,7 @@ use percas_core::make_runtime;
 use percas_core::node_file_path;
 use percas_core::num_cpus;
 use percas_server::PercasContext;
-use percas_server::server::resolve_advertise_addr;
+use percas_server::server::make_acceptor_and_advertise_addr;
 use percas_server::telemetry;
 
 use crate::Error;
@@ -152,13 +152,17 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
 
     let flatten_config = FlattenConfig::from(&config.server);
 
-    let listen_addr = flatten_config.listen_addr.clone();
-    let advertise_addr =
-        resolve_advertise_addr(&listen_addr, flatten_config.advertise_addr.as_deref());
+    let (acceptor, advertise_addr) = make_acceptor_and_advertise_addr(
+        flatten_config.listen_addr.as_str(),
+        flatten_config.advertise_addr.as_deref(),
+    )
+    .await
+    .change_context_lazy(make_error)?;
+
     let (cluster_proxy, gossip_futs) = match flatten_config.mode {
         ServerMode::Standalone => (None, vec![]),
         ServerMode::Cluster => {
-            let advertise_addr = advertise_addr.clone();
+            let advertise_addr = advertise_addr.to_string();
             let shutdown_rx = shutdown_rx.clone();
             let (proxy, futs) =
                 run_gossip_proxy(gossip_rt, shutdown_rx, flatten_config, advertise_addr).await?;
@@ -170,7 +174,7 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
         server_rt,
         shutdown_rx,
         ctx,
-        listen_addr,
+        acceptor,
         advertise_addr,
         cluster_proxy,
         gossip_futs,
@@ -196,10 +200,15 @@ async fn run_gossip_proxy(
     let listen_peer_addr = flatten_config
         .listen_peer_addr
         .ok_or_else(|| Error("listen peer address is required for cluster mode".to_string()))?;
-    let advertise_peer_addr = resolve_advertise_addr(
-        &listen_peer_addr,
+
+    let (acceptor, advertise_peer_addr) = make_acceptor_and_advertise_addr(
+        listen_peer_addr.as_str(),
         flatten_config.advertise_peer_addr.as_deref(),
-    );
+    )
+    .await
+    .change_context_lazy(make_error)?;
+    let advertise_peer_addr = advertise_peer_addr.to_string();
+
     let initial_peer_addrs = flatten_config
         .initial_peer_addrs
         .ok_or_else(|| Error("initial peer addresses are required for cluster mode".to_string()))?;
@@ -239,7 +248,7 @@ async fn run_gossip_proxy(
 
     let futs = gossip
         .clone()
-        .start(gossip_rt, shutdown_rx, listen_peer_addr)
+        .start(gossip_rt, shutdown_rx, acceptor)
         .await
         .change_context_lazy(make_error)?;
 

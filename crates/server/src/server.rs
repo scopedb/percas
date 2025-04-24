@@ -35,6 +35,7 @@ use poem::handler;
 use poem::http::StatusCode;
 use poem::listener::Acceptor;
 use poem::listener::Listener;
+use poem::listener::TcpAcceptor;
 use poem::listener::TcpListener;
 use poem::web::Data;
 use poem::web::Path;
@@ -50,7 +51,7 @@ pub(crate) type ServerFuture<T> = tokio::task::JoinHandle<Result<T, io::Error>>;
 
 #[derive(Debug)]
 pub struct ServerState {
-    advertise_addr: String,
+    advertise_addr: SocketAddr,
     server_fut: ServerFuture<()>,
     gossip_futs: Vec<GossipFuture>,
 
@@ -59,8 +60,8 @@ pub struct ServerState {
 }
 
 impl ServerState {
-    pub fn advertise_addr(&self) -> String {
-        self.advertise_addr.clone()
+    pub fn advertise_addr(&self) -> SocketAddr {
+        self.advertise_addr
     }
 
     pub async fn await_shutdown(self) {
@@ -88,41 +89,52 @@ impl ServerState {
     }
 }
 
-pub fn resolve_advertise_addr(listen_addr: &str, advertise_addr: Option<&str>) -> String {
-    if let Some(advertise_addr) = advertise_addr {
-        return advertise_addr.to_string();
-    }
+pub async fn make_acceptor_and_advertise_addr(
+    listen_addr: &str,
+    advertise_addr: Option<&str>,
+) -> Result<(TcpAcceptor, SocketAddr), io::Error> {
+    log::info!("listening on {}", listen_addr);
 
-    if let Ok(listen_addr) = listen_addr.parse::<SocketAddr>() {
-        if !listen_addr.ip().is_unspecified() {
-            return listen_addr.to_string();
+    let acceptor = TcpListener::bind(&listen_addr).into_acceptor().await?;
+    let listen_addr = acceptor.local_addr()[0]
+        .as_socket_addr()
+        .cloned()
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::AddrNotAvailable,
+                "failed to get local listen addr",
+            )
+        })?;
+
+    let advertise_addr = match advertise_addr {
+        None => {
+            if listen_addr.ip().is_unspecified() {
+                let ip = local_ip_address::local_ip().map_err(io::Error::other)?;
+                let port = listen_addr.port();
+                SocketAddr::new(ip, port)
+            } else {
+                listen_addr
+            }
         }
+        Some(advertise_addr) => advertise_addr
+            .parse::<SocketAddr>()
+            .map_err(io::Error::other)?,
+    };
 
-        if let Ok(ip) = local_ip_address::local_ip() {
-            let port = listen_addr.port();
-            return SocketAddr::new(ip, port).to_string();
-        }
-    }
-
-    listen_addr.to_string()
+    Ok((acceptor, advertise_addr))
 }
 
 pub async fn start_server(
     rt: &Runtime,
     shutdown_rx: ShutdownRecv,
     ctx: Arc<PercasContext>,
-    listen_addr: String,
-    advertise_addr: String,
+    acceptor: TcpAcceptor,
+    advertise_addr: SocketAddr,
     cluster_proxy: Option<Proxy>,
     gossip_futs: Vec<GossipFuture>,
 ) -> Result<ServerState, io::Error> {
     let wg = WaitGroup::new();
     let shutdown_rx_server = shutdown_rx;
-
-    log::info!("listening on {}", listen_addr);
-
-    let acceptor = TcpListener::bind(&listen_addr).into_acceptor().await?;
-    let listen_addr = acceptor.local_addr()[0].clone();
 
     let server_fut = {
         let shutdown_clone = shutdown_rx_server.clone();
@@ -139,7 +151,7 @@ pub async fn start_server(
             .data(ctx.clone())
             .with(RateLimitMiddleware::new())
             .with(LoggerMiddleware);
-        let listen_addr = listen_addr.clone();
+        let listen_addr = acceptor.local_addr()[0].clone();
         let signal = async move {
             log::info!("server has started on [{listen_addr}]");
             drop(wg_clone);

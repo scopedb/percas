@@ -37,8 +37,7 @@ use poem::Response;
 use poem::Route;
 use poem::handler;
 use poem::listener::Acceptor;
-use poem::listener::Listener;
-use poem::listener::TcpListener;
+use poem::listener::TcpAcceptor;
 use poem::web::Data;
 use poem::web::Json;
 use reqwest::Client;
@@ -111,7 +110,7 @@ impl GossipState {
         self: Arc<Self>,
         rt: &Runtime,
         shutdown_rx: ShutdownRecv,
-        listen_peer_addr: String,
+        acceptor: TcpAcceptor,
     ) -> Result<Vec<GossipFuture>, ClusterError> {
         let wg = WaitGroup::new();
         let route = Route::new()
@@ -125,13 +124,6 @@ impl GossipState {
             let wg = wg.clone();
             let shutdown = shutdown_rx.clone();
             rt.spawn(async move {
-                let make_error =
-                    || ClusterError::Internal("failed to run gossip proxy".to_string());
-
-                let acceptor = TcpListener::bind(listen_peer_addr)
-                    .into_acceptor()
-                    .await
-                    .change_context_lazy(make_error)?;
                 let listen_addr = acceptor.local_addr()[0].clone();
                 let signal = async move {
                     log::info!("gossip proxy has started on [{listen_addr}]");
@@ -143,7 +135,9 @@ impl GossipState {
                 poem::Server::new_with_acceptor(acceptor)
                     .run_with_graceful_shutdown(route, signal, Some(Duration::from_secs(10)))
                     .await
-                    .change_context_lazy(make_error)
+                    .change_context_lazy(|| {
+                        ClusterError::Internal("failed to run gossip proxy".to_string())
+                    })
             })
         };
         wg.await;
