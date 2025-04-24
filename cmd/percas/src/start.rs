@@ -18,6 +18,8 @@ use std::sync::Arc;
 use clap::ValueHint;
 use error_stack::Result;
 use error_stack::ResultExt;
+use mea::shutdown::ShutdownRecv;
+use percas_cluster::GossipFuture;
 use percas_cluster::GossipState;
 use percas_cluster::NodeInfo;
 use percas_cluster::Proxy;
@@ -153,12 +155,14 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
     let listen_addr = flatten_config.listen_addr.clone();
     let advertise_addr =
         resolve_advertise_addr(&listen_addr, flatten_config.advertise_addr.as_deref());
-    let cluster_proxy = match flatten_config.mode {
-        ServerMode::Standalone => None,
+    let (cluster_proxy, gossip_futs) = match flatten_config.mode {
+        ServerMode::Standalone => (None, vec![]),
         ServerMode::Cluster => {
             let advertise_addr = advertise_addr.clone();
-            let proxy = run_gossip_proxy(gossip_rt, flatten_config, advertise_addr).await?;
-            Some(proxy)
+            let shutdown_rx = shutdown_rx.clone();
+            let (proxy, futs) =
+                run_gossip_proxy(gossip_rt, shutdown_rx, flatten_config, advertise_addr).await?;
+            (Some(proxy), futs)
         }
     };
 
@@ -169,6 +173,7 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
         listen_addr,
         advertise_addr,
         cluster_proxy,
+        gossip_futs,
     )
     .await
     .change_context_lazy(|| Error("A fatal error has occurred in server process.".to_string()))?;
@@ -182,9 +187,10 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
 
 async fn run_gossip_proxy(
     gossip_rt: &Runtime,
+    shutdown_rx: ShutdownRecv,
     flatten_config: FlattenConfig,
     advertise_addr: String,
-) -> Result<Proxy, Error> {
+) -> Result<(Proxy, Vec<GossipFuture>), Error> {
     let make_error = || Error("failed to start gossip proxy".to_string());
 
     let listen_peer_addr = flatten_config
@@ -231,12 +237,11 @@ async fn run_gossip_proxy(
         flatten_config.dir.clone(),
     ));
 
-    // TODO: gracefully shutdown gossip
-    gossip
+    let futs = gossip
         .clone()
-        .start(gossip_rt, listen_peer_addr.clone())
+        .start(gossip_rt, shutdown_rx, listen_peer_addr)
         .await
         .change_context_lazy(make_error)?;
 
-    Ok(Proxy::new(gossip))
+    Ok((Proxy::new(gossip), futs))
 }

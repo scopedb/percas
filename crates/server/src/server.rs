@@ -21,6 +21,7 @@ use fastimer::schedule::SimpleActionExt;
 use mea::shutdown::ShutdownRecv;
 use mea::shutdown::ShutdownSend;
 use mea::waitgroup::WaitGroup;
+use percas_cluster::GossipFuture;
 use percas_cluster::Proxy;
 use percas_core::Runtime;
 use percas_core::timer;
@@ -36,7 +37,6 @@ use poem::listener::Acceptor;
 use poem::listener::Listener;
 use poem::listener::TcpListener;
 use poem::web::Data;
-use poem::web::LocalAddr;
 use poem::web::Path;
 use poem::web::headers::ContentType;
 
@@ -52,6 +52,7 @@ pub(crate) type ServerFuture<T> = tokio::task::JoinHandle<Result<T, io::Error>>;
 pub struct ServerState {
     advertise_addr: String,
     server_fut: ServerFuture<()>,
+    gossip_futs: Vec<GossipFuture>,
 
     shutdown_rx_server: ShutdownRecv,
     shutdown_tx_actions: Vec<ShutdownSend>,
@@ -78,6 +79,11 @@ impl ServerState {
         match self.server_fut.await {
             Ok(_) => log::info!("percas server stopped."),
             Err(err) => log::error!(err:?; "percas server failed."),
+        }
+
+        match futures_util::future::try_join_all(self.gossip_futs).await {
+            Ok(_) => log::info!("percas gossip stopped."),
+            Err(err) => log::error!(err:?; "percas gossip failed."),
         }
     }
 }
@@ -108,6 +114,7 @@ pub async fn start_server(
     listen_addr: String,
     advertise_addr: String,
     cluster_proxy: Option<Proxy>,
+    gossip_futs: Vec<GossipFuture>,
 ) -> Result<ServerState, io::Error> {
     let wg = WaitGroup::new();
     let shutdown_rx_server = shutdown_rx;
@@ -143,7 +150,7 @@ pub async fn start_server(
 
         tokio::spawn(async move {
             poem::Server::new_with_acceptor(acceptor)
-                .run_with_graceful_shutdown(route, signal, Some(Duration::from_secs(30)))
+                .run_with_graceful_shutdown(route, signal, Some(Duration::from_secs(10)))
                 .await
         })
     };
@@ -165,6 +172,7 @@ pub async fn start_server(
     Ok(ServerState {
         advertise_addr,
         server_fut,
+        gossip_futs,
         shutdown_rx_server,
         shutdown_tx_actions,
     })

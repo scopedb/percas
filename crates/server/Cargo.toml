@@ -31,6 +31,7 @@ release = false
 fastimer = { workspace = true }
 fastrace = { workspace = true }
 fastrace-opentelemetry = { workspace = true }
+futures-util = { workspace = true }
 local-ip-address = { workspace = true }
 log = { workspace = true }
 logforth = { workspace = true }
