@@ -15,7 +15,7 @@
 use std::sync::Arc;
 
 use mea::semaphore::Semaphore;
-use percas_client::ClientBuilder;
+use percas_client::ClientFactory;
 use percas_cluster::Proxy;
 use percas_cluster::RouteDest;
 use percas_core::num_cpus;
@@ -31,6 +31,7 @@ use crate::server::delete_success;
 use crate::server::get_not_found;
 use crate::server::get_success;
 use crate::server::put_success;
+use crate::server::too_many_requests;
 
 pub struct LoggerMiddleware;
 
@@ -72,11 +73,12 @@ where
 
 pub struct ClusterProxyMiddleware {
     proxy: Option<Proxy>,
+    factory: ClientFactory,
 }
 
 impl ClusterProxyMiddleware {
-    pub fn new(proxy: Option<Proxy>) -> Self {
-        Self { proxy }
+    pub fn new(proxy: Option<Proxy>, factory: ClientFactory) -> Self {
+        Self { proxy, factory }
     }
 }
 
@@ -90,6 +92,7 @@ where
     fn transform(&self, endpoint: E) -> Self::Output {
         ClusterProxyEndpoint {
             proxy: self.proxy.clone(),
+            factory: self.factory.clone(),
             endpoint,
         }
     }
@@ -97,6 +100,7 @@ where
 
 pub struct ClusterProxyEndpoint<E> {
     proxy: Option<Proxy>,
+    factory: ClientFactory,
     endpoint: E,
 }
 
@@ -118,9 +122,11 @@ where
                     .await
                     .map(IntoResponse::into_response),
                 RouteDest::RemoteAddr(addr) => {
-                    let client = ClientBuilder::new(format!("http://{addr}"))
-                        .build()
-                        .unwrap();
+                    let client = self
+                        .factory
+                        .make_client(format!("http://{addr}"))
+                        .map_err(|err| poem::Error::new(err, StatusCode::INTERNAL_SERVER_ERROR))?;
+
                     match *req.method() {
                         Method::GET => {
                             let resp = client.get(&key).await;
@@ -131,6 +137,9 @@ where
                                     } else {
                                         Ok(get_not_found())
                                     }
+                                }
+                                Err(percas_client::Error::TooManyRequests) => {
+                                    Ok(too_many_requests())
                                 }
                                 Err(err) => {
                                     log::error!("failed to get from remote: {err}");
@@ -146,8 +155,11 @@ where
                             let resp = client.put(&key, &body).await;
                             match resp {
                                 Ok(()) => Ok(put_success()),
+                                Err(percas_client::Error::TooManyRequests) => {
+                                    Ok(too_many_requests())
+                                }
                                 Err(err) => {
-                                    log::error!("failed to put from remote: {err}");
+                                    log::error!("failed to put to remote: {err}");
                                     req.set_body(body);
                                     self.endpoint
                                         .call(req)
@@ -160,8 +172,11 @@ where
                             let resp = client.delete(&key).await;
                             match resp {
                                 Ok(()) => Ok(delete_success()),
+                                Err(percas_client::Error::TooManyRequests) => {
+                                    Ok(too_many_requests())
+                                }
                                 Err(err) => {
-                                    log::error!("failed to delete from remote: {err}");
+                                    log::error!("failed to delete at remote: {err}");
                                     self.endpoint
                                         .call(req)
                                         .await
@@ -235,9 +250,7 @@ where
 
     async fn call(&self, req: Request) -> Result<Self::Output, poem::Error> {
         let Some(_wait_permit) = self.wait_permit.try_acquire(1) else {
-            return Ok(Response::builder()
-                .status(StatusCode::TOO_MANY_REQUESTS)
-                .body(StatusCode::TOO_MANY_REQUESTS.to_string()));
+            return Ok(too_many_requests());
         };
         let _run_permit = self.run_permit.acquire(1).await;
 

@@ -15,4 +15,16 @@
 mod client;
 
 pub use client::Client;
-pub use client::ClientBuilder;
+pub use client::ClientFactory;
+
+#[derive(Debug, thiserror::Error)]
+#[error("{0}")]
+pub enum Error {
+    #[from(std::io::Error)]
+    IO(std::io::Error),
+    #[from(reqwest::Error)]
+    Http(reqwest::Error),
+    #[error("Too Many Requests")]
+    TooManyRequests,
+    Other(String),
+}

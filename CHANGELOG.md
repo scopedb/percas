@@ -4,6 +4,10 @@ All significant changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Breaking Changes
+
+* `ClientBuilder` is now `ClientFactory` for reusing the underlying reqwest client.
+
 ## v0.1.4
 
 ### Bug Fixes

@@ -15,7 +15,7 @@
 use std::process::ExitCode;
 
 use percas_client::Client;
-use percas_client::ClientBuilder;
+use percas_client::ClientFactory;
 use percas_core::make_runtime;
 use tests_toolkit::make_test_name;
 
@@ -37,7 +37,8 @@ where
 
     rt.block_on(async move {
         let server_addr = format!("http://{}", state.server_state.advertise_addr());
-        let client = ClientBuilder::new(server_addr).build().unwrap();
+        let factory = ClientFactory::new().unwrap();
+        let client = factory.make_client(server_addr).unwrap();
 
         let exit_code = test(Testkit { client }).await.report();
 
