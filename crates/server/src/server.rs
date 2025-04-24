@@ -21,6 +21,7 @@ use fastimer::schedule::SimpleActionExt;
 use mea::shutdown::ShutdownRecv;
 use mea::shutdown::ShutdownSend;
 use mea::waitgroup::WaitGroup;
+use percas_client::ClientFactory;
 use percas_cluster::GossipFuture;
 use percas_cluster::Proxy;
 use percas_core::Runtime;
@@ -140,13 +141,15 @@ pub async fn start_server(
         let shutdown_clone = shutdown_rx_server.clone();
         let wg_clone = wg.clone();
 
+        let client_factory = ClientFactory::new().map_err(io::Error::other)?;
+        let proxy_middleware = ClusterProxyMiddleware::new(cluster_proxy, client_factory);
         let route = Route::new()
             .at(
                 "/*key",
                 poem::get(get)
                     .put(put)
                     .delete(delete)
-                    .with(ClusterProxyMiddleware::new(cluster_proxy)),
+                    .with(proxy_middleware),
             )
             .data(ctx.clone())
             .with(RateLimitMiddleware::new())
@@ -188,6 +191,13 @@ pub async fn start_server(
         shutdown_rx_server,
         shutdown_tx_actions,
     })
+}
+
+pub fn too_many_requests() -> Response {
+    Response::builder()
+        .status(StatusCode::TOO_MANY_REQUESTS)
+        .typed_header(ContentType::text())
+        .body(StatusCode::TOO_MANY_REQUESTS.to_string())
 }
 
 pub fn get_success(body: impl Into<Body>) -> Response {

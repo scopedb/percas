@@ -16,29 +16,24 @@ use reqwest::IntoUrl;
 use reqwest::StatusCode;
 use reqwest::Url;
 
-#[derive(Debug, thiserror::Error)]
-#[error("{0}")]
-pub enum Error {
-    #[from(std::io::Error)]
-    IO(std::io::Error),
-    #[from(reqwest::Error)]
-    Http(reqwest::Error),
+use crate::Error;
 
-    Other(String),
+#[derive(Debug, Clone)]
+pub struct ClientFactory {
+    client: reqwest::Client,
 }
 
-pub struct ClientBuilder {
-    endpoint: String,
-}
-
-impl ClientBuilder {
-    pub fn new(endpoint: String) -> Self {
-        Self { endpoint }
+impl ClientFactory {
+    pub fn new() -> Result<Self, Error> {
+        let client = reqwest::ClientBuilder::new()
+            .no_proxy()
+            .build()
+            .map_err(Error::Http)?;
+        Ok(Self { client })
     }
 
-    pub fn build(self) -> Result<Client, Error> {
-        let builder = reqwest::ClientBuilder::new().no_proxy();
-        Client::new(self.endpoint, builder)
+    pub fn make_client(&self, endpoint: String) -> Result<Client, Error> {
+        Client::new(endpoint, self.client.clone())
     }
 }
 
@@ -60,8 +55,7 @@ impl Client {
         do_delete(self, key).await
     }
 
-    fn new(base_url: impl IntoUrl, builder: reqwest::ClientBuilder) -> Result<Self, Error> {
-        let client = builder.build().map_err(Error::Http)?;
+    fn new(base_url: impl IntoUrl, client: reqwest::Client) -> Result<Self, Error> {
         let base_url = base_url.into_url().map_err(Error::Http)?;
         Ok(Client { client, base_url })
     }
@@ -72,14 +66,16 @@ async fn do_get(client: &Client, key: &str) -> Result<Option<Vec<u8>>, Error> {
         .base_url
         .join(key)
         .map_err(|e| Error::Other(e.to_string()))?;
+
     let resp = client.client.get(url).send().await.map_err(Error::Http)?;
 
     match resp.status() {
-        StatusCode::NOT_FOUND | StatusCode::TOO_MANY_REQUESTS => Ok(None),
+        StatusCode::NOT_FOUND => Ok(None),
         StatusCode::OK => {
             let body = resp.bytes().await.map_err(Error::Http)?;
             Ok(Some(body.to_vec()))
         }
+        StatusCode::TOO_MANY_REQUESTS => Err(Error::TooManyRequests),
         _ => Err(Error::Other(resp.status().to_string())),
     }
 }
@@ -89,6 +85,7 @@ async fn do_put(client: &Client, key: &str, value: &[u8]) -> Result<(), Error> {
         .base_url
         .join(key)
         .map_err(|e| Error::Other(e.to_string()))?;
+
     let resp = client
         .client
         .put(url)
@@ -98,11 +95,9 @@ async fn do_put(client: &Client, key: &str, value: &[u8]) -> Result<(), Error> {
         .map_err(Error::Http)?;
 
     match resp.status() {
-        StatusCode::OK
-        | StatusCode::CREATED
-        | StatusCode::NO_CONTENT
-        | StatusCode::TOO_MANY_REQUESTS => Ok(()),
-        _ => Err(Error::Other(resp.status().to_string())),
+        StatusCode::OK | StatusCode::CREATED => Ok(()),
+        StatusCode::TOO_MANY_REQUESTS => Err(Error::TooManyRequests),
+        status => Err(Error::Other(status.to_string())),
     }
 }
 
@@ -111,6 +106,7 @@ async fn do_delete(client: &Client, key: &str) -> Result<(), Error> {
         .base_url
         .join(key)
         .map_err(|e| Error::Other(e.to_string()))?;
+
     let resp = client
         .client
         .delete(url)
@@ -119,7 +115,8 @@ async fn do_delete(client: &Client, key: &str) -> Result<(), Error> {
         .map_err(Error::Http)?;
 
     match resp.status() {
-        StatusCode::OK | StatusCode::NO_CONTENT | StatusCode::TOO_MANY_REQUESTS => Ok(()),
-        _ => Err(Error::Other(resp.status().to_string())),
+        StatusCode::OK | StatusCode::NO_CONTENT => Ok(()),
+        StatusCode::TOO_MANY_REQUESTS => Err(Error::TooManyRequests),
+        status => Err(Error::Other(status.to_string())),
     }
 }
