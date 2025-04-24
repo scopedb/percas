@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::io;
-use std::net::AddrParseError;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -51,7 +50,7 @@ pub(crate) type ServerFuture<T> = tokio::task::JoinHandle<Result<T, io::Error>>;
 
 #[derive(Debug)]
 pub struct ServerState {
-    listen_addr: LocalAddr,
+    advertise_addr: String,
     server_fut: ServerFuture<()>,
 
     shutdown_rx_server: ShutdownRecv,
@@ -59,8 +58,8 @@ pub struct ServerState {
 }
 
 impl ServerState {
-    pub fn listen_addr(&self) -> LocalAddr {
-        self.listen_addr.clone()
+    pub fn advertise_addr(&self) -> String {
+        self.advertise_addr.clone()
     }
 
     pub async fn await_shutdown(self) {
@@ -106,7 +105,7 @@ pub async fn start_server(
     rt: &Runtime,
     ctx: Arc<PercasContext>,
     listen_addr: String,
-    _advertise_addr: String,
+    advertise_addr: String,
     cluster_proxy: Option<Proxy>,
 ) -> Result<(ServerState, ShutdownSend), io::Error> {
     let (shutdown_tx_server, shutdown_rx_server) = mea::shutdown::new_pair();
@@ -164,7 +163,7 @@ pub async fn start_server(
     shutdown_tx_actions.push(shutdown_tx);
 
     let state = ServerState {
-        listen_addr,
+        advertise_addr,
         server_fut,
         shutdown_rx_server,
         shutdown_tx_actions,
