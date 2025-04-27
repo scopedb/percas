@@ -48,7 +48,7 @@ use crate::middleware::LoggerMiddleware;
 use crate::middleware::RateLimitMiddleware;
 use crate::scheduled::ReportMetricsAction;
 
-pub(crate) type ServerFuture<T> = tokio::task::JoinHandle<Result<T, io::Error>>;
+pub(crate) type ServerFuture<T> = percas_core::JoinHandle<Result<T, io::Error>>;
 
 #[derive(Debug)]
 pub struct ServerState {
@@ -163,7 +163,7 @@ pub async fn start_server(
             log::info!("server is closing");
         };
 
-        tokio::spawn(async move {
+        rt.spawn(async move {
             poem::Server::new_with_acceptor(acceptor)
                 .run_with_graceful_shutdown(route, signal, Some(Duration::from_secs(10)))
                 .await
