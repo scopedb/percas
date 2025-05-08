@@ -56,7 +56,7 @@ fn main() -> shadow_rs::SdResult<()> {
     println!(
         "cargo::rustc-env=SOURCE_TIMESTAMP={}",
         if let Ok(t) = get_source_time() {
-            format_timestamp(t)
+            format_timestamp(t)?
         } else {
             "".to_string()
         }

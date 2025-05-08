@@ -39,6 +39,17 @@ impl From<&foyer::Statistics> for MetricsSnapshot {
     }
 }
 
+impl MetricsSnapshot {
+    pub fn difference(&self, other: &MetricsSnapshot) -> Self {
+        Self {
+            disk_read_bytes: self.disk_read_bytes - other.disk_read_bytes,
+            disk_write_bytes: self.disk_write_bytes - other.disk_write_bytes,
+            disk_read_ios: self.disk_read_ios - other.disk_read_ios,
+            disk_write_ios: self.disk_write_ios - other.disk_write_ios,
+        }
+    }
+}
+
 pub struct ReportMetricsAction {
     ctx: Arc<PercasContext>,
     snapshot: ArcSwap<MetricsSnapshot>,
@@ -54,35 +65,40 @@ impl ReportMetricsAction {
 
     async fn do_report(&self) {
         let metrics = GlobalMetrics::get();
-        let engine = &self.ctx.engine;
 
-        metrics.storage.capacity.record(engine.capacity(), &[]);
-        // Foyer will reserve all the space in the disk, so the used space is meaningless
+        let engine = &self.ctx.engine;
+        // foyer will reserve all the space in the disk; the used space is meaningless
         metrics.storage.used.record(engine.capacity(), &[]);
+        metrics.storage.capacity.record(engine.capacity(), &[]);
 
         let read_label = StorageIOMetrics::operation_labels(StorageIOMetrics::OPERATION_READ);
         let write_label = StorageIOMetrics::operation_labels(StorageIOMetrics::OPERATION_WRITE);
+
         let current = MetricsSnapshot::from(engine.statistics().as_ref());
         let previous = self.snapshot.load();
-        metrics.storage.io.bytes.add(
-            current.disk_read_bytes - previous.disk_read_bytes,
-            &read_label,
-        );
-        metrics.storage.io.bytes.add(
-            current.disk_write_bytes - previous.disk_write_bytes,
-            &write_label,
-        );
+        let difference = current.difference(&previous);
+        self.snapshot.store(Arc::new(current));
+
+        metrics
+            .storage
+            .io
+            .bytes
+            .add(difference.disk_read_bytes, &read_label);
+        metrics
+            .storage
+            .io
+            .bytes
+            .add(difference.disk_write_bytes, &write_label);
         metrics
             .storage
             .io
             .count
-            .add(current.disk_read_ios - previous.disk_read_ios, &read_label);
-        metrics.storage.io.count.add(
-            current.disk_write_ios - previous.disk_write_ios,
-            &write_label,
-        );
-
-        self.snapshot.store(Arc::new(current));
+            .add(difference.disk_read_ios, &read_label);
+        metrics
+            .storage
+            .io
+            .count
+            .add(difference.disk_write_ios, &write_label);
     }
 }
 
