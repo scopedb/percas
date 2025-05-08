@@ -71,34 +71,18 @@ impl ReportMetricsAction {
         metrics.storage.used.record(engine.capacity(), &[]);
         metrics.storage.capacity.record(engine.capacity(), &[]);
 
-        let read_label = StorageIOMetrics::operation_labels(StorageIOMetrics::OPERATION_READ);
-        let write_label = StorageIOMetrics::operation_labels(StorageIOMetrics::OPERATION_WRITE);
-
         let current = MetricsSnapshot::from(engine.statistics().as_ref());
         let previous = self.snapshot.load();
         let difference = current.difference(&previous);
         self.snapshot.store(Arc::new(current));
 
-        metrics
-            .storage
-            .io
-            .bytes
-            .add(difference.disk_read_bytes, &read_label);
-        metrics
-            .storage
-            .io
-            .bytes
-            .add(difference.disk_write_bytes, &write_label);
-        metrics
-            .storage
-            .io
-            .count
-            .add(difference.disk_read_ios, &read_label);
-        metrics
-            .storage
-            .io
-            .count
-            .add(difference.disk_write_ios, &write_label);
+        let io = &metrics.storage.io;
+        let read_label = StorageIOMetrics::operation_labels(StorageIOMetrics::OPERATION_READ);
+        let write_label = StorageIOMetrics::operation_labels(StorageIOMetrics::OPERATION_WRITE);
+        io.bytes.add(difference.disk_read_bytes, &read_label);
+        io.bytes.add(difference.disk_write_bytes, &write_label);
+        io.count.add(difference.disk_read_ios, &read_label);
+        io.count.add(difference.disk_write_ios, &write_label);
     }
 }
 
