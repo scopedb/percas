@@ -117,8 +117,8 @@ impl FoyerEngine {
         self.capacity
     }
 
-    pub fn stats(&self) -> Arc<foyer::DeviceStats> {
-        self.inner.stats()
+    pub fn statistics(&self) -> &Arc<foyer::Statistics> {
+        self.inner.statistics()
     }
 }
 

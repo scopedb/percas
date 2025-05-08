@@ -48,8 +48,9 @@ tests-toolkit = { version = "0.2.0", path = "tests/toolkit" }
 
 # Crates.io dependencies
 anstyle = { version = "1.0.10" }
+arc-swap = { version = "1" }
 backon = { version = "1.5.0" }
-build-data = { version = "0.2.3" }
+build-data = { version = "0.3.0" }
 clap = { version = "4.5.35", features = ["derive"] }
 const_format = { version = "0.2.34" }
 criterion = { version = "0.5.1", features = ["async_tokio"] }
@@ -61,9 +62,9 @@ error-stack = { version = "0.5", default-features = false, features = [
 fastimer = { version = "0.9.0" }
 fastrace = { version = "0.7.9" }
 fastrace-opentelemetry = { version = "0.10.0" }
-foyer = { version = "0.16.0", features = ["nightly"] }
+foyer = { version = "0.17", features = ["nightly"] }
 futures-util = { version = "0.3.31" }
-gix-discover = { version = "0.39.0" }
+gix-discover = { version = "0.40.1" }
 googletest = { version = "0.14.0" }
 humansize = { version = "2.1.3" }
 indent = { version = "0.1.1" }
@@ -103,12 +104,11 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 sha2 = { version = "0.10.8" }
 shadow-rs = { version = "1.0.0", default-features = false }
-sysinfo = { version = "0.34.2" }
+sysinfo = { version = "0.35.0" }
 tempfile = { version = "3.19.1" }
 test-harness = { version = "0.3.0" }
 thiserror = { version = "2.0" }
 tokio = { version = "1.44.2" }
-toml = { version = "0.8.20" }
 toml_edit = { version = "0.22.22" }
 unindent = { version = "0.2.4" }
 uuid = { version = "1.16.0", features = ["v4", "serde"] }

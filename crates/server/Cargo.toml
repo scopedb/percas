@@ -28,9 +28,11 @@ version.workspace = true
 release = false
 
 [dependencies]
+arc-swap = { workspace = true }
 fastimer = { workspace = true }
 fastrace = { workspace = true }
 fastrace-opentelemetry = { workspace = true }
+foyer = { workspace = true }
 futures-util = { workspace = true }
 local-ip-address = { workspace = true }
 log = { workspace = true }
