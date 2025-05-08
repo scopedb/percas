@@ -48,6 +48,7 @@ tests-toolkit = { version = "0.2.0", path = "tests/toolkit" }
 
 # Crates.io dependencies
 anstyle = { version = "1.0.10" }
+arc-swap = { version = "1" }
 backon = { version = "1.5.0" }
 build-data = { version = "0.2.3" }
 clap = { version = "4.5.35", features = ["derive"] }
@@ -61,7 +62,7 @@ error-stack = { version = "0.5", default-features = false, features = [
 fastimer = { version = "0.9.0" }
 fastrace = { version = "0.7.9" }
 fastrace-opentelemetry = { version = "0.10.0" }
-foyer = { version = "0.16.0", features = ["nightly"] }
+foyer = { version = "0.17", features = ["nightly", "tracing"] }
 futures-util = { version = "0.3.31" }
 gix-discover = { version = "0.39.0" }
 googletest = { version = "0.14.0" }
