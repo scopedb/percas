@@ -143,6 +143,7 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
         &config.storage.data_dir,
         config.storage.memory_capacity,
         config.storage.disk_capacity,
+        config.storage.disk_throttle,
     )
     .await
     .change_context_lazy(make_error)?;

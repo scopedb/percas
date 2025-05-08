@@ -28,6 +28,7 @@ use foyer::RuntimeOptions;
 use sysinfo::Pid;
 use thiserror::Error;
 
+use crate::DiskThrottle;
 use crate::num_cpus;
 
 const DEFAULT_MEMORY_CAPACITY_FACTOR: f64 = 0.8;
@@ -46,6 +47,7 @@ impl FoyerEngine {
         data_dir: &Path,
         memory_capacity: Option<u64>,
         disk_capacity: u64,
+        disk_throttle: Option<DiskThrottle>,
     ) -> Result<Self, EngineError> {
         let _ = std::fs::create_dir_all(data_dir);
         if !data_dir.exists() {
@@ -53,6 +55,13 @@ impl FoyerEngine {
                 "failed to create data dir: {}",
                 data_dir.display()
             )));
+        }
+
+        let mut dev = DirectFsDeviceOptions::new(data_dir)
+            .with_capacity(disk_capacity as usize)
+            .with_file_size(64 * 1024 * 1024);
+        if let Some(throttle) = disk_throttle {
+            dev = dev.with_throttle(throttle.into());
         }
 
         let parallelism = num_cpus().get();
@@ -78,11 +87,7 @@ impl FoyerEngine {
             .with_shards(parallelism)
             .with_eviction_config(FifoConfig::default())
             .storage(foyer::Engine::Large)
-            .with_device_options(
-                DirectFsDeviceOptions::new(data_dir)
-                    .with_capacity(disk_capacity as usize)
-                    .with_file_size(64 * 1024 * 1024),
-            )
+            .with_device_options(dev)
             .with_recover_mode(RecoverMode::Quiet)
             .with_runtime_options(RuntimeOptions::Unified(Default::default()))
             .build()
@@ -132,7 +137,7 @@ mod tests {
     async fn test_get() {
         let temp_dir = tempfile::tempdir().unwrap();
 
-        let engine = FoyerEngine::try_new(temp_dir.path(), Some(512 * 1024), 1024 * 1024)
+        let engine = FoyerEngine::try_new(temp_dir.path(), Some(512 * 1024), 1024 * 1024, None)
             .await
             .unwrap();
         engine.put(b"foo".to_vec().as_ref(), b"bar".to_vec().as_ref());
