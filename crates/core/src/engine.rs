@@ -28,7 +28,7 @@ use foyer::RuntimeOptions;
 use sysinfo::Pid;
 use thiserror::Error;
 
-use crate::DiskThrottle;
+use crate::newtype::DiskThrottle;
 use crate::num_cpus;
 
 const DEFAULT_MEMORY_CAPACITY_FACTOR: f64 = 0.8;
