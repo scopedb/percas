@@ -932,9 +932,9 @@ dependencies = [
 
 [[package]]
 name = "foyer"
-version = "0.17.0"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25b39eac8bbda09ae8bf9b65c9f81a3644cff845cab79953332fc382295a3dac"
+checksum = "ae35d844b513ec9a2477ffc9c9b63cbe07665dcb6ab984d7b0177a705bcb81c3"
 dependencies = [
  "ahash",
  "anyhow",
@@ -952,11 +952,12 @@ dependencies = [
 
 [[package]]
 name = "foyer-common"
-version = "0.17.0"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58bc1526450debd8e2189622b443c891d80e679d8088a673111f68ba26fdba6d"
+checksum = "f05d527524ec9df060ab6fd4b188105b289343efc8b976e57a21487302753ac8"
 dependencies = [
  "ahash",
+ "bincode",
  "bytes",
  "cfg-if",
  "itertools 0.14.0",
@@ -964,6 +965,7 @@ dependencies = [
  "mixtrics",
  "parking_lot",
  "pin-project",
+ "serde",
  "thiserror",
  "tokio",
 ]
@@ -979,9 +981,9 @@ dependencies = [
 
 [[package]]
 name = "foyer-memory"
-version = "0.17.0"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9bb1c500379344e82472b8576767a71a58650bb669b31491c7b7f4e91eb9efc"
+checksum = "9acca85a3d93a5213a07c75c67c48ff0b85e150281a6cd729a2e746bedcad02d"
 dependencies = [
  "ahash",
  "arc-swap",
@@ -1004,9 +1006,9 @@ dependencies = [
 
 [[package]]
 name = "foyer-storage"
-version = "0.17.0"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc512db7757a9b2162d43a0708608e0deec1768acf622ed1b0a3024c1351d268"
+checksum = "74d6320913ca299e5f3731e50dd9246f7e26278196097919b32aae116389761c"
 dependencies = [
  "ahash",
  "allocator-api2",
@@ -1031,6 +1033,7 @@ dependencies = [
  "paste",
  "pin-project",
  "rand 0.9.1",
+ "serde",
  "thiserror",
  "tokio",
  "tracing",

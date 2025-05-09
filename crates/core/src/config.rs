@@ -62,6 +62,54 @@ pub enum ServerConfig {
     },
 }
 
+#[cfg(test)]
+pub(crate) mod defs {
+
+    use serde::Deserialize;
+    use serde::Serialize;
+
+    #[derive(schemars::JsonSchema, Serialize, Deserialize)]
+    #[serde(remote = "foyer::IopsCounter")]
+    #[serde(deny_unknown_fields)]
+    #[serde(tag = "mode")]
+    pub enum IopsCounterDef {
+        /// Count 1 iops for each read/write.
+        #[serde(rename = "per_io")]
+        PerIo,
+        /// Count 1 iops for each read/write with the size of the i/o.
+        #[serde(rename = "per_io_size")]
+        PerIoSize(std::num::NonZeroUsize),
+    }
+
+    #[derive(schemars::JsonSchema, Serialize, Deserialize)]
+    #[serde(remote = "foyer::Throttle")]
+    #[serde(deny_unknown_fields)]
+    pub struct ThrottleDef {
+        /// The maximum write iops for the device.
+        pub write_iops: Option<std::num::NonZeroUsize>,
+        /// The maximum read iops for the device.
+        pub read_iops: Option<std::num::NonZeroUsize>,
+        /// The maximum write throughput for the device.
+        pub write_throughput: Option<std::num::NonZeroUsize>,
+        /// The maximum read throughput for the device.
+        pub read_throughput: Option<std::num::NonZeroUsize>,
+        /// The iops counter for the device.
+        #[serde(with = "IopsCounterDef")]
+        pub iops_counter: foyer::IopsCounter,
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+#[repr(transparent)]
+pub struct DiskThrottle(#[cfg_attr(test, serde(with = "defs::ThrottleDef"))] foyer::Throttle);
+
+impl From<DiskThrottle> for foyer::Throttle {
+    fn from(value: DiskThrottle) -> Self {
+        value.0
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
@@ -69,6 +117,8 @@ pub struct StorageConfig {
     #[serde(default = "default_data_dir")]
     pub data_dir: PathBuf,
     pub disk_capacity: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disk_throttle: Option<DiskThrottle>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memory_capacity: Option<u64>,
 }
@@ -203,6 +253,7 @@ impl Default for Config {
             storage: StorageConfig {
                 data_dir: default_data_dir(),
                 disk_capacity: 512 * 1024 * 1024,
+                disk_throttle: None,
                 memory_capacity: None,
             },
             telemetry: TelemetryConfig {
@@ -297,6 +348,31 @@ pub const fn known_option_entries() -> &'static [OptionEntry] {
         OptionEntry {
             env_name: "PERCAS_CONFIG_STORAGE_DISK_CAPACITY",
             ent_path: "storage.disk_capacity",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_DISK_THROTTLE_IOPS_COUNTER_MODE",
+            ent_path: "storage.disk_throttle.iops_counter.mode",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_DISK_THROTTLE_READ_IOPS",
+            ent_path: "storage.disk_throttle.read_iops",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_DISK_THROTTLE_READ_THROUGHPUT",
+            ent_path: "storage.disk_throttle.read_throughput",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_DISK_THROTTLE_WRITE_IOPS",
+            ent_path: "storage.disk_throttle.write_iops",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_DISK_THROTTLE_WRITE_THROUGHPUT",
+            ent_path: "storage.disk_throttle.write_throughput",
             ent_type: "integer",
         },
         OptionEntry {
