@@ -18,6 +18,7 @@ use std::path::PathBuf;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::newtype::DiskThrottle;
 use crate::newtype::SignedDuration;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,54 +61,6 @@ pub enum ServerConfig {
         #[serde(default = "default_cluster_id")]
         cluster_id: String,
     },
-}
-
-#[cfg(test)]
-pub(crate) mod defs {
-
-    use serde::Deserialize;
-    use serde::Serialize;
-
-    #[derive(schemars::JsonSchema, Serialize, Deserialize)]
-    #[serde(remote = "foyer::IopsCounter")]
-    #[serde(deny_unknown_fields)]
-    #[serde(tag = "mode")]
-    pub enum IopsCounterDef {
-        /// Count 1 iops for each read/write.
-        #[serde(rename = "per_io")]
-        PerIo,
-        /// Count 1 iops for each read/write with the size of the i/o.
-        #[serde(rename = "per_io_size")]
-        PerIoSize(std::num::NonZeroUsize),
-    }
-
-    #[derive(schemars::JsonSchema, Serialize, Deserialize)]
-    #[serde(remote = "foyer::Throttle")]
-    #[serde(deny_unknown_fields)]
-    pub struct ThrottleDef {
-        /// The maximum write iops for the device.
-        pub write_iops: Option<std::num::NonZeroUsize>,
-        /// The maximum read iops for the device.
-        pub read_iops: Option<std::num::NonZeroUsize>,
-        /// The maximum write throughput for the device.
-        pub write_throughput: Option<std::num::NonZeroUsize>,
-        /// The maximum read throughput for the device.
-        pub read_throughput: Option<std::num::NonZeroUsize>,
-        /// The iops counter for the device.
-        #[serde(with = "IopsCounterDef")]
-        pub iops_counter: foyer::IopsCounter,
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(test, derive(schemars::JsonSchema))]
-#[serde(deny_unknown_fields)]
-#[repr(transparent)]
-pub struct DiskThrottle(#[cfg_attr(test, serde(with = "defs::ThrottleDef"))] foyer::Throttle);
-
-impl From<DiskThrottle> for foyer::Throttle {
-    fn from(value: DiskThrottle) -> Self {
-        value.0
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
