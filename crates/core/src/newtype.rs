@@ -91,6 +91,7 @@ impl From<foyer::Throttle> for DiskThrottle {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
+#[serde(tag = "mode")]
 pub enum IopsCounter {
     /// Count 1 iops for each read/write.
     #[serde(rename = "per_io")]
