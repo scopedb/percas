@@ -957,7 +957,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f05d527524ec9df060ab6fd4b188105b289343efc8b976e57a21487302753ac8"
 dependencies = [
  "ahash",
- "bincode",
  "bytes",
  "cfg-if",
  "itertools 0.14.0",
@@ -965,7 +964,6 @@ dependencies = [
  "mixtrics",
  "parking_lot",
  "pin-project",
- "serde",
  "thiserror",
  "tokio",
 ]
@@ -1033,7 +1031,6 @@ dependencies = [
  "paste",
  "pin-project",
  "rand 0.9.1",
- "serde",
  "thiserror",
  "tokio",
  "tracing",
