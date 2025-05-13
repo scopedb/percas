@@ -98,14 +98,17 @@ pub enum IopsCounter {
     PerIo,
     /// Count 1 iops for each read/write with the size of the i/o.
     #[serde(rename = "per_io_size")]
-    PerIoSize(NonZeroUsize),
+    PerIoSize {
+        /// The size of the i/o.
+        size: NonZeroUsize,
+    },
 }
 
 impl From<IopsCounter> for foyer::IopsCounter {
     fn from(value: IopsCounter) -> Self {
         match value {
             IopsCounter::PerIo => foyer::IopsCounter::PerIo,
-            IopsCounter::PerIoSize(size) => foyer::IopsCounter::PerIoSize(size),
+            IopsCounter::PerIoSize { size } => foyer::IopsCounter::PerIoSize(size),
         }
     }
 }
@@ -114,7 +117,7 @@ impl From<foyer::IopsCounter> for IopsCounter {
     fn from(value: foyer::IopsCounter) -> Self {
         match value {
             foyer::IopsCounter::PerIo => IopsCounter::PerIo,
-            foyer::IopsCounter::PerIoSize(size) => IopsCounter::PerIoSize(size),
+            foyer::IopsCounter::PerIoSize(size) => IopsCounter::PerIoSize { size },
         }
     }
 }

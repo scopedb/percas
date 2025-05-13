@@ -309,6 +309,11 @@ pub const fn known_option_entries() -> &'static [OptionEntry] {
             ent_type: "string",
         },
         OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_DISK_THROTTLE_IOPS_COUNTER_SIZE",
+            ent_path: "storage.disk_throttle.iops_counter.size",
+            ent_type: "integer",
+        },
+        OptionEntry {
             env_name: "PERCAS_CONFIG_STORAGE_DISK_THROTTLE_READ_IOPS",
             ent_path: "storage.disk_throttle.read_iops",
             ent_type: "integer",
