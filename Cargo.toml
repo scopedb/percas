@@ -96,7 +96,7 @@ poem = { version = "3.1.7" }
 pretty-hex = { version = "0.4.1" }
 pretty_assertions = { version = "1.4.1" }
 regex = { version = "1.11.1" }
-reqwest = { version = "0.12.15", features = ["json"] }
+reqwest = { version = "0.12.15", default-features = false, features = ["json"] }
 schemars = { version = "1.0.0-alpha.17" }
 scopeguard = { version = "1.2.0" }
 sealed_test = { version = "1.1" }
