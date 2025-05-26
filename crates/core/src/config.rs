@@ -19,7 +19,6 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::newtype::DiskThrottle;
-use crate::newtype::SignedDuration;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(schemars::JsonSchema))]
@@ -188,11 +187,11 @@ pub struct MetricsConfig {
 pub struct OpentelemetryMetricsConfig {
     pub otlp_endpoint: String,
     #[serde(default = "default_metrics_push_interval")]
-    pub push_interval: SignedDuration,
+    pub push_interval: jiff::SignedDuration,
 }
 
-fn default_metrics_push_interval() -> SignedDuration {
-    jiff::SignedDuration::from_secs(30).into()
+const fn default_metrics_push_interval() -> jiff::SignedDuration {
+    jiff::SignedDuration::from_secs(30)
 }
 
 impl Default for Config {
@@ -233,7 +232,7 @@ impl Default for Config {
                 metrics: Some(MetricsConfig {
                     opentelemetry: Some(OpentelemetryMetricsConfig {
                         otlp_endpoint: "http://127.0.0.1:4317".to_string(),
-                        push_interval: jiff::SignedDuration::from_secs(30).into(),
+                        push_interval: default_metrics_push_interval(),
                     }),
                 }),
             },

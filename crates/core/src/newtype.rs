@@ -17,35 +17,6 @@ use std::num::NonZeroUsize;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SignedDuration(jiff::SignedDuration);
-
-impl From<SignedDuration> for jiff::SignedDuration {
-    fn from(value: SignedDuration) -> Self {
-        value.0
-    }
-}
-
-impl From<jiff::SignedDuration> for SignedDuration {
-    fn from(value: jiff::SignedDuration) -> Self {
-        Self(value)
-    }
-}
-
-impl std::ops::Deref for SignedDuration {
-    type Target = jiff::SignedDuration;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for SignedDuration {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 /// Throttle config for the device.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(schemars::JsonSchema))]
@@ -118,38 +89,6 @@ impl From<foyer::IopsCounter> for IopsCounter {
         match value {
             foyer::IopsCounter::PerIo => IopsCounter::PerIo,
             foyer::IopsCounter::PerIoSize(size) => IopsCounter::PerIoSize { size },
-        }
-    }
-}
-
-#[cfg(test)]
-mod json_schema {
-    use std::borrow::Cow;
-
-    use schemars::Schema;
-    use schemars::SchemaGenerator;
-    use schemars::json_schema;
-
-    use super::*;
-
-    impl schemars::JsonSchema for SignedDuration {
-        fn always_inline_schema() -> bool {
-            true
-        }
-
-        fn schema_name() -> Cow<'static, str> {
-            Cow::Borrowed("SignedDuration")
-        }
-
-        fn schema_id() -> Cow<'static, str> {
-            Cow::Borrowed("jiff::SignedDuration")
-        }
-
-        fn json_schema(_: &mut SchemaGenerator) -> Schema {
-            json_schema!({
-                "type": "string",
-                "format": "duration",
-            })
         }
     }
 }
