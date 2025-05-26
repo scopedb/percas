@@ -40,10 +40,10 @@ impl Proxy {
         let members = membership.members();
 
         if let Some(id) = ring.lookup_until(key, |id| {
-            if let Some(member) = members.get(id) {
-                if member.status == MemberStatus::Alive {
-                    return true;
-                }
+            if let Some(member) = members.get(id)
+                && member.status == MemberStatus::Alive
+            {
+                return true;
             }
             false
         }) {
@@ -57,10 +57,7 @@ impl Proxy {
                 RouteDest::Local
             }
         } else {
-            log::debug!(
-                "no target found for key: [{key}] , current ring: {:#?}",
-                ring
-            );
+            log::debug!("no target found for key: [{key}] , current ring: {ring:#?}");
             RouteDest::Local
         }
     }
