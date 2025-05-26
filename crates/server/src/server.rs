@@ -94,7 +94,7 @@ pub async fn make_acceptor_and_advertise_addr(
     listen_addr: &str,
     advertise_addr: Option<&str>,
 ) -> Result<(TcpAcceptor, SocketAddr), io::Error> {
-    log::info!("listening on {}", listen_addr);
+    log::info!("listening on {listen_addr}");
 
     let acceptor = TcpListener::bind(&listen_addr).into_acceptor().await?;
     let listen_addr = acceptor.local_addr()[0]

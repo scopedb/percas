@@ -123,7 +123,7 @@ fn find_command(cmd: &str) -> StdCommand {
     } else {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
-        panic!("{cmd} not found.\nstdout: {}\nstderr: {}", stdout, stderr);
+        panic!("{cmd} not found.\nstdout: {stdout}\nstderr: {stderr}");
     }
 }
 

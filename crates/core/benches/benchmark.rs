@@ -16,7 +16,6 @@
 
 use criterion::BenchmarkId;
 use criterion::Criterion;
-use criterion::black_box;
 use criterion::criterion_group;
 use criterion::criterion_main;
 use percas_core::FoyerEngine;
@@ -74,7 +73,7 @@ fn foyer_engine(c: &mut Criterion) {
                     |b, s| {
                         b.to_async(&runtime).iter(|| async {
                             let key = &s[std::random::random::<usize>() % keys.len()];
-                            black_box(engine.get(key).await);
+                            std::hint::black_box(engine.get(key).await);
                         })
                     },
                 );

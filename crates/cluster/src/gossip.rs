@@ -150,18 +150,17 @@ impl GossipState {
     }
 
     fn handle_message(&self, message: Message) -> Option<Message> {
-        log::debug!("received message: {:?}", message);
+        log::debug!("received message: {message:?}");
         let result = match message {
             Message::Ping(info) => {
                 if let Some(current) = self.membership.read().unwrap().members().get(&info.node_id)
+                    && current.info.incarnation < info.incarnation
                 {
-                    if current.info.incarnation < info.incarnation {
-                        self.membership.write().unwrap().update_member(MemberState {
-                            info: info.clone(),
-                            status: MemberStatus::Alive,
-                            heartbeat: Timestamp::now(),
-                        });
-                    }
+                    self.membership.write().unwrap().update_member(MemberState {
+                        info: info.clone(),
+                        status: MemberStatus::Alive,
+                        heartbeat: Timestamp::now(),
+                    });
                 }
 
                 // Respond with an ack
@@ -169,14 +168,13 @@ impl GossipState {
             }
             Message::Ack(info) => {
                 if let Some(current) = self.membership.read().unwrap().members().get(&info.node_id)
+                    && current.info.incarnation < info.incarnation
                 {
-                    if current.info.incarnation < info.incarnation {
-                        self.membership.write().unwrap().update_member(MemberState {
-                            info: info.clone(),
-                            status: MemberStatus::Alive,
-                            heartbeat: Timestamp::now(),
-                        });
-                    }
+                    self.membership.write().unwrap().update_member(MemberState {
+                        info: info.clone(),
+                        status: MemberStatus::Alive,
+                        heartbeat: Timestamp::now(),
+                    });
                 }
 
                 None
@@ -263,7 +261,7 @@ impl GossipState {
             self.transport
                 .send(&peer.advertise_peer_addr, &message)
                 .await
-                .inspect_err(|e| log::error!("failed to send ping message: {:?}", e))
+                .inspect_err(|e| log::error!("failed to send ping message: {e:?}"))
         };
         let with_retry = do_send.retry(
             ConstantBuilder::new()
@@ -290,7 +288,7 @@ impl GossipState {
             self.transport
                 .send(&peer.advertise_peer_addr, &message)
                 .await
-                .inspect_err(|e| log::error!("failed to send sync message: {:?}", e))
+                .inspect_err(|e| log::error!("failed to send sync message: {e:?}"))
         };
         let with_retry = do_send.retry(
             ConstantBuilder::new()
@@ -315,7 +313,7 @@ impl GossipState {
                 self.transport
                     .send(peer, &message)
                     .await
-                    .inspect_err(|e| log::error!("failed to send ping message: {:?}", e))
+                    .inspect_err(|e| log::error!("failed to send ping message: {e:?}"))
             };
             let with_retry = do_send.retry(
                 ConstantBuilder::new()
@@ -335,7 +333,7 @@ impl GossipState {
                 self.transport
                     .send(peer, &message)
                     .await
-                    .inspect_err(|e| log::error!("failed to send sync message: {:?}", e))
+                    .inspect_err(|e| log::error!("failed to send sync message: {e:?}"))
             };
             let with_retry = do_send.retry(
                 ConstantBuilder::new()
@@ -560,7 +558,7 @@ async fn drive_gossip(
                 ticker.tick().await;
                 let dead_members = state.remove_dead_members();
                 if !dead_members.is_empty() {
-                    log::info!("removed dead members: {:?}", dead_members);
+                    log::info!("removed dead members: {dead_members:?}");
                     state.rebuild_ring();
                 }
             }
@@ -581,7 +579,7 @@ async fn drive_gossip(
 
 #[handler]
 async fn gossip(Json(msg): Json<Message>, Data(state): Data<&Arc<GossipState>>) -> Response {
-    log::debug!("received message: {:?}", msg);
+    log::debug!("received message: {msg:?}");
 
     if let Some(response) = state.handle_message(msg) {
         Json(response).into_response()
