@@ -14,8 +14,8 @@
 
 use clap::Parser;
 use exn::Result;
-use thiserror::Error;
 use percas_version::version;
+use thiserror::Error;
 
 mod config;
 mod start;
