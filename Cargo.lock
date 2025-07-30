@@ -2423,6 +2423,7 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 name = "percas"
 version = "0.2.1"
 dependencies = [
+ "anstyle",
  "clap",
  "ctrlc",
  "error-stack",
@@ -2431,7 +2432,6 @@ dependencies = [
  "percas-cluster",
  "percas-core",
  "percas-server",
- "percas-styled",
  "percas-version",
  "sealed_test",
  "serde",
@@ -2524,14 +2524,6 @@ dependencies = [
  "poem",
  "scopeguard",
  "tokio",
-]
-
-[[package]]
-name = "percas-styled"
-version = "0.2.1"
-dependencies = [
- "anstyle",
- "clap",
 ]
 
 [[package]]
@@ -4528,7 +4520,6 @@ version = "0.2.1"
 dependencies = [
  "clap",
  "indent",
- "percas-styled",
  "pretty_assertions",
  "serde",
  "serde_json",
