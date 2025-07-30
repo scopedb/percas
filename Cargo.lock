@@ -732,17 +732,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "error-stack"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe413319145d1063f080f27556fd30b1d70b01e2ba10c2a6e40d4be982ffc5d1"
-dependencies = [
- "anyhow",
- "rustc_version",
- "serde",
-]
-
-[[package]]
 name = "event-listener"
 version = "5.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -761,6 +750,15 @@ checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
 dependencies = [
  "event-listener",
  "pin-project-lite",
+]
+
+[[package]]
+name = "exn"
+version = "0.1.0-alpha.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d34d5eaebebac3e2e50b0bf6d44c55a069c12aba158e11ae805f99e8aee2590"
+dependencies = [
+ "rustversion",
 ]
 
 [[package]]
@@ -2373,7 +2371,7 @@ dependencies = [
  "anstyle",
  "clap",
  "ctrlc",
- "error-stack",
+ "exn",
  "log",
  "mea",
  "percas-cluster",
@@ -2390,7 +2388,6 @@ dependencies = [
 name = "percas-client"
 version = "0.2.1"
 dependencies = [
- "error-stack",
  "reqwest",
  "thiserror",
 ]
@@ -2400,7 +2397,7 @@ name = "percas-cluster"
 version = "0.2.1"
 dependencies = [
  "backon",
- "error-stack",
+ "exn",
  "fastimer",
  "insta",
  "jiff",
@@ -2422,7 +2419,7 @@ name = "percas-core"
 version = "0.2.1"
 dependencies = [
  "criterion",
- "error-stack",
+ "exn",
  "fastimer",
  "foyer",
  "googletest",
@@ -2957,15 +2954,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56f7d92ca342cea22a06f2121d944b4fd82af56988c270852495420f961d4ace"
 
 [[package]]
-name = "rustc_version"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
-dependencies = [
- "semver",
-]
-
-[[package]]
 name = "rustix"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3111,12 +3099,6 @@ dependencies = [
  "quote",
  "syn 2.0.104",
 ]
-
-[[package]]
-name = "semver"
-version = "1.0.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56e6fa9c48d24d85fb3de5ad847117517440f6beceb7798af16b4a87d616b8d0"
 
 [[package]]
 name = "serde"

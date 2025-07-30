@@ -29,7 +29,7 @@ release = false
 
 [dependencies]
 backon = { workspace = true }
-error-stack = { workspace = true }
+exn = { workspace = true }
 fastimer = { workspace = true }
 jiff = { workspace = true }
 log = { workspace = true }

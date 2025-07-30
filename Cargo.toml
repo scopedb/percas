@@ -54,10 +54,7 @@ clap = { version = "4.5.35", features = ["derive"] }
 const_format = { version = "0.2.34" }
 criterion = { version = "0.7.0", features = ["async_tokio"] }
 ctrlc = { version = "3.4", features = ["termination"] }
-error-stack = { version = "0.5", default-features = false, features = [
-  "std",
-  "serde",
-] }
+exn = { version = "0.1.0-alpha.5" }
 fastimer = { version = "0.9.0" }
 fastrace = { version = "0.7.9" }
 fastrace-opentelemetry = { version = "0.13.0" }

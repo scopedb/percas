@@ -15,14 +15,15 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use error_stack::Result;
-use error_stack::bail;
-use error_stack::report;
+use exn::IntoExn;
+use exn::Result;
+use exn::bail;
 use foyer::DirectFsDeviceOptions;
 use foyer::FifoConfig;
 use foyer::HybridCache;
 use foyer::HybridCacheBuilder;
 use foyer::HybridCachePolicy;
+use foyer::LargeEngineOptions;
 use foyer::RecoverMode;
 use foyer::RuntimeOptions;
 use sysinfo::Pid;
@@ -65,6 +66,7 @@ impl FoyerEngine {
         }
 
         let parallelism = num_cpus().get();
+        let storage = foyer::Engine::Large(LargeEngineOptions::default());
         let cache = HybridCacheBuilder::new()
             .with_policy(HybridCachePolicy::WriteOnInsertion)
             .memory(
@@ -86,13 +88,13 @@ impl FoyerEngine {
             })
             .with_shards(parallelism)
             .with_eviction_config(FifoConfig::default())
-            .storage(foyer::Engine::Large)
+            .storage(storage)
             .with_device_options(dev)
             .with_recover_mode(RecoverMode::Quiet)
             .with_runtime_options(RuntimeOptions::Unified(Default::default()))
             .build()
             .await
-            .map_err(|err| report!(EngineError(err.to_string())))?;
+            .map_err(|err| EngineError(err.to_string()).into_exn())?;
 
         Ok(FoyerEngine {
             capacity: disk_capacity,
@@ -104,7 +106,7 @@ impl FoyerEngine {
         self.inner
             .get(&key.to_owned())
             .await
-            .map_err(|e| report!(EngineError(e.to_string())))
+            .map_err(|e| EngineError(e.to_string()).into_exn())
             .ok()
             .flatten()
             .map(|v| v.value().clone())

@@ -112,7 +112,6 @@ fn init_traces(
                 .with_timeout(opentelemetry_otlp::OTEL_EXPORTER_OTLP_TIMEOUT_DEFAULT)
                 .build()
                 .expect("initialize oltp trace exporter"),
-            opentelemetry::trace::SpanKind::Server,
             Cow::Owned(resource),
             opentelemetry::InstrumentationScope::builder(service_name).build(),
         )
@@ -183,13 +182,16 @@ fn init_logs(
     if let Some(opentelemetry) = &config.logs.opentelemetry {
         let filter = make_rust_log_filter(&opentelemetry.filter);
         let appender = rt.block_on(async {
-            append::opentelemetry::OpentelemetryLogBuilder::new(
-                service_name,
-                &opentelemetry.otlp_endpoint,
-            )
-            .label("service.name", service_name)
-            .build()
-            .expect("failed to initialize opentelemetry logger")
+            let exporter = opentelemetry_otlp::LogExporter::builder()
+                .with_tonic()
+                .with_endpoint(&opentelemetry.otlp_endpoint)
+                .with_protocol(opentelemetry_otlp::Protocol::Grpc)
+                .build()
+                .expect("failed to initialize opentelemetry logger");
+
+            append::opentelemetry::OpentelemetryLogBuilder::new(service_name, exporter)
+                .label("service.name", service_name)
+                .build()
         });
         builder = builder.dispatch(|b| {
             b.filter(filter)

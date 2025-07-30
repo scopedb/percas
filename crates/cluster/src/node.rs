@@ -14,9 +14,9 @@
 
 use std::path::Path;
 
-use error_stack::Result;
-use error_stack::ResultExt;
-use error_stack::bail;
+use exn::Result;
+use exn::ResultExt;
+use exn::bail;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
@@ -55,13 +55,14 @@ impl PersistentNodeInfo {
         };
 
         if path.exists() {
-            let data = std::fs::read_to_string(path).change_context_lazy(make_error)?;
+            let data = std::fs::read_to_string(path).or_raise(make_error)?;
             if let Ok(info) = serde_json::from_str::<Self>(&data) {
                 return Ok(Some(info));
             } else {
                 bail!(make_error());
             }
         }
+
         Ok(None)
     }
 
