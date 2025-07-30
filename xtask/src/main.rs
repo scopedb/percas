@@ -17,13 +17,12 @@ use std::process::Command as StdCommand;
 
 use clap::Parser;
 use clap::Subcommand;
-use percas_styled::styled;
 use serde::Deserialize;
 
 const CARGO_WORKSPACE_DIR: &str = env!("CARGO_WORKSPACE_DIR");
 
 #[derive(Parser)]
-#[clap(version, styles=styled())]
+#[clap(version)]
 struct Command {
     #[clap(subcommand)]
     sub: SubCommand,

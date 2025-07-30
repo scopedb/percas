@@ -25,7 +25,6 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
-error-stack = { workspace = true }
 reqwest = { workspace = true }
 thiserror = { workspace = true }
 

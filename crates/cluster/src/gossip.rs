@@ -20,9 +20,9 @@ use std::time::Duration;
 
 use backon::ConstantBuilder;
 use backon::Retryable;
-use error_stack::Result;
-use error_stack::ResultExt;
-use error_stack::bail;
+use exn::Result;
+use exn::ResultExt;
+use exn::bail;
 use fastimer::MakeDelayExt;
 use jiff::Timestamp;
 use mea::shutdown::ShutdownRecv;
@@ -135,9 +135,7 @@ impl GossipState {
                 poem::Server::new_with_acceptor(acceptor)
                     .run_with_graceful_shutdown(route, signal, Some(Duration::from_secs(10)))
                     .await
-                    .change_context_lazy(|| {
-                        ClusterError::Internal("failed to run gossip proxy".to_string())
-                    })
+                    .or_raise(|| ClusterError::Internal("failed to run gossip proxy".to_string()))
             })
         };
         wg.await;
@@ -398,9 +396,8 @@ impl Transport {
             || ClusterError::Transport(format!("failed to send message to {endpoint}"));
 
         let url = Url::parse(&format!("http://{endpoint}"))
-            .change_context_lazy(make_error)?
-            .join("gossip")
-            .change_context_lazy(make_error)?;
+            .and_then(|url| url.join("gossip"))
+            .or_raise(make_error)?;
 
         let resp = self
             .client
@@ -408,10 +405,10 @@ impl Transport {
             .json(message)
             .send()
             .await
-            .change_context_lazy(make_error)?;
+            .or_raise(make_error)?;
 
         if resp.status().is_success() {
-            resp.json().await.change_context_lazy(make_error)
+            resp.json().await.or_raise(make_error)
         } else {
             bail!(make_error())
         }

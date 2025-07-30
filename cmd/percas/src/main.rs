@@ -13,16 +13,16 @@
 // limitations under the License.
 
 use clap::Parser;
-use error_stack::Result;
-use percas_styled::styled;
+use exn::Result;
 use percas_version::version;
 use thiserror::Error;
 
 mod config;
 mod start;
+mod styled;
 
 #[derive(Debug, clap::Parser)]
-#[command(name = "percas", version, long_version = version(), styles=styled())]
+#[command(name = "percas", version, long_version = version(), styles=styled::styled())]
 struct Command {
     #[clap(subcommand)]
     cmd: SubCommand,

@@ -16,8 +16,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::ValueHint;
-use error_stack::Result;
-use error_stack::ResultExt;
+use exn::Result;
+use exn::ResultExt;
 use mea::shutdown::ShutdownRecv;
 use percas_cluster::GossipFuture;
 use percas_cluster::GossipState;
@@ -46,9 +46,6 @@ pub struct CommandStart {
 
 impl CommandStart {
     pub fn run(self) -> Result<(), Error> {
-        // Configure error stack to not print with colors
-        error_stack::Report::set_color_mode(error_stack::fmt::ColorMode::None);
-
         let LoadConfigResult { config, warnings } = load_config(self.config_file)?;
 
         let telemetry_runtime = make_telemetry_runtime();
@@ -146,7 +143,7 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
         config.storage.disk_throttle,
     )
     .await
-    .change_context_lazy(make_error)?;
+    .or_raise(make_error)?;
 
     let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
     let ctx = Arc::new(PercasContext { engine });
@@ -158,7 +155,7 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
         flatten_config.advertise_addr.as_deref(),
     )
     .await
-    .change_context_lazy(make_error)?;
+    .or_raise(make_error)?;
 
     let (cluster_proxy, gossip_futs) = match flatten_config.mode {
         ServerMode::Standalone => (None, vec![]),
@@ -181,10 +178,10 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
         gossip_futs,
     )
     .await
-    .change_context_lazy(|| Error("A fatal error has occurred in server process.".to_string()))?;
+    .or_raise(|| Error("A fatal error has occurred in server process.".to_string()))?;
 
     ctrlc::set_handler(move || shutdown_tx.shutdown())
-        .change_context_lazy(|| Error("failed to setup ctrl-c signal handle".to_string()))?;
+        .or_raise(|| Error("failed to setup ctrl-c signal handle".to_string()))?;
 
     server.await_shutdown().await;
     Ok(())
@@ -207,7 +204,7 @@ async fn run_gossip_proxy(
         flatten_config.advertise_peer_addr.as_deref(),
     )
     .await
-    .change_context_lazy(make_error)?;
+    .or_raise(make_error)?;
     let advertise_peer_addr = advertise_peer_addr.to_string();
 
     let initial_peer_addrs = flatten_config
@@ -222,11 +219,11 @@ async fn run_gossip_proxy(
         advertise_addr.clone(),
         advertise_peer_addr.clone(),
     )
-    .change_context_lazy(make_error)?
+    .or_raise(make_error)?
     {
         node.advance_incarnation();
         node.persist(&node_file_path(&flatten_config.dir))
-            .change_context_lazy(make_error)?;
+            .or_raise(make_error)?;
         node
     } else {
         let node = NodeInfo::init(
@@ -237,7 +234,7 @@ async fn run_gossip_proxy(
             advertise_peer_addr,
         );
         node.persist(&node_file_path(&flatten_config.dir))
-            .change_context_lazy(make_error)?;
+            .or_raise(make_error)?;
         node
     };
 
@@ -251,7 +248,7 @@ async fn run_gossip_proxy(
         .clone()
         .start(gossip_rt, shutdown_rx, acceptor)
         .await
-        .change_context_lazy(make_error)?;
+        .or_raise(make_error)?;
 
     Ok((Proxy::new(gossip), futs))
 }

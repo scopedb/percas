@@ -28,7 +28,7 @@ version.workspace = true
 release = false
 
 [dependencies]
-error-stack = { workspace = true }
+exn = { workspace = true }
 fastimer = { workspace = true }
 foyer = { workspace = true }
 jiff = { workspace = true }

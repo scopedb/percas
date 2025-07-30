@@ -15,9 +15,9 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use error_stack::Result;
-use error_stack::ResultExt;
-use error_stack::bail;
+use exn::Result;
+use exn::ResultExt;
+use exn::bail;
 use percas_core::Config;
 use percas_core::known_option_entries;
 use serde::Deserialize;
@@ -34,14 +34,14 @@ pub struct LoadConfigResult {
 
 pub fn load_config(config_file: PathBuf) -> Result<LoadConfigResult, Error> {
     // Layer 0: the config file
-    let content = std::fs::read_to_string(&config_file).change_context_lazy(|| {
+    let content = std::fs::read_to_string(&config_file).or_raise(|| {
         Error(format!(
             "failed to read config file: {}",
             config_file.display()
         ))
     })?;
     let mut config = DocumentMut::from_str(&content)
-        .change_context_lazy(|| Error("failed to parse config content".to_string()))?;
+        .or_raise(|| Error("failed to parse config content".to_string()))?;
 
     // Layer 1: environment variables
     let env = std::env::vars()
@@ -91,17 +91,17 @@ pub fn load_config(config_file: PathBuf) -> Result<LoadConfigResult, Error> {
             }
             "integer" => {
                 let path = ent.ent_path;
-                let value = v.parse::<i64>().change_context_lazy(|| {
-                    Error(format!("failed to parse integer value {v} of key {k}"))
-                })?;
+                let value = v
+                    .parse::<i64>()
+                    .or_raise(|| Error(format!("failed to parse integer value {v} of key {k}")))?;
                 let value = toml_edit::value(value);
                 (path, value)
             }
             "boolean" => {
                 let path = ent.ent_path;
-                let value = v.parse::<bool>().change_context_lazy(|| {
-                    Error(format!("failed to parse boolean value {v} of key {k}"))
-                })?;
+                let value = v
+                    .parse::<bool>()
+                    .or_raise(|| Error(format!("failed to parse boolean value {v} of key {k}")))?;
                 let value = toml_edit::value(value);
                 (path, value)
             }
@@ -116,7 +116,7 @@ pub fn load_config(config_file: PathBuf) -> Result<LoadConfigResult, Error> {
     }
 
     let config = Config::deserialize(config.into_deserializer())
-        .change_context_lazy(|| Error("failed to deserialize config".to_string()))?;
+        .or_raise(|| Error("failed to deserialize config".to_string()))?;
     Ok(LoadConfigResult { config, warnings })
 }
 
