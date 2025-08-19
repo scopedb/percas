@@ -15,20 +15,28 @@
 name: Docker Sanity Check
 description: Build image and run sanity checks
 
+inputs:
+  tag:
+    description: The bare tag of Docker image
+    required: true
+  file:
+    description: The path to the specified Dockerfile
+    required: true
+
 runs:
   using: composite
   steps:
-      - name: Build and load
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: Dockerfile
-          tags: percas:ci
-          outputs: |
-            type=docker
-            type=image,push=false
-      - name: Sanity check
-        shell: bash
-        run: |
-          docker image inspect percas:ci --format='{{.Size}}'
-          docker run --rm -v $(pwd):/github/workspace percas:ci --version
+    - name: Build and load
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ${{ inputs.file }}
+        tags: ${{ inputs.tag }}
+        outputs: |
+          type=docker
+          type=image,push=false
+    - name: Sanity check
+      shell: bash
+      run: |
+        docker image inspect ${{ inputs.tag }} --format='{{.Size}}'
+        docker run --rm ${{ inputs.tag }} --version
