@@ -17,6 +17,9 @@ name: Release
 on:
   push:
     tags: [ 'v[0-9]+.[0-9]+.[0-9]+*' ]
+  pull_request:
+    # Manually trigger the workflow for pull requests: 0 (EDIT TO TRIGGER)
+    paths: [ '.github/workflows/release.yml' ]
   workflow_dispatch:
 
 concurrency:
