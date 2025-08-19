@@ -170,7 +170,7 @@ jobs:
           registry: ghcr.io
           username: ${{ secrets.CI_GITHUB_ACTOR }}
           password: ${{ secrets.CI_GITHUB_TOKEN }}
-      - name: Release to Destination 00
+      - name: Release to Sweet Pubrepo
         uses: ./.github/actions/docker-release
         with:
           tags: ${{ needs.docker-meta.outputs.tags }}
