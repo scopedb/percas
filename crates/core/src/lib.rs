@@ -17,6 +17,8 @@ mod engine;
 mod newtype;
 mod runtime;
 
+use std::num::NonZeroUsize;
+
 pub use config::*;
 pub use engine::*;
 pub use runtime::*;
@@ -25,12 +27,28 @@ pub use runtime::*;
 // This method fills the gap that `std::thread::available_parallelism()`
 // may return `Err` on some platforms, in which case we default to `1`.
 #[track_caller]
-pub fn num_cpus() -> std::num::NonZeroUsize {
+pub fn num_cpus() -> NonZeroUsize {
     match std::thread::available_parallelism() {
         Ok(parallelism) => parallelism,
         Err(err) => {
             log::warn!("failed to fetch the available parallelism (fallback to 1): {err:?}");
-            std::num::NonZeroUsize::new(1).unwrap()
+            NonZeroUsize::new(1).unwrap()
         }
     }
+}
+
+pub fn available_memory() -> NonZeroUsize {
+    const RESERVED_MEMORY: usize = 128 * 1024 * 1024; // 128 MB
+    static MEMORY: std::sync::OnceLock<NonZeroUsize> = std::sync::OnceLock::new();
+
+    *MEMORY.get_or_init(|| {
+        let mut sys = sysinfo::System::new();
+        sys.refresh_memory();
+        let mem = sys.cgroup_limits().map_or_else(
+            || sys.total_memory() as usize,
+            |limits| limits.total_memory as usize,
+        );
+
+        NonZeroUsize::new(mem.saturating_sub(RESERVED_MEMORY).max(RESERVED_MEMORY)).unwrap()
+    })
 }
