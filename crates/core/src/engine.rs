@@ -18,12 +18,15 @@ use std::sync::Arc;
 use exn::IntoExn;
 use exn::Result;
 use exn::bail;
-use foyer::DirectFsDeviceOptions;
+use foyer::BlockEngineBuilder;
+use foyer::DeviceBuilder;
 use foyer::FifoConfig;
+use foyer::FsDeviceBuilder;
 use foyer::HybridCache;
 use foyer::HybridCacheBuilder;
 use foyer::HybridCachePolicy;
-use foyer::LargeEngineOptions;
+use foyer::IoEngineBuilder;
+use foyer::PsyncIoEngineBuilder;
 use foyer::RecoverMode;
 use foyer::RuntimeOptions;
 use sysinfo::Pid;
@@ -58,15 +61,15 @@ impl FoyerEngine {
             )));
         }
 
-        let mut dev = DirectFsDeviceOptions::new(data_dir)
-            .with_capacity(disk_capacity as usize)
-            .with_file_size(64 * 1024 * 1024);
+        let mut db = FsDeviceBuilder::new(data_dir).with_capacity(disk_capacity as usize);
         if let Some(throttle) = disk_throttle {
-            dev = dev.with_throttle(throttle.into());
+            db = db.with_throttle(throttle.into());
         }
+        let dev = db
+            .build()
+            .map_err(|err| EngineError(format!("failed to create device: {}", err.to_string())))?;
 
         let parallelism = num_cpus().get();
-        let storage = foyer::Engine::Large(LargeEngineOptions::default());
         let cache = HybridCacheBuilder::new()
             .with_policy(HybridCachePolicy::WriteOnInsertion)
             .memory(
@@ -88,8 +91,14 @@ impl FoyerEngine {
             })
             .with_shards(parallelism)
             .with_eviction_config(FifoConfig::default())
-            .storage(storage)
-            .with_device_options(dev)
+            .storage()
+            .with_engine_config(BlockEngineBuilder::new(dev))
+            .with_io_engine(
+                PsyncIoEngineBuilder::new()
+                    .build()
+                    .await
+                    .map_err(|err| EngineError(err.to_string()).into_exn())?,
+            )
             .with_recover_mode(RecoverMode::Quiet)
             .with_runtime_options(RuntimeOptions::Unified(Default::default()))
             .build()

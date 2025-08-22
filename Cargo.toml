@@ -58,7 +58,7 @@ exn = { version = "0.1.0-alpha.5" }
 fastimer = { version = "0.9.0" }
 fastrace = { version = "0.7.9" }
 fastrace-opentelemetry = { version = "0.13.0" }
-foyer = { version = "0.18.0", features = ["nightly"] }
+foyer = { version = "0.19.1", features = ["nightly"] }
 futures-util = { version = "0.3.31" }
 gix-discover = { version = "0.41.0" }
 googletest = { version = "0.14.0" }
