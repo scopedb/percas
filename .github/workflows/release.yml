@@ -38,7 +38,7 @@ jobs:
       - run: ./xtask/scripts/check-version-tag-match.sh
 
   docker-meta:
-    if: ${{ github.repository == 'scopedb/percas' && github.event_name != 'pull_request' }}
+    if: ${{ github.repository == 'scopedb/percas' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     needs: [ precondition ]
