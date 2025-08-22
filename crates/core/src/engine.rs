@@ -67,7 +67,7 @@ impl FoyerEngine {
         }
         let dev = db
             .build()
-            .map_err(|err| EngineError(format!("failed to create device: {}", err.to_string())))?;
+            .map_err(|err| EngineError(format!("failed to create device: {err}")))?;
 
         let parallelism = num_cpus().get();
         let cache = HybridCacheBuilder::new()
