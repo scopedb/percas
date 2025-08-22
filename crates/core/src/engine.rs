@@ -18,21 +18,25 @@ use std::sync::Arc;
 use exn::IntoExn;
 use exn::Result;
 use exn::bail;
-use foyer::DirectFsDeviceOptions;
+use foyer::BlockEngineBuilder;
+use foyer::DeviceBuilder;
 use foyer::FifoConfig;
+use foyer::FsDeviceBuilder;
 use foyer::HybridCache;
 use foyer::HybridCacheBuilder;
 use foyer::HybridCachePolicy;
-use foyer::LargeEngineOptions;
+use foyer::IoEngineBuilder;
+use foyer::PsyncIoEngineBuilder;
 use foyer::RecoverMode;
 use foyer::RuntimeOptions;
-use sysinfo::Pid;
 use thiserror::Error;
 
+use crate::available_memory;
 use crate::newtype::DiskThrottle;
 use crate::num_cpus;
 
-const DEFAULT_MEMORY_CAPACITY_FACTOR: f64 = 0.8;
+const DEFAULT_MEMORY_CAPACITY_FACTOR: f64 = 0.5; // 50% of available memory
+const DEFAULT_BLOCK_SIZE: usize = 64 * 1024 * 1024; // 64 MiB
 
 #[derive(Debug, Error)]
 #[error("{0}")]
@@ -58,27 +62,19 @@ impl FoyerEngine {
             )));
         }
 
-        let mut dev = DirectFsDeviceOptions::new(data_dir)
-            .with_capacity(disk_capacity as usize)
-            .with_file_size(64 * 1024 * 1024);
+        let mut db = FsDeviceBuilder::new(data_dir).with_capacity(disk_capacity as usize);
         if let Some(throttle) = disk_throttle {
-            dev = dev.with_throttle(throttle.into());
+            db = db.with_throttle(throttle.into());
         }
+        let dev = db
+            .build()
+            .map_err(|err| EngineError(format!("failed to create device: {err}")))?;
 
         let parallelism = num_cpus().get();
-        let storage = foyer::Engine::Large(LargeEngineOptions::default());
         let cache = HybridCacheBuilder::new()
             .with_policy(HybridCachePolicy::WriteOnInsertion)
             .memory(
-                (memory_capacity.map_or_else(
-                    || {
-                        let s = sysinfo::System::new_all();
-                        s.process(Pid::from_u32(std::process::id()))
-                            .unwrap()
-                            .memory() as usize
-                    },
-                    |v| v as usize,
-                ) as f64
+                (memory_capacity.map_or_else(|| available_memory().get(), |v| v as usize) as f64
                     * DEFAULT_MEMORY_CAPACITY_FACTOR) as usize,
             )
             .with_weighter(|key: &Vec<u8>, value: &Vec<u8>| {
@@ -88,8 +84,14 @@ impl FoyerEngine {
             })
             .with_shards(parallelism)
             .with_eviction_config(FifoConfig::default())
-            .storage(storage)
-            .with_device_options(dev)
+            .storage()
+            .with_engine_config(BlockEngineBuilder::new(dev).with_block_size(DEFAULT_BLOCK_SIZE))
+            .with_io_engine(
+                PsyncIoEngineBuilder::new()
+                    .build()
+                    .await
+                    .map_err(|err| EngineError(err.to_string()).into_exn())?,
+            )
             .with_recover_mode(RecoverMode::Quiet)
             .with_runtime_options(RuntimeOptions::Unified(Default::default()))
             .build()
