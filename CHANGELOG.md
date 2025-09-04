@@ -4,6 +4,12 @@ All significant changes to this project will be documented in this file.
 
 ## Unreleased
 
+## v0.2.2 (2025-09-04)
+
+## Improvements
+
+* Bumped `foyer` dependency to `0.19` to leverage buffered I/O and page cache.
+
 ## v0.2.1 (2025-04-24)
 
 ### New Features
