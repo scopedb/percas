@@ -45,7 +45,6 @@ use poem::web::headers::ContentType;
 use crate::PercasContext;
 use crate::middleware::ClusterProxyMiddleware;
 use crate::middleware::LoggerMiddleware;
-use crate::middleware::RateLimitMiddleware;
 use crate::scheduled::ReportMetricsAction;
 
 pub(crate) type ServerFuture<T> = percas_core::JoinHandle<Result<T, io::Error>>;
@@ -152,7 +151,6 @@ pub async fn start_server(
                     .with(proxy_middleware),
             )
             .data(ctx.clone())
-            .with(RateLimitMiddleware::new())
             .with(LoggerMiddleware);
         let listen_addr = acceptor.local_addr()[0].clone();
         let signal = async move {
