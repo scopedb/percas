@@ -31,6 +31,7 @@ release = false
 exn = { workspace = true }
 fastimer = { workspace = true }
 foyer = { workspace = true }
+jemallocator = { workspace = true }
 jiff = { workspace = true }
 log = { workspace = true }
 pin-project = { workspace = true }
