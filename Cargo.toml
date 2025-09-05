@@ -32,18 +32,18 @@ edition = "2024"
 license = "Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/scopedb/percas/"
-version = "0.2.2"
+version = "0.2.3"
 
 [workspace.dependencies]
 # Workspace members
-percas = { version = "0.2.1", path = "cmd/percas" }
-percas-client = { version = "0.2.1", path = "api/client" }
-percas-cluster = { version = "0.2.1", path = "crates/cluster" }
-percas-core = { version = "0.2.1", path = "crates/core" }
-percas-metrics = { version = "0.2.1", path = "crates/metrics" }
-percas-server = { version = "0.2.1", path = "crates/server" }
-percas-version = { version = "0.2.1", path = "crates/version" }
-tests-toolkit = { version = "0.2.1", path = "tests/toolkit" }
+percas = { version = "0.2.3", path = "cmd/percas" }
+percas-client = { version = "0.2.3", path = "api/client" }
+percas-cluster = { version = "0.2.3", path = "crates/cluster" }
+percas-core = { version = "0.2.3", path = "crates/core" }
+percas-metrics = { version = "0.2.3", path = "crates/metrics" }
+percas-server = { version = "0.2.3", path = "crates/server" }
+percas-version = { version = "0.2.3", path = "crates/version" }
+tests-toolkit = { version = "0.2.3", path = "tests/toolkit" }
 
 # Crates.io dependencies
 anstyle = { version = "1.0.10" }

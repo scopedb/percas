@@ -4,9 +4,17 @@ All significant changes to this project will be documented in this file.
 
 ## Unreleased
 
+## v0.2.3 (2025-09-05)
+
+### Improvements
+
+* Enable `jemalloc` as the global allocator.
+* Bumped `foyer` dependency to `0.19.2`.
+* Increased number of flushers to boost write throughput.
+
 ## v0.2.2 (2025-09-04)
 
-## Improvements
+### Improvements
 
 * Bumped `foyer` dependency to `0.19` to leverage buffered I/O and page cache.
 
