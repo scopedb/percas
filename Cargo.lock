@@ -219,7 +219,7 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "behavior-tests"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "insta",
  "percas-client",
@@ -2374,7 +2374,7 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "percas"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anstyle",
  "clap",
@@ -2396,7 +2396,7 @@ dependencies = [
 
 [[package]]
 name = "percas-client"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "reqwest",
  "thiserror",
@@ -2404,7 +2404,7 @@ dependencies = [
 
 [[package]]
 name = "percas-cluster"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "backon",
  "exn",
@@ -2426,7 +2426,7 @@ dependencies = [
 
 [[package]]
 name = "percas-core"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "criterion",
  "exn",
@@ -2451,14 +2451,14 @@ dependencies = [
 
 [[package]]
 name = "percas-metrics"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "opentelemetry",
 ]
 
 [[package]]
 name = "percas-server"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "arc-swap",
  "fastimer",
@@ -2484,7 +2484,7 @@ dependencies = [
 
 [[package]]
 name = "percas-version"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "build-data",
  "const_format",
@@ -3483,7 +3483,7 @@ dependencies = [
 
 [[package]]
 name = "tests-toolkit"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "mea",
  "percas-core",
@@ -4482,7 +4482,7 @@ checksum = "ea2f10b9bb0928dfb1b42b65e1f9e36f7f54dbdf08457afefb38afcdec4fa2bb"
 
 [[package]]
 name = "x"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "clap",
  "indent",
