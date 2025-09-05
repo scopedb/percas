@@ -19,6 +19,7 @@ use clap::ValueHint;
 use exn::Result;
 use exn::ResultExt;
 use mea::shutdown::ShutdownRecv;
+use mixtrics::registry::opentelemetry_0_30::OpenTelemetryMetricsRegistry;
 use percas_cluster::GossipFuture;
 use percas_cluster::GossipState;
 use percas_cluster::NodeInfo;
@@ -30,6 +31,7 @@ use percas_core::ServerConfig;
 use percas_core::make_runtime;
 use percas_core::node_file_path;
 use percas_core::num_cpus;
+use percas_metrics::GlobalMetrics;
 use percas_server::PercasContext;
 use percas_server::server::make_acceptor_and_advertise_addr;
 use percas_server::telemetry;
@@ -141,6 +143,9 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
         config.storage.memory_capacity,
         config.storage.disk_capacity,
         config.storage.disk_throttle,
+        Some(OpenTelemetryMetricsRegistry::new(
+            GlobalMetrics::get().meter.clone(),
+        )),
     )
     .await
     .or_raise(make_error)?;

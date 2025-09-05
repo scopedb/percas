@@ -100,6 +100,7 @@ pub fn start_test_server(_test_name: &str, rt: &Runtime) -> Option<TestServerSta
             config.storage.memory_capacity,
             config.storage.disk_capacity,
             config.storage.disk_throttle,
+            None,
         )
         .await
         .unwrap();

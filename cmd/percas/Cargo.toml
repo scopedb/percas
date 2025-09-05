@@ -34,8 +34,10 @@ ctrlc = { workspace = true }
 exn = { workspace = true }
 log = { workspace = true }
 mea = { workspace = true }
+mixtrics = { workspace = true }
 percas-cluster = { workspace = true }
 percas-core = { workspace = true }
+percas-metrics = { workspace = true }
 percas-server = { workspace = true }
 percas-version = { workspace = true }
 serde = { workspace = true }
