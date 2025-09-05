@@ -2090,6 +2090,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "adbcddf5a90b959eea97ae505e0391f5c6dd411fbf546d43b9c59ad1c3bd4391"
 dependencies = [
  "itertools 0.14.0",
+ "opentelemetry",
  "parking_lot",
 ]
 
@@ -2381,8 +2382,10 @@ dependencies = [
  "exn",
  "log",
  "mea",
+ "mixtrics",
  "percas-cluster",
  "percas-core",
+ "percas-metrics",
  "percas-server",
  "percas-version",
  "sealed_test",
@@ -2435,6 +2438,7 @@ dependencies = [
  "jemallocator",
  "jiff",
  "log",
+ "mixtrics",
  "pin-project",
  "schemars",
  "serde",

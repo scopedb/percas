@@ -29,6 +29,8 @@ use foyer::IoEngineBuilder;
 use foyer::PsyncIoEngineBuilder;
 use foyer::RecoverMode;
 use foyer::RuntimeOptions;
+use mixtrics::registry::noop::NoopMetricsRegistry;
+use mixtrics::registry::opentelemetry_0_30::OpenTelemetryMetricsRegistry;
 use thiserror::Error;
 
 use crate::available_memory;
@@ -54,6 +56,7 @@ impl FoyerEngine {
         memory_capacity: Option<u64>,
         disk_capacity: u64,
         disk_throttle: Option<DiskThrottle>,
+        metrics_registry: Option<OpenTelemetryMetricsRegistry>,
     ) -> Result<Self, EngineError> {
         let _ = std::fs::create_dir_all(data_dir);
         if !data_dir.exists() {
@@ -74,6 +77,9 @@ impl FoyerEngine {
         let parallelism = num_cpus().get();
         let cache = HybridCacheBuilder::new()
             .with_policy(HybridCachePolicy::WriteOnInsertion)
+            .with_metrics_registry(
+                metrics_registry.map_or(Box::new(NoopMetricsRegistry), |v| Box::new(v)),
+            )
             .memory(
                 (memory_capacity.map_or_else(|| available_memory().get(), |v| v as usize) as f64
                     * DEFAULT_MEMORY_CAPACITY_FACTOR) as usize,
@@ -146,9 +152,10 @@ mod tests {
     async fn test_get() {
         let temp_dir = tempfile::tempdir().unwrap();
 
-        let engine = FoyerEngine::try_new(temp_dir.path(), Some(512 * 1024), 1024 * 1024, None)
-            .await
-            .unwrap();
+        let engine =
+            FoyerEngine::try_new(temp_dir.path(), Some(512 * 1024), 1024 * 1024, None, None)
+                .await
+                .unwrap();
         engine.put(b"foo".to_vec().as_ref(), b"bar".to_vec().as_ref());
 
         assert_compact_debug_snapshot!(
