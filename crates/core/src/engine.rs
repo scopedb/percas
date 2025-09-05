@@ -37,6 +37,7 @@ use crate::num_cpus;
 
 const DEFAULT_MEMORY_CAPACITY_FACTOR: f64 = 0.5; // 50% of available memory
 const DEFAULT_BLOCK_SIZE: usize = 64 * 1024 * 1024; // 64 MiB
+const DEFAULT_FLUSHERS: usize = 4; // Number of flushers for the block engine
 
 #[derive(Debug, Error)]
 #[error("{0}")]
@@ -85,7 +86,11 @@ impl FoyerEngine {
             .with_shards(parallelism)
             .with_eviction_config(FifoConfig::default())
             .storage()
-            .with_engine_config(BlockEngineBuilder::new(dev).with_block_size(DEFAULT_BLOCK_SIZE))
+            .with_engine_config(
+                BlockEngineBuilder::new(dev)
+                    .with_block_size(DEFAULT_BLOCK_SIZE)
+                    .with_flushers(DEFAULT_FLUSHERS),
+            )
             .with_io_engine(
                 PsyncIoEngineBuilder::new()
                     .build()
