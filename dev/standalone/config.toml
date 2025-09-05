@@ -22,6 +22,16 @@ advertise_addr = "127.0.0.1:7654"
 data_dir = ".percas/data"
 disk_capacity = 536_870_912
 
+[storage.disk_throttle]
+write_iops = 500_000
+read_iops = 1_500_000
+write_throughput = 6_000_000_000
+read_throughput = 12_000_000_000
+
+[storage.disk_throttle.iops_counter]
+mode = "per_io_size"
+size = 4096
+
 [telemetry.logs.file]
 filter = "INFO"
 dir = "logs"
