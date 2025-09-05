@@ -19,6 +19,10 @@ use std::task::ready;
 use std::time::Duration;
 use std::time::Instant;
 
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 pub fn make_runtime(runtime_name: &str, thread_name: &str, worker_threads: usize) -> Runtime {
     log::info!(
         "creating runtime with runtime_name: {runtime_name}, thread_name: {thread_name}, work_threads: {worker_threads}"

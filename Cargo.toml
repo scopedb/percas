@@ -65,6 +65,7 @@ googletest = { version = "0.14.0" }
 humansize = { version = "2.1.3" }
 indent = { version = "0.1.1" }
 insta = { version = "1.42.2" }
+jemallocator = { version = "0.5.4" }
 jiff = { version = "0.2", features = ["serde"] }
 local-ip-address = { version = "0.6.3" }
 log = { version = "0.4.27", features = ["kv"] }
