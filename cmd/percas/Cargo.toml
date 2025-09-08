@@ -43,6 +43,7 @@ percas-version = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 toml_edit = { workspace = true, features = ["serde"] }
+uuid = { workspace = true }
 
 [dev-dependencies]
 sealed_test = { workspace = true }

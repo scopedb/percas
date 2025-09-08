@@ -29,7 +29,6 @@ use crate::ClusterError;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PersistentNodeInfo {
     pub node_id: Uuid,
-    pub node_name: String,
     pub cluster_id: String,
     pub incarnation: u64,
 }
@@ -38,7 +37,6 @@ impl From<NodeInfo> for PersistentNodeInfo {
     fn from(node_info: NodeInfo) -> Self {
         Self {
             node_id: node_info.node_id,
-            node_name: node_info.node_name,
             cluster_id: node_info.cluster_id,
             incarnation: node_info.incarnation,
         }
@@ -76,7 +74,6 @@ impl PersistentNodeInfo {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NodeInfo {
     pub node_id: Uuid,
-    pub node_name: String,
     pub cluster_id: String,
     pub advertise_addr: String,
     pub advertise_peer_addr: String,
@@ -84,16 +81,9 @@ pub struct NodeInfo {
 }
 
 impl NodeInfo {
-    pub fn init(
-        node_id: Option<Uuid>,
-        node_name: String,
-        cluster_id: String,
-        addr: String,
-        peer_addr: String,
-    ) -> Self {
+    pub fn init(node_id: Uuid, cluster_id: String, addr: String, peer_addr: String) -> Self {
         Self {
-            node_id: node_id.unwrap_or_else(Uuid::new_v4),
-            node_name,
+            node_id,
             cluster_id,
             advertise_addr: addr,
             advertise_peer_addr: peer_addr,
@@ -113,7 +103,6 @@ impl NodeInfo {
         if let Some(info) = PersistentNodeInfo::load(path)? {
             Ok(Some(Self {
                 node_id: info.node_id,
-                node_name: info.node_name,
                 cluster_id: info.cluster_id,
                 advertise_addr,
                 advertise_peer_addr,

@@ -54,7 +54,7 @@ clap = { version = "4.5.35", features = ["derive"] }
 const_format = { version = "0.2.34" }
 criterion = { version = "0.7.0", features = ["async_tokio"] }
 ctrlc = { version = "3.4", features = ["termination"] }
-exn = { version = "0.1.0-alpha.5" }
+exn = { version = "0.1.0" }
 fastimer = { version = "0.9.0" }
 fastrace = { version = "0.7.9" }
 fastrace-opentelemetry = { version = "0.13.0" }
@@ -69,7 +69,7 @@ jemallocator = { version = "0.5.4" }
 jiff = { version = "0.2", features = ["serde"] }
 local-ip-address = { version = "0.6.3" }
 log = { version = "0.4.27", features = ["kv"] }
-logforth = { version = "0.26.0", features = [
+logforth = { version = "0.27.0", features = [
   "colored",
   "append-fastrace",
   "append-opentelemetry",
@@ -77,7 +77,7 @@ logforth = { version = "0.26.0", features = [
   "diagnostic-fastrace",
   "layout-json",
 ] }
-mea = { version = "0.3.11" }
+mea = { version = "0.4.2" }
 mixtrics = { version = "0.2", features = ["opentelemetry_0_30"] }
 opentelemetry = { version = "0.30.0", features = ["trace", "metrics"] }
 opentelemetry-otlp = { version = "0.30.0", features = [
@@ -103,14 +103,14 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 sha2 = { version = "0.10.8" }
 shadow-rs = { version = "1.0.0", default-features = false }
-sysinfo = { version = "0.36.1" }
+sysinfo = { version = "0.37.0" }
 tempfile = { version = "3.19.1" }
 test-harness = { version = "0.3.0" }
 thiserror = { version = "2.0" }
 tokio = { version = "1.44.2" }
 toml_edit = { version = "0.23.2" }
 unindent = { version = "0.2.4" }
-uuid = { version = "1.16.0", features = ["v4", "serde"] }
+uuid = { version = "1.16.0", features = ["v7", "serde"] }
 
 [workspace.lints.rust]
 unknown_lints = "deny"

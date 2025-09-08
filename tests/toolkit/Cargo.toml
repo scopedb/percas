@@ -31,6 +31,7 @@ percas-core = { workspace = true }
 percas-server = { workspace = true }
 regex = { workspace = true }
 tempfile = { workspace = true }
+uuid = { workspace = true }
 
 [lints]
 workspace = true

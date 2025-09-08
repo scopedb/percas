@@ -47,7 +47,7 @@ percas-core = { workspace = true }
 percas-metrics = { workspace = true }
 poem = { workspace = true }
 scopeguard = { workspace = true }
-tokio = { workspace = true }
+uuid = { workspace = true }
 
 [lints]
 workspace = true
