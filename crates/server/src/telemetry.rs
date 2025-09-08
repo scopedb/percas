@@ -32,6 +32,7 @@ use percas_core::TracesConfig;
 pub fn init(
     rt: &Runtime,
     service_name: &'static str,
+    node_id: uuid::Uuid,
     config: TelemetryConfig,
 ) -> Vec<Box<dyn Send + Sync + 'static>> {
     let mut drop_guards = vec![];
@@ -41,7 +42,7 @@ pub fn init(
     if let Some(traces) = &config.traces {
         drop_guards.extend(init_traces(rt, service_name, traces));
     }
-    drop_guards.extend(init_logs(rt, service_name, &config));
+    drop_guards.extend(init_logs(rt, service_name, node_id, &config));
     drop_guards
 }
 
@@ -131,9 +132,14 @@ fn init_traces(
 fn init_logs(
     rt: &Runtime,
     service_name: &'static str,
+    node_id: uuid::Uuid,
     config: &TelemetryConfig,
 ) -> Vec<Box<dyn Send + Sync + 'static>> {
-    let static_diagnostic = StaticDiagnostic::default();
+    let static_diagnostic = {
+        let mut static_diagnostic = StaticDiagnostic::default();
+        static_diagnostic.insert("node_id", node_id.to_string());
+        static_diagnostic
+    };
 
     let mut drop_guards: Vec<Box<dyn Send + Sync + 'static>> = Vec::new();
     let mut builder = logforth::builder();

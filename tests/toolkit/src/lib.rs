@@ -58,6 +58,7 @@ pub fn start_test_server(_test_name: &str, rt: &Runtime) -> Option<TestServerSta
         telemetry::init(
             rt,
             "percas",
+            uuid::Uuid::now_v7(),
             TelemetryConfig {
                 logs: LogsConfig::disabled(),
                 traces: None,

@@ -35,6 +35,7 @@ use percas_metrics::GlobalMetrics;
 use percas_server::PercasContext;
 use percas_server::server::make_acceptor_and_advertise_addr;
 use percas_server::telemetry;
+use uuid::Uuid;
 
 use crate::Error;
 use crate::config::LoadConfigResult;
@@ -51,8 +52,13 @@ impl CommandStart {
         let LoadConfigResult { config, warnings } = load_config(self.config_file)?;
 
         let telemetry_runtime = make_telemetry_runtime();
-        let mut drop_guards =
-            telemetry::init(&telemetry_runtime, "percas", config.telemetry.clone());
+        let node_id = uuid::Uuid::now_v7();
+        let mut drop_guards = telemetry::init(
+            &telemetry_runtime,
+            "percas",
+            node_id,
+            config.telemetry.clone(),
+        );
         drop_guards.push(Box::new(telemetry_runtime));
         for warning in warnings {
             log::warn!("{warning}");
@@ -61,7 +67,12 @@ impl CommandStart {
 
         let server_runtime = make_server_runtime();
         let gossip_runtime = make_gossip_runtime();
-        server_runtime.block_on(run_server(&server_runtime, &gossip_runtime, config))
+        server_runtime.block_on(run_server(
+            &server_runtime,
+            &gossip_runtime,
+            node_id,
+            config,
+        ))
     }
 }
 
@@ -135,7 +146,12 @@ impl From<&ServerConfig> for FlattenConfig {
     }
 }
 
-async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) -> Result<(), Error> {
+async fn run_server(
+    server_rt: &Runtime,
+    gossip_rt: &Runtime,
+    node_id: uuid::Uuid,
+    config: Config,
+) -> Result<(), Error> {
     let make_error = || Error("failed to start server".to_string());
 
     let engine = FoyerEngine::try_new(
@@ -167,8 +183,14 @@ async fn run_server(server_rt: &Runtime, gossip_rt: &Runtime, config: Config) ->
         ServerMode::Cluster => {
             let advertise_addr = advertise_addr.to_string();
             let shutdown_rx = shutdown_rx.clone();
-            let (proxy, futs) =
-                run_gossip_proxy(gossip_rt, shutdown_rx, flatten_config, advertise_addr).await?;
+            let (proxy, futs) = run_gossip_proxy(
+                gossip_rt,
+                shutdown_rx,
+                flatten_config,
+                node_id,
+                advertise_addr,
+            )
+            .await?;
             (Some(proxy), futs)
         }
     };
@@ -196,6 +218,7 @@ async fn run_gossip_proxy(
     gossip_rt: &Runtime,
     shutdown_rx: ShutdownRecv,
     flatten_config: FlattenConfig,
+    node_id: Uuid,
     advertise_addr: String,
 ) -> Result<(Proxy, Vec<GossipFuture>), Error> {
     let make_error = || Error("failed to start gossip proxy".to_string());
@@ -232,8 +255,7 @@ async fn run_gossip_proxy(
         node
     } else {
         let node = NodeInfo::init(
-            None,
-            "percas".to_string(),
+            node_id,
             cluster_id,
             advertise_addr.clone(),
             advertise_peer_addr,
