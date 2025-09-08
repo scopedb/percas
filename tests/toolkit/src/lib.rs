@@ -52,12 +52,14 @@ impl TestServerState {
     }
 }
 
-pub fn start_test_server(_test_name: &str, rt: &Runtime) -> Option<TestServerState> {
+pub fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
+    let service_name = format!("testkit:harness:{test_name}").leak();
+
     let mut drop_guard = Vec::<DropGuard>::new();
     drop_guard.extend(
         telemetry::init(
             rt,
-            "percas",
+            service_name,
             uuid::Uuid::now_v7(),
             TelemetryConfig {
                 logs: LogsConfig::disabled(),

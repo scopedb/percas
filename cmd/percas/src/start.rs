@@ -45,17 +45,22 @@ use crate::config::load_config;
 pub struct CommandStart {
     #[clap(short, long, help = "Path to config file", value_hint = ValueHint::FilePath)]
     config_file: PathBuf,
+    /// The service name used for telemetry; default to 'scopedb'.
+    #[clap(short = 's', long = "service-name")]
+    service_name: Option<String>,
 }
 
 impl CommandStart {
     pub fn run(self) -> Result<(), Error> {
         let LoadConfigResult { config, warnings } = load_config(self.config_file)?;
 
+        let node_id = Uuid::now_v7();
+        let service_name = self.service_name.unwrap_or("percas".to_string()).leak();
+
         let telemetry_runtime = make_telemetry_runtime();
-        let node_id = uuid::Uuid::now_v7();
         let mut drop_guards = telemetry::init(
             &telemetry_runtime,
-            "percas",
+            service_name,
             node_id,
             config.telemetry.clone(),
         );
