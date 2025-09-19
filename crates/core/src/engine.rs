@@ -73,15 +73,17 @@ impl FoyerEngine {
         } else {
             const DEFAULT_THROUGHPUT_PER_CORE: usize = 187_500_000; // ~1.5Gbps
             const IOPS_PER_CORE: usize = 10_000; // 10k IOPS
-            let throughput = (DEFAULT_THROUGHPUT_PER_CORE * num_cpus().get())
-                .try_into()
-                .unwrap();
-            let iops = (IOPS_PER_CORE * num_cpus().get()).try_into().unwrap();
+            let throughput = DEFAULT_THROUGHPUT_PER_CORE * num_cpus().get();
+            let write_throughput_quota = throughput / 4; // 25% of throughput for writes
+            let read_throughput_quota = throughput - write_throughput_quota; // Remaining for reads
+            let iops = IOPS_PER_CORE * num_cpus().get();
+            let write_iops_quota = iops / 4; // 25% of IOPS for writes
+            let read_iops_quota = iops - write_iops_quota; // Remaining for reads
             let throttle = foyer::Throttle {
-                write_iops: Some(iops),
-                read_iops: Some(iops),
-                write_throughput: Some(throughput),
-                read_throughput: Some(throughput),
+                write_iops: Some(write_iops_quota.try_into().unwrap()),
+                read_iops: Some(read_iops_quota.try_into().unwrap()),
+                write_throughput: Some(write_throughput_quota.try_into().unwrap()),
+                read_throughput: Some(read_throughput_quota.try_into().unwrap()),
                 iops_counter: IopsCounter::PerIo,
             };
             db = db.with_throttle(throttle);
