@@ -4,6 +4,12 @@ All significant changes to this project will be documented in this file.
 
 ## Unreleased
 
+## v0.2.5 (2025-09-19)
+
+### Improvements
+
+* Improved default configuration for throttler.
+
 ## v0.2.4 (2025-09-05)
 
 ### Improvements
