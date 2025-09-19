@@ -107,11 +107,12 @@ impl FoyerEngine {
                 let value_size = value.len();
                 key_size + value_size
             })
-            .with_shards(parallelism)
+            .with_shards(parallelism.max(32))
             .with_eviction_config(LfuConfig::default())
             .storage()
             .with_engine_config(
                 BlockEngineBuilder::new(dev)
+                    .with_recover_concurrency(parallelism)
                     .with_block_size(DEFAULT_BLOCK_SIZE)
                     .with_flushers(DEFAULT_FLUSHERS),
             )
