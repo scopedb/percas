@@ -20,12 +20,13 @@ use exn::Result;
 use exn::bail;
 use foyer::BlockEngineBuilder;
 use foyer::DeviceBuilder;
-use foyer::FifoConfig;
 use foyer::FsDeviceBuilder;
 use foyer::HybridCache;
 use foyer::HybridCacheBuilder;
 use foyer::HybridCachePolicy;
 use foyer::IoEngineBuilder;
+use foyer::IopsCounter;
+use foyer::LfuConfig;
 use foyer::PsyncIoEngineBuilder;
 use foyer::RecoverMode;
 use foyer::RuntimeOptions;
@@ -69,6 +70,21 @@ impl FoyerEngine {
         let mut db = FsDeviceBuilder::new(data_dir).with_capacity(disk_capacity as usize);
         if let Some(throttle) = disk_throttle {
             db = db.with_throttle(throttle.into());
+        } else {
+            const DEFAULT_THROUGHPUT_PER_CORE: usize = 187_500_000; // ~1.5Gbps
+            const IOPS_PER_CORE: usize = 10_000; // 10k IOPS
+            let throughput = (DEFAULT_THROUGHPUT_PER_CORE * num_cpus().get())
+                .try_into()
+                .unwrap();
+            let iops = (IOPS_PER_CORE * num_cpus().get()).try_into().unwrap();
+            let throttle = foyer::Throttle {
+                write_iops: Some(iops),
+                read_iops: Some(iops),
+                write_throughput: Some(throughput),
+                read_throughput: Some(throughput),
+                iops_counter: IopsCounter::PerIo,
+            };
+            db = db.with_throttle(throttle);
         }
         let dev = db
             .build()
@@ -90,7 +106,7 @@ impl FoyerEngine {
                 key_size + value_size
             })
             .with_shards(parallelism)
-            .with_eviction_config(FifoConfig::default())
+            .with_eviction_config(LfuConfig::default())
             .storage()
             .with_engine_config(
                 BlockEngineBuilder::new(dev)
