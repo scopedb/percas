@@ -4,6 +4,12 @@ All significant changes to this project will be documented in this file.
 
 ## Unreleased
 
+## v0.2.6 (2025-09-23)
+
+### Improvements
+
+* Parallelized recovery for foyer by default.
+
 ## v0.2.5 (2025-09-19)
 
 ### Improvements
