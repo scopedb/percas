@@ -21,8 +21,7 @@ members = [
   "crates/metrics",
   "crates/server",
   "crates/version",
-  "tests/behavior",
-  "tests/toolkit",
+  "tests",
   "xtask",
 ]
 resolver = "2"
@@ -45,7 +44,6 @@ percas-core = { path = "crates/core" }
 percas-metrics = { path = "crates/metrics" }
 percas-server = { path = "crates/server" }
 percas-version = { path = "crates/version" }
-tests-toolkit = { path = "tests/toolkit" }
 
 # Crates.io dependencies
 anstyle = { version = "1.0.10" }

@@ -24,9 +24,6 @@ readme.workspace = true
 repository.workspace = true
 version.workspace = true
 
-[package.metadata.release]
-release = false
-
 [dependencies]
 arc-swap = { workspace = true }
 fastimer = { workspace = true }
