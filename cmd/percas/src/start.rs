@@ -154,7 +154,7 @@ impl From<&ServerConfig> for FlattenConfig {
 async fn run_server(
     server_rt: &Runtime,
     gossip_rt: &Runtime,
-    node_id: uuid::Uuid,
+    node_id: Uuid,
     config: Config,
 ) -> Result<(), Error> {
     let make_error = || Error("failed to start server".to_string());

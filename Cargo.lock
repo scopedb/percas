@@ -222,11 +222,15 @@ name = "behavior-tests"
 version = "0.2.6"
 dependencies = [
  "insta",
+ "mea",
  "percas-client",
  "percas-core",
+ "percas-server",
  "pretty-hex",
+ "regex",
+ "tempfile",
  "test-harness",
- "tests-toolkit",
+ "uuid",
 ]
 
 [[package]]
@@ -2406,10 +2410,9 @@ dependencies = [
 
 [[package]]
 name = "percas-client"
-version = "0.2.6"
+version = "0.2.2"
 dependencies = [
  "reqwest",
- "thiserror",
 ]
 
 [[package]]
@@ -3480,18 +3483,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.106",
-]
-
-[[package]]
-name = "tests-toolkit"
-version = "0.2.6"
-dependencies = [
- "mea",
- "percas-core",
- "percas-server",
- "regex",
- "tempfile",
- "uuid",
 ]
 
 [[package]]

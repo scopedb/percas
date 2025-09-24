@@ -13,7 +13,7 @@
 # limitations under the License.
 
 [package]
-name = "tests-toolkit"
+name = "behavior-tests"
 publish = false
 
 edition.workspace = true
@@ -22,15 +22,16 @@ readme.workspace = true
 repository.workspace = true
 version.workspace = true
 
-[package.metadata.release]
-release = false
-
 [dependencies]
+insta = { workspace = true }
 mea = { workspace = true }
+percas-client = { workspace = true }
 percas-core = { workspace = true }
 percas-server = { workspace = true }
+pretty-hex = { workspace = true }
 regex = { workspace = true }
 tempfile = { workspace = true }
+test-harness = { workspace = true }
 uuid = { workspace = true }
 
 [lints]

@@ -2,6 +2,8 @@
 
 All significant changes to this project will be documented in this file.
 
+For the changelog of the `percase-client` crate, please refer to its own [CHANGELOG](client/CHANGELOG.md).
+
 ## Unreleased
 
 ## v0.2.6 (2025-09-23)
