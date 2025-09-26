@@ -159,22 +159,8 @@ async fn run_server(
 ) -> Result<(), Error> {
     let make_error = || Error("failed to start server".to_string());
 
-    let engine = FoyerEngine::try_new(
-        &config.storage.data_dir,
-        config.storage.memory_capacity,
-        config.storage.disk_capacity,
-        config.storage.disk_throttle,
-        Some(OpenTelemetryMetricsRegistry::new(
-            GlobalMetrics::get().meter.clone(),
-        )),
-    )
-    .await
-    .or_raise(make_error)?;
-
-    let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
-    let ctx = Arc::new(PercasContext { engine });
-
     let flatten_config = FlattenConfig::from(&config.server);
+    let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
 
     let (acceptor, advertise_addr) = make_acceptor_and_advertise_addr(
         flatten_config.listen_addr.as_str(),
@@ -199,6 +185,19 @@ async fn run_server(
             (Some(proxy), futs)
         }
     };
+
+    let engine = FoyerEngine::try_new(
+        config.storage.data_dir.as_path(),
+        config.storage.memory_capacity,
+        config.storage.disk_capacity,
+        config.storage.disk_throttle,
+        Some(OpenTelemetryMetricsRegistry::new(
+            GlobalMetrics::get().meter.clone(),
+        )),
+    )
+    .await
+    .or_raise(make_error)?;
+    let ctx = Arc::new(PercasContext { engine });
 
     let server = percas_server::server::start_server(
         server_rt,
