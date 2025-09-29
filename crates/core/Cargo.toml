@@ -28,7 +28,6 @@ version.workspace = true
 exn = { workspace = true }
 fastimer = { workspace = true }
 foyer = { workspace = true }
-jemallocator = { workspace = true }
 jiff = { workspace = true }
 log = { workspace = true }
 mixtrics = { workspace = true }
@@ -37,6 +36,9 @@ serde = { workspace = true }
 sysinfo = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+jemallocator = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
