@@ -37,7 +37,7 @@ sysinfo = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
-[target.'cfg(not(windows))'.dependencies]
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = { workspace = true }
 
 [dev-dependencies]
