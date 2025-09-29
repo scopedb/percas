@@ -63,28 +63,61 @@ impl Membership {
             .is_some_and(|member| member.status == MemberStatus::Dead)
     }
 
-    pub fn update_member(&mut self, member: MemberState) {
+    /// Update a member's state. Returns `true` if the membership map was
+    /// modified (added, replaced, or had its status/heartbeat changed).
+    ///
+    /// Merge rules:
+    /// - If incoming incarnation > current.incarnation -> replace entry.
+    /// - If incoming incarnation < current.incarnation -> ignore.
+    /// - If incarnation equal:
+    ///     * Use heartbeat as a tiebreaker: the larger heartbeat is considered the fresher
+    ///       observation.
+    ///     * Status changes are accepted if the incoming observation is at least as fresh
+    ///       (heartbeat >= current.heartbeat). This avoids flipping status based on stale reports.
+    pub fn update_member(&mut self, member: MemberState) -> bool {
         match self.members.entry(member.info.node_id) {
             Entry::Occupied(mut entry) => {
                 let current = entry.get_mut();
+                // incoming has higher incarnation -> authoritative replace
                 if current.info.incarnation < member.info.incarnation {
                     log::info!(target: "gossip", "advancing member incarnation from [{}] to [{}]: {member:?}", current.info.incarnation, member.info.incarnation);
                     *current = member;
-                    return;
+                    return true;
                 }
+
+                // incoming is older incarnation -> ignore
                 if current.info.incarnation > member.info.incarnation {
-                    return;
+                    return false;
                 }
-                // If the incarnation is the same, we only accept downgrades
-                current.status.downgrade_to(&member.status);
-                if member.status == MemberStatus::Dead {
-                    log::info!(target: "gossip", "member confirmed dead: {member:?}");
-                }
+
+                // same incarnation: decide based on heartbeat and status
+                let prev_status = current.status;
+                let prev_heartbeat = current.heartbeat;
+
+                // Update heartbeat to the freshest observation
                 current.heartbeat = current.heartbeat.max(member.heartbeat);
+
+                // Accept status change only if the incoming observation is at
+                // least as fresh (prevents stale dead reports from overriding)
+                if member.heartbeat >= prev_heartbeat && member.status != current.status {
+                    current.status = member.status;
+                    if current.status == MemberStatus::Dead {
+                        log::info!(target: "gossip", "member confirmed dead: {current:?}");
+                    }
+                } else {
+                    // Still allow explicit downgrade_to behavior for the common
+                    // case where a Dead report should override an Alive when
+                    // appropriate (keeps compatibility with previous logic).
+                    current.status.downgrade_to(&member.status);
+                }
+
+                // Return true if either status or heartbeat changed
+                current.status != prev_status || current.heartbeat != prev_heartbeat
             }
             Entry::Vacant(entry) => {
                 log::info!(target: "gossip", "adding new member: {member:?}");
                 entry.insert(member);
+                true
             }
         }
     }
@@ -92,5 +125,88 @@ impl Membership {
     pub fn remove_member(&mut self, id: Uuid) {
         log::info!(target: "gossip", "removing member: {id}");
         self.members.remove(&id);
+    }
+}
+
+#[cfg(test)]
+mod membership_tests {
+    use jiff::Timestamp;
+    use uuid::Uuid;
+
+    use super::*;
+
+    fn make_node(id: Uuid, _inc: u64) -> crate::node::NodeInfo {
+        crate::node::NodeInfo::init(id, "c".to_string(), "a".to_string(), "p".to_string())
+    }
+
+    #[test]
+    fn add_new_member() {
+        let mut m = Membership::default();
+        let id = Uuid::nil();
+        let node = make_node(id, 0);
+        m.update_member(MemberState {
+            info: node.clone(),
+            status: MemberStatus::Alive,
+            heartbeat: Timestamp::now(),
+        });
+
+        assert!(m.members().contains_key(&id));
+    }
+
+    #[test]
+    fn heartbeat_and_incarnation_merge() {
+        let mut m = Membership::default();
+        let id = Uuid::nil();
+        let node = make_node(id, 0);
+
+        // insert with heartbeat t0
+        let t0 = Timestamp::now();
+        m.update_member(MemberState {
+            info: node.clone(),
+            status: MemberStatus::Alive,
+            heartbeat: t0,
+        });
+
+        // same incarnation but later heartbeat t1
+        let t1 = Timestamp::now();
+        m.update_member(MemberState {
+            info: node.clone(),
+            status: MemberStatus::Alive,
+            heartbeat: t1,
+        });
+
+        let stored = m.members().get(&id).unwrap();
+        assert!(stored.heartbeat >= t0);
+        assert!(stored.heartbeat >= t1);
+    }
+
+    #[test]
+    fn higher_incarnation_replaces() {
+        let mut m = Membership::default();
+        let id = Uuid::nil();
+        let node = make_node(id, 0);
+
+        m.update_member(MemberState {
+            info: NodeInfo {
+                incarnation: 1,
+                ..node.clone()
+            },
+            status: MemberStatus::Alive,
+            heartbeat: Timestamp::now(),
+        });
+
+        // higher incarnation
+        m.update_member(MemberState {
+            info: NodeInfo {
+                incarnation: 2,
+                ..node.clone()
+            },
+            status: MemberStatus::Dead,
+            heartbeat: Timestamp::now(),
+        });
+
+        let stored = m.members().get(&id).unwrap();
+        assert_eq!(stored.info.incarnation, 2);
+        assert_eq!(stored.status, MemberStatus::Dead);
     }
 }

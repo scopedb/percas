@@ -151,46 +151,27 @@ impl GossipState {
         log::debug!("received message: {message:?}");
         let result = match message {
             Message::Ping(info) => {
-                if let Some(current) = self.membership.read().unwrap().members().get(&info.node_id)
-                    && current.info.incarnation < info.incarnation
-                {
-                    self.membership.write().unwrap().update_member(MemberState {
-                        info: info.clone(),
-                        status: MemberStatus::Alive,
-                        heartbeat: Timestamp::now(),
-                    });
-                }
+                self.membership.write().unwrap().update_member(MemberState {
+                    info: info.clone(),
+                    status: MemberStatus::Alive,
+                    heartbeat: Timestamp::now(),
+                });
 
                 // Respond with an ack
                 Some(Message::Ack(self.current()))
             }
             Message::Ack(info) => {
-                if let Some(current) = self.membership.read().unwrap().members().get(&info.node_id)
-                    && current.info.incarnation < info.incarnation
-                {
-                    self.membership.write().unwrap().update_member(MemberState {
-                        info: info.clone(),
-                        status: MemberStatus::Alive,
-                        heartbeat: Timestamp::now(),
-                    });
-                }
+                self.membership.write().unwrap().update_member(MemberState {
+                    info: info.clone(),
+                    status: MemberStatus::Alive,
+                    heartbeat: Timestamp::now(),
+                });
 
                 None
             }
             Message::Sync { members } => {
-                let snapshot = self.membership.read().unwrap().members().clone();
                 for member in members {
-                    if let Some(current) = snapshot.get(&member.info.node_id) {
-                        // Update the member state
-                        if current.heartbeat < member.heartbeat
-                            && current.info.incarnation < member.info.incarnation
-                        {
-                            self.membership.write().unwrap().update_member(member);
-                        }
-                    } else {
-                        // Add the new member
-                        self.membership.write().unwrap().update_member(member);
-                    }
+                    self.membership.write().unwrap().update_member(member);
                 }
 
                 // Ensure the current node is alive
