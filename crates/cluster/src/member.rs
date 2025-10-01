@@ -23,6 +23,7 @@ use uuid::Uuid;
 use crate::node::NodeInfo;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum MemberStatus {
     Alive,
     Dead,
@@ -208,5 +209,48 @@ mod membership_tests {
         let stored = m.members().get(&id).unwrap();
         assert_eq!(stored.info.incarnation, 2);
         assert_eq!(stored.status, MemberStatus::Dead);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use insta::assert_json_snapshot;
+    use jiff::Timestamp;
+    use uuid::Uuid;
+
+    use crate::NodeInfo;
+    use crate::member::MemberState;
+    use crate::member::MemberStatus;
+
+    #[test]
+    fn test_member_serde() {
+        let member = MemberState {
+            info: NodeInfo {
+                node_id: Uuid::from_u64_pair(1234, 5678),
+                cluster_id: "cluster".to_string(),
+                advertise_addr: "127.0.0.1:9000".to_string(),
+                advertise_peer_addr: "127.0.0.1:9001".to_string(),
+                incarnation: 1,
+            },
+            status: MemberStatus::Alive,
+            heartbeat: Timestamp::constant(12345, 6789),
+        };
+
+        assert_json_snapshot!(
+            member,
+            @r#"
+            {
+              "info": {
+                "node_id": "00000000-0000-04d2-0000-00000000162e",
+                "cluster_id": "cluster",
+                "advertise_addr": "127.0.0.1:9000",
+                "advertise_peer_addr": "127.0.0.1:9001",
+                "incarnation": 1
+              },
+              "status": "alive",
+              "heartbeat": "1970-01-01T03:25:45.000006789Z"
+            }
+            "#
+        );
     }
 }
