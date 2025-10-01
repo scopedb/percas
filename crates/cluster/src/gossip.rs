@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::path::PathBuf;
-use std::random::random;
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::time::Duration;
@@ -430,6 +429,7 @@ async fn drive_gossip(
     // Ping
     let state_clone = state.clone();
     let shutdown_rx_clone = shutdown_rx.clone();
+    let mut rng = rand::rngs::StdRng::from_os_rng();
     let ping_fut = rt.spawn(async move {
         let fut = async move {
             let state = state_clone;
@@ -441,7 +441,7 @@ async fn drive_gossip(
                 if let Some((_, member)) = membership
                     .members()
                     .iter()
-                    .nth(random::<usize>(..) % membership.members().len())
+                    .nth(rng.random_range(0..membership.members().len()))
                 {
                     if member.status == MemberStatus::Dead {
                         log::debug!("skipping dead member: {member:?}");
