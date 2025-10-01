@@ -19,6 +19,7 @@ use criterion::Criterion;
 use criterion::criterion_group;
 use criterion::criterion_main;
 use percas_core::FoyerEngine;
+use rand::Rng;
 use tempfile::tempdir_in;
 
 criterion_group!(benches, foyer_engine);
@@ -72,7 +73,7 @@ fn foyer_engine(c: &mut Criterion) {
                     &keys,
                     |b, s| {
                         b.to_async(&runtime).iter(|| async {
-                            let key = &s[std::random::random::<usize>() % keys.len()];
+                            let key = &s[rand::rng().random_range(0..keys.len())];
                             std::hint::black_box(engine.get(key).await);
                         })
                     },
@@ -82,7 +83,7 @@ fn foyer_engine(c: &mut Criterion) {
 }
 
 fn gen_key(len: usize) -> Vec<u8> {
-    (0..len).map(|_| std::random::random::<u8>()).collect()
+    (0..len).map(|_| rand::rng().random()).collect()
 }
 
 fn gen_payload(len: usize) -> Vec<u8> {

@@ -33,6 +33,7 @@ log = { workspace = true }
 mea = { workspace = true }
 percas-core = { workspace = true }
 poem = { workspace = true }
+rand = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

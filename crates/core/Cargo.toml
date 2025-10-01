@@ -32,6 +32,7 @@ jiff = { workspace = true }
 log = { workspace = true }
 mixtrics = { workspace = true }
 pin-project = { workspace = true }
+rand = { workspace = true }
 serde = { workspace = true }
 sysinfo = { workspace = true }
 thiserror = { workspace = true }
