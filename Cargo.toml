@@ -79,6 +79,7 @@ logforth = { version = "0.27.0", features = [
 ] }
 mea = { version = "0.4.2" }
 mixtrics = { version = "0.2", features = ["opentelemetry_0_30"] }
+murmur3 = { version = "0.5.2" }
 opentelemetry = { version = "0.30.0", features = ["trace", "metrics"] }
 opentelemetry-otlp = { version = "0.30.0", features = [
   "trace",
@@ -102,7 +103,6 @@ scopeguard = { version = "1.2.0" }
 sealed_test = { version = "1.1" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
-sha2 = { version = "0.10.8" }
 shadow-rs = { version = "1.0.0", default-features = false }
 sysinfo = { version = "0.37.0" }
 tempfile = { version = "3.19.1" }
