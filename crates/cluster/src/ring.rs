@@ -16,15 +16,12 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::fmt::Debug;
 
-use sha2::Digest;
-use sha2::Sha256;
-
-const DEFAULT_REPLICA_COUNT: usize = 256;
+const DEFAULT_VNODE_COUNT: usize = 64;
 
 /// A consistent hash ring implementation.
-/// This implementation uses SHA-256 to hash the nodes and keys.
-/// It supports virtual nodes (replicas) to improve load balancing, every added node
-/// will be replicated `replica_count` times in the ring.
+/// This implementation uses MurmurHash3 to hash the nodes and keys.
+/// It supports virtual nodes to improve load balancing, every added node
+/// will be replicated `vnodes` times in the ring.
 ///
 /// # Examples
 ///
@@ -33,12 +30,12 @@ const DEFAULT_REPLICA_COUNT: usize = 256;
 ///
 /// let ring = HashRing::from(["node-1", "node-2", "node-3"]);
 /// assert_eq!(ring.lookup("key1"), Some("node-1"));
-/// assert_eq!(ring.lookup("key2"), Some("node-3"));
-/// assert_eq!(ring.lookup("key3"), Some("node-3"));
+/// assert_eq!(ring.lookup("key2"), Some("node-2"));
+/// assert_eq!(ring.lookup("key3"), Some("node-2"));
 /// ```
 pub struct HashRing<T> {
-    replica_count: usize,
-    nodes: BTreeMap<u64, BTreeSet<T>>,
+    vnodes: usize,
+    nodes: BTreeMap<u32, BTreeSet<T>>,
 }
 
 impl<T> Default for HashRing<T>
@@ -47,7 +44,7 @@ where
 {
     fn default() -> Self {
         Self {
-            replica_count: DEFAULT_REPLICA_COUNT,
+            vnodes: DEFAULT_VNODE_COUNT,
             nodes: BTreeMap::new(),
         }
     }
@@ -59,23 +56,19 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("HashRing")
-            .field("replica_count", &self.replica_count)
+            .field("vnodes", &self.vnodes)
             .field("nodes", &self.nodes)
             .finish()
     }
 }
 
 impl<T> HashRing<T> {
-    /// Creates a new `HashRing` with the specified replica count.
-    pub fn new(replica_count: usize) -> Self {
+    /// Creates a new `HashRing` with the specified vnodes count.
+    pub fn new(vnodes: usize) -> Self {
         Self {
-            replica_count,
+            vnodes,
             nodes: BTreeMap::new(),
         }
-    }
-
-    pub fn replica_count(&self) -> usize {
-        self.replica_count
     }
 }
 
@@ -121,13 +114,13 @@ where
         K: AsRef<[u8]>,
         F: Fn(&T) -> bool,
     {
-        let digest = self.hash_key(key.as_ref());
+        let hash = self.hash_key(key.as_ref());
         self.nodes
-            .range(digest..)
+            .range(hash..)
             .find_map(|(_, node)| node.iter().find(|v| predicate(*v)).cloned())
             .or_else(|| {
                 self.nodes
-                    .range(..=digest)
+                    .range(..=hash)
                     .find_map(|(_, node)| node.iter().find(|v| predicate(*v)).cloned())
             })
     }
@@ -135,25 +128,21 @@ where
     /// Adds a node to the ring.
     /// The node will be replicated `replica_count` times in the ring.
     pub fn add_node(&mut self, node: T) {
-        for i in 0..self.replica_count {
-            let digest = self.hash_node(&node, i);
-            self.nodes.entry(digest).or_default().insert(node.clone());
+        for i in 0..self.vnodes {
+            let hash = self.hash_node(&node, i);
+            self.nodes.entry(hash).or_default().insert(node.clone());
         }
     }
 
-    fn hash_key(&self, key: &[u8]) -> u64 {
-        let mut hasher = Sha256::new();
-        hasher.update(key);
-        let digest = hasher.finalize();
-        u64::from_be_bytes(digest[..8].try_into().unwrap())
+    fn hash_key(&self, key: &[u8]) -> u32 {
+        murmur3::murmur3_32(&mut &key[..], 0).unwrap()
     }
 
-    fn hash_node(&self, node: &T, replica: usize) -> u64 {
-        let mut hasher = Sha256::new();
-        hasher.update(node.as_ref());
-        hasher.update(replica.to_be_bytes());
-        let digest = hasher.finalize();
-        u64::from_be_bytes(digest[..8].try_into().unwrap())
+    fn hash_node(&self, node: &T, replica: usize) -> u32 {
+        let mut buff = Vec::with_capacity(node.as_ref().len() + 8);
+        buff.extend_from_slice(node.as_ref());
+        buff.extend_from_slice(&replica.to_le_bytes());
+        murmur3::murmur3_32(&mut &buff[..], 0).unwrap()
     }
 }
 
@@ -176,19 +165,19 @@ mod tests {
         let ring = make_ring(&["node1", "node2", "node3"], 3);
         assert_compact_debug_snapshot!(
             ring,
-            @r#"HashRing { replica_count: 3, nodes: {1130331173203730818: {"node1"}, 3453462956149404857: {"node3"}, 4664643935122212079: {"node1"}, 4945359727197601621: {"node2"}, 8109777462452160152: {"node1"}, 9540586358148544740: {"node2"}, 15364601984093359477: {"node3"}, 16459957557864277864: {"node2"}, 17005984661365267147: {"node3"}} }"#
+            @r#"HashRing { vnodes: 3, nodes: {135217799: {"node2"}, 265130893: {"node3"}, 265873634: {"node2"}, 968402280: {"node3"}, 1303218410: {"node3"}, 2076807935: {"node2"}, 2708114884: {"node1"}, 2759792820: {"node1"}, 3903532208: {"node1"}} }"#
         );
-        assert_compact_debug_snapshot!(ring.lookup("key1"), @r#"Some("node2")"#);
-        assert_compact_debug_snapshot!(ring.lookup("key2"), @r#"Some("node3")"#);
+        assert_compact_debug_snapshot!(ring.lookup("key1"), @r#"Some("node1")"#);
+        assert_compact_debug_snapshot!(ring.lookup("key2"), @r#"Some("node2")"#);
         assert_compact_debug_snapshot!(ring.lookup("key3"), @r#"Some("node1")"#);
 
         let ring = make_ring(&["node1", "node2", "node3"], 1);
         assert_compact_debug_snapshot!(
             ring,
-            @r#"HashRing { replica_count: 1, nodes: {4664643935122212079: {"node1"}, 9540586358148544740: {"node2"}, 15364601984093359477: {"node3"}} }"#
+            @r#"HashRing { vnodes: 1, nodes: {135217799: {"node2"}, 265130893: {"node3"}, 2759792820: {"node1"}} }"#
         );
-        assert_compact_debug_snapshot!(ring.lookup("key1"), @r#"Some("node2")"#);
-        assert_compact_debug_snapshot!(ring.lookup("key2"), @r#"Some("node3")"#);
-        assert_compact_debug_snapshot!(ring.lookup("key3"), @r#"Some("node1")"#);
+        assert_compact_debug_snapshot!(ring.lookup("key1"), @r#"Some("node1")"#);
+        assert_compact_debug_snapshot!(ring.lookup("key2"), @r#"Some("node1")"#);
+        assert_compact_debug_snapshot!(ring.lookup("key3"), @r#"Some("node2")"#);
     }
 }
