@@ -2419,7 +2419,10 @@ dependencies = [
 name = "percas-client"
 version = "0.2.2"
 dependencies = [
+ "murmur3",
  "reqwest",
+ "serde",
+ "uuid",
 ]
 
 [[package]]

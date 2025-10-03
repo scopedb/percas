@@ -13,9 +13,10 @@
 // limitations under the License.
 
 mod client;
+mod route;
 
 pub use client::Client;
-pub use client::ClientFactory;
+pub use client::ClientBuilder;
 
 #[derive(Debug)]
 pub enum Error {
