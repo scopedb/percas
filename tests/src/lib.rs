@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use mea::shutdown::ShutdownSend;
 use percas_client::Client;
-use percas_client::ClientFactory;
+use percas_client::ClientBuilder;
 use percas_core::Config;
 use percas_core::FoyerEngine;
 use percas_core::LogsConfig;
@@ -152,8 +152,11 @@ where
 
     rt.block_on(async move {
         let server_addr = format!("http://{}", state.server_state.advertise_addr());
-        let factory = ClientFactory::new().unwrap();
-        let client = factory.make_client(server_addr).unwrap();
+        let client = ClientBuilder::new()
+            .unwrap()
+            .addr(server_addr)
+            .build()
+            .unwrap();
 
         let exit_code = test(Testkit { client }).await.report();
 
