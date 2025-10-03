@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fs::create_dir_all;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -19,6 +20,7 @@ use exn::Result;
 use exn::ResultExt;
 use exn::bail;
 use percas_core::Config;
+use percas_core::ServerConfig;
 use percas_core::known_option_entries;
 use serde::Deserialize;
 use serde::de::IntoDeserializer;
@@ -117,6 +119,19 @@ pub fn load_config(config_file: PathBuf) -> Result<LoadConfigResult, Error> {
 
     let config = Config::deserialize(config.into_deserializer())
         .or_raise(|| Error("failed to deserialize config".to_string()))?;
+
+    // Ensure server directory exists
+    match &config.server {
+        ServerConfig::Standalone { dir, .. } => {
+            create_dir_all(dir)
+                .or_raise(|| Error(format!("failed to create data dir: {}", dir.display())))?;
+        }
+        ServerConfig::Cluster { dir, .. } => {
+            create_dir_all(dir)
+                .or_raise(|| Error(format!("failed to create data dir: {}", dir.display())))?;
+        }
+    }
+
     Ok(LoadConfigResult { config, warnings })
 }
 
