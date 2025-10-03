@@ -125,6 +125,17 @@ where
             })
     }
 
+    /// Lists all virtual nodes (hashes) assigned to the given node.
+    pub fn list_vnodes(&self, node: &T) -> impl Iterator<Item = u32> {
+        self.nodes.iter().filter_map(|(hash, nodes)| {
+            if nodes.contains(node) {
+                Some(*hash)
+            } else {
+                None
+            }
+        })
+    }
+
     /// Adds a node to the ring.
     /// The node will be replicated `replica_count` times in the ring.
     pub fn add_node(&mut self, node: T) {
