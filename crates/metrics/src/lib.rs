@@ -131,10 +131,12 @@ impl OperationMetrics {
     pub const OPERATION_GET: &str = "get";
     pub const OPERATION_PUT: &str = "put";
     pub const OPERATION_DELETE: &str = "delete";
+    pub const OPERATION_UNKNOWN: &str = "unknown";
 
     pub const STATUS_SUCCESS: &str = "ok";
     pub const STATUS_NOT_FOUND: &str = "not_found";
     pub const STATUS_FAILURE: &str = "error";
+    pub const STATUS_REDIRECT: &str = "redirect";
 
     pub fn operation_labels(operation: &str, status: &str) -> [KeyValue; 2] {
         [

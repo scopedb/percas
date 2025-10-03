@@ -18,6 +18,8 @@ use mea::semaphore::Semaphore;
 use percas_cluster::Proxy;
 use percas_cluster::RouteDest;
 use percas_core::num_cpus;
+use percas_metrics::GlobalMetrics;
+use percas_metrics::OperationMetrics;
 use poem::Endpoint;
 use poem::IntoResponse;
 use poem::Middleware;
@@ -114,6 +116,20 @@ where
                     .await
                     .map(IntoResponse::into_response),
                 RouteDest::RemoteAddr(addr) => {
+                    let operation = match req.method().as_str() {
+                        "GET" => OperationMetrics::OPERATION_GET,
+                        "PUT" => OperationMetrics::OPERATION_PUT,
+                        "DELETE" => OperationMetrics::OPERATION_DELETE,
+                        _ => OperationMetrics::OPERATION_UNKNOWN,
+                    };
+                    GlobalMetrics::get().operation.count.add(
+                        1,
+                        &OperationMetrics::operation_labels(
+                            operation,
+                            OperationMetrics::STATUS_REDIRECT,
+                        ),
+                    );
+
                     let location = format!("http://{addr}{}", req.uri().path());
 
                     Ok(temporary_redirect(&location))
