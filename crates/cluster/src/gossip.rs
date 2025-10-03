@@ -601,7 +601,7 @@ async fn list_members(Data(state): Data<&Arc<GossipState>>) -> Response {
                 incarnation: m.info.incarnation,
                 status: m.status,
                 heartbeat: m.heartbeat,
-                vnodes: state.ring().list_vnodes(&m.info.node_id).collect(),
+                vnodes: state.ring().list_vnodes(&m.info.node_id),
             })
             .collect(),
     };
