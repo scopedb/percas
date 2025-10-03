@@ -15,7 +15,6 @@
 use std::sync::Arc;
 
 use mea::semaphore::Semaphore;
-use percas_client::ClientFactory;
 use percas_cluster::Proxy;
 use percas_cluster::RouteDest;
 use percas_core::num_cpus;
@@ -24,13 +23,9 @@ use poem::IntoResponse;
 use poem::Middleware;
 use poem::Request;
 use poem::Response;
-use poem::http::Method;
 use poem::http::StatusCode;
 
-use crate::server::delete_success;
-use crate::server::get_not_found;
-use crate::server::get_success;
-use crate::server::put_success;
+use crate::server::temporary_redirect;
 use crate::server::too_many_requests;
 
 pub struct LoggerMiddleware;
@@ -73,12 +68,11 @@ where
 
 pub struct ClusterProxyMiddleware {
     proxy: Option<Proxy>,
-    factory: ClientFactory,
 }
 
 impl ClusterProxyMiddleware {
-    pub fn new(proxy: Option<Proxy>, factory: ClientFactory) -> Self {
-        Self { proxy, factory }
+    pub fn new(proxy: Option<Proxy>) -> Self {
+        Self { proxy }
     }
 }
 
@@ -92,7 +86,6 @@ where
     fn transform(&self, endpoint: E) -> Self::Output {
         ClusterProxyEndpoint {
             proxy: self.proxy.clone(),
-            factory: self.factory.clone(),
             endpoint,
         }
     }
@@ -100,7 +93,6 @@ where
 
 pub struct ClusterProxyEndpoint<E> {
     proxy: Option<Proxy>,
-    factory: ClientFactory,
     endpoint: E,
 }
 
@@ -111,7 +103,7 @@ where
 {
     type Output = Response;
 
-    async fn call(&self, mut req: Request) -> Result<Self::Output, poem::Error> {
+    async fn call(&self, req: Request) -> Result<Self::Output, poem::Error> {
         let key = req.path_params::<String>()?;
 
         if let Some(proxy) = &self.proxy {
@@ -122,75 +114,9 @@ where
                     .await
                     .map(IntoResponse::into_response),
                 RouteDest::RemoteAddr(addr) => {
-                    let client = self
-                        .factory
-                        .make_client(format!("http://{addr}"))
-                        .map_err(|err| poem::Error::new(err, StatusCode::INTERNAL_SERVER_ERROR))?;
+                    let location = format!("http://{addr}{}", req.uri().path());
 
-                    match *req.method() {
-                        Method::GET => {
-                            let resp = client.get(&key).await;
-                            match resp {
-                                Ok(resp) => {
-                                    if let Some(value) = resp {
-                                        Ok(get_success(value))
-                                    } else {
-                                        Ok(get_not_found())
-                                    }
-                                }
-                                Err(percas_client::Error::TooManyRequests) => {
-                                    Ok(too_many_requests())
-                                }
-                                Err(err) => {
-                                    log::error!("failed to get from remote: {err}");
-                                    self.endpoint
-                                        .call(req)
-                                        .await
-                                        .map(IntoResponse::into_response)
-                                }
-                            }
-                        }
-                        Method::PUT => {
-                            let body = req.take_body().into_bytes().await?;
-                            let resp = client.put(&key, &body).await;
-                            match resp {
-                                Ok(()) => Ok(put_success()),
-                                Err(percas_client::Error::TooManyRequests) => {
-                                    Ok(too_many_requests())
-                                }
-                                Err(err) => {
-                                    log::error!("failed to put to remote: {err}");
-                                    req.set_body(body);
-                                    self.endpoint
-                                        .call(req)
-                                        .await
-                                        .map(IntoResponse::into_response)
-                                }
-                            }
-                        }
-                        Method::DELETE => {
-                            let resp = client.delete(&key).await;
-                            match resp {
-                                Ok(()) => Ok(delete_success()),
-                                Err(percas_client::Error::TooManyRequests) => {
-                                    Ok(too_many_requests())
-                                }
-                                Err(err) => {
-                                    log::error!("failed to delete at remote: {err}");
-                                    self.endpoint
-                                        .call(req)
-                                        .await
-                                        .map(IntoResponse::into_response)
-                                }
-                            }
-                        }
-
-                        _ => self
-                            .endpoint
-                            .call(req)
-                            .await
-                            .map(IntoResponse::into_response),
-                    }
+                    Ok(temporary_redirect(&location))
                 }
             }
         } else {
