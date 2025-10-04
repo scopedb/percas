@@ -94,7 +94,7 @@ impl FoyerEngine {
 
         let parallelism = num_cpus().get();
         let cache = HybridCacheBuilder::new()
-            .with_policy(HybridCachePolicy::WriteOnInsertion)
+            .with_policy(HybridCachePolicy::WriteOnEviction)
             .with_metrics_registry(
                 metrics_registry.map_or(Box::new(NoopMetricsRegistry), |v| Box::new(v)),
             )
