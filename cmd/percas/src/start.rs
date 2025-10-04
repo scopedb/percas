@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -160,6 +161,13 @@ async fn run_server(
     let make_error = || Error("failed to start server".to_string());
 
     let flatten_config = FlattenConfig::from(&config.server);
+    fs::create_dir_all(&flatten_config.dir).or_raise(|| {
+        Error(format!(
+            "failed to create data dir: {}",
+            flatten_config.dir.display()
+        ))
+    })?;
+
     let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
 
     let (acceptor, advertise_addr) = make_acceptor_and_advertise_addr(
