@@ -180,7 +180,7 @@ fn init_logs(
             b.filter(make_rust_log_filter_with_default_env(&stderr.filter))
                 .diagnostic(FastraceDiagnostic::default())
                 .diagnostic(static_diagnostic.clone())
-                .append(append::Stderr::default())
+                .append(append::Stderr::default().with_layout(layout::TextLayout::default()))
         });
     }
 
