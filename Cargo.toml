@@ -55,10 +55,10 @@ const_format = { version = "0.2.34" }
 criterion = { version = "0.7.0", features = ["async_tokio"] }
 ctrlc = { version = "3.4", features = ["termination"] }
 exn = { version = "0.1.0" }
-fastimer = { version = "0.9.0" }
+fastimer = { version = "0.10.0" }
 fastrace = { version = "0.7.9" }
-fastrace-opentelemetry = { version = "0.13.0" }
-foyer = { version = "0.19.2", features = ["nightly"] }
+fastrace-opentelemetry = { version = "0.14.0" }
+foyer = { version = "0.20.0", features = ["nightly"] }
 futures-util = { version = "0.3.31" }
 gix-discover = { version = "0.41.0" }
 googletest = { version = "0.14.0" }
@@ -69,24 +69,22 @@ jemallocator = { version = "0.5.4" }
 jiff = { version = "0.2", features = ["serde"] }
 local-ip-address = { version = "0.6.3" }
 log = { version = "0.4.27", features = ["kv"] }
-logforth = { version = "0.27.0", features = [
-  "colored",
+logforth = { version = "0.28.1", features = [
   "append-fastrace",
   "append-opentelemetry",
-  "append-rolling-file",
   "diagnostic-fastrace",
-  "layout-json",
+  "starter-log",
 ] }
 mea = { version = "0.4.2" }
-mixtrics = { version = "0.2", features = ["opentelemetry_0_30"] }
+mixtrics = { version = "0.2.2", features = ["opentelemetry_0_31"] }
 murmur3 = { version = "0.5.2" }
-opentelemetry = { version = "0.30.0", features = ["trace", "metrics"] }
-opentelemetry-otlp = { version = "0.30.0", features = [
+opentelemetry = { version = "0.31.0", features = ["trace", "metrics"] }
+opentelemetry-otlp = { version = "0.31.0", features = [
   "trace",
   "metrics",
   "grpc-tonic",
 ] }
-opentelemetry_sdk = { version = "0.30.0", features = [
+opentelemetry_sdk = { version = "0.31.0", features = [
   "trace",
   "metrics",
   "rt-tokio",

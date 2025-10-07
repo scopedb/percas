@@ -16,8 +16,7 @@ use std::borrow::Cow;
 use std::time::Duration;
 
 use logforth::append;
-use logforth::append::rolling_file::RollingFileBuilder;
-use logforth::append::rolling_file::Rotation;
+use logforth::append::file::FileBuilder;
 use logforth::diagnostic::FastraceDiagnostic;
 use logforth::diagnostic::StaticDiagnostic;
 use logforth::filter::EnvFilter;
@@ -141,8 +140,8 @@ fn init_logs(
         static_diagnostic
     };
 
-    let mut drop_guards: Vec<Box<dyn Send + Sync + 'static>> = Vec::new();
-    let mut builder = logforth::builder();
+    let drop_guards: Vec<Box<dyn Send + Sync + 'static>> = Vec::new();
+    let mut builder = logforth::starter_log::builder();
 
     // fastrace appender
     if let Some(TracesConfig {
@@ -157,20 +156,21 @@ fn init_logs(
 
     // file appender
     if let Some(file) = &config.logs.file {
-        let (rolling, guard) = RollingFileBuilder::new(&file.dir)
+        let mut b = FileBuilder::new(&file.dir, service_name)
             .layout(layout::JsonLayout::default())
-            .rotation(Rotation::Hourly)
-            .filename_prefix(service_name)
-            .filename_suffix("log")
-            .max_log_files(file.max_files)
-            .build()
-            .expect("failed to initialize rolling file appender");
-        drop_guards.push(guard);
+            .rollover_hourly()
+            .filename_suffix("log");
+
+        if let Some(max_files) = file.max_files {
+            b = b.max_log_files(max_files);
+        }
+
+        let append = b.build().expect("failed to init file appender");
         builder = builder.dispatch(|b| {
             b.filter(make_rust_log_filter(&file.filter))
                 .diagnostic(FastraceDiagnostic::default())
                 .diagnostic(static_diagnostic.clone())
-                .append(rolling)
+                .append(append)
         });
     }
 
@@ -214,10 +214,9 @@ fn init_logs(
 }
 
 fn make_rust_log_filter(filter: &str) -> EnvFilter {
-    let builder = EnvFilterBuilder::new()
-        .try_parse(filter)
+    let builder = EnvFilterBuilder::try_from_spec(filter)
         .unwrap_or_else(|_| panic!("failed to parse filter: {filter}"));
-    EnvFilter::new(builder)
+    builder.build()
 }
 
 fn make_rust_log_filter_with_default_env(filter: &str) -> EnvFilter {

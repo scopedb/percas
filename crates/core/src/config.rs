@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -139,7 +140,8 @@ impl LogsConfig {
 pub struct FileAppenderConfig {
     pub filter: String,
     pub dir: String,
-    pub max_files: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_files: Option<NonZeroUsize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -213,7 +215,7 @@ impl Default for Config {
                     file: Some(FileAppenderConfig {
                         filter: "INFO".to_string(),
                         dir: "logs".to_string(),
-                        max_files: 64,
+                        max_files: Some(NonZeroUsize::new(64).unwrap()),
                     }),
                     stderr: Some(StderrAppenderConfig {
                         filter: "INFO".to_string(),
