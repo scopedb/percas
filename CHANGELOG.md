@@ -6,6 +6,17 @@ For the changelog of the `percase-client` crate, please refer to its own [CHANGE
 
 ## Unreleased
 
+## v0.3.0 (2025-10-07)
+
+### New Features
+
+* Supported redirecting request to correct node in the cluster with HTTP 307 status code.
+
+### Improvements
+
+* Improved cluster gossip protocol to reduce unnecessary state updates.
+* Bumped dependencies to the latest versions.
+
 ## v0.2.6 (2025-09-23)
 
 ### Improvements
