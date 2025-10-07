@@ -31,7 +31,7 @@ use foyer::PsyncIoEngineBuilder;
 use foyer::RecoverMode;
 use foyer::RuntimeOptions;
 use mixtrics::registry::noop::NoopMetricsRegistry;
-use mixtrics::registry::opentelemetry_0_30::OpenTelemetryMetricsRegistry;
+use mixtrics::registry::opentelemetry_0_31::OpenTelemetryMetricsRegistry;
 use thiserror::Error;
 
 use crate::available_memory;

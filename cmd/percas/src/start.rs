@@ -20,7 +20,7 @@ use clap::ValueHint;
 use exn::Result;
 use exn::ResultExt;
 use mea::shutdown::ShutdownRecv;
-use mixtrics::registry::opentelemetry_0_30::OpenTelemetryMetricsRegistry;
+use mixtrics::registry::opentelemetry_0_31::OpenTelemetryMetricsRegistry;
 use percas_cluster::GossipFuture;
 use percas_cluster::GossipState;
 use percas_cluster::NodeInfo;

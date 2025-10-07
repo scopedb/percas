@@ -89,7 +89,7 @@ pub fn timer() -> impl fastimer::MakeDelay {
 impl fastimer::MakeDelay for Timer {
     type Delay = tokio::time::Sleep;
 
-    fn delay_util(&self, at: Instant) -> Self::Delay {
+    fn delay_until(&self, at: Instant) -> Self::Delay {
         tokio::time::sleep_until(tokio::time::Instant::from_std(at))
     }
 
