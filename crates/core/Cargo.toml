@@ -35,7 +35,6 @@ pin-project = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
 sysinfo = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]

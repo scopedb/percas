@@ -105,7 +105,6 @@ shadow-rs = { version = "1.0.0", default-features = false }
 sysinfo = { version = "0.37.0" }
 tempfile = { version = "3.19.1" }
 test-harness = { version = "0.3.0" }
-thiserror = { version = "2.0" }
 tokio = { version = "1.44.2" }
 toml_edit = { version = "0.23.2" }
 unindent = { version = "0.2.4" }

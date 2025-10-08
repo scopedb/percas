@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fmt;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -32,7 +33,6 @@ use foyer::RecoverMode;
 use foyer::RuntimeOptions;
 use mixtrics::registry::noop::NoopMetricsRegistry;
 use mixtrics::registry::opentelemetry_0_31::OpenTelemetryMetricsRegistry;
-use thiserror::Error;
 
 use crate::available_memory;
 use crate::newtype::DiskThrottle;
@@ -42,9 +42,16 @@ const DEFAULT_MEMORY_CAPACITY_FACTOR: f64 = 0.5; // 50% of available memory
 const DEFAULT_BLOCK_SIZE: usize = 64 * 1024 * 1024; // 64 MiB
 const DEFAULT_FLUSHERS: usize = 4; // Number of flushers for the block engine
 
-#[derive(Debug, Error)]
-#[error("{0}")]
-pub struct EngineError(pub String);
+#[derive(Debug)]
+pub struct EngineError(String);
+
+impl fmt::Display for EngineError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for EngineError {}
 
 pub struct FoyerEngine {
     capacity: u64,

@@ -136,7 +136,7 @@ impl GossipState {
                 poem::Server::new_with_acceptor(acceptor)
                     .run_with_graceful_shutdown(route, signal, Some(Duration::from_secs(10)))
                     .await
-                    .or_raise(|| ClusterError::Internal("failed to run gossip proxy".to_string()))
+                    .or_raise(|| ClusterError("failed to run gossip proxy".to_string()))
             })
         };
         wg.await;
@@ -374,8 +374,7 @@ impl Transport {
     }
 
     pub async fn send(&self, endpoint: &str, message: &Message) -> Result<Message, ClusterError> {
-        let make_error =
-            || ClusterError::Transport(format!("failed to send message to {endpoint}"));
+        let make_error = || ClusterError(format!("failed to send message to {endpoint}"));
 
         let url = Url::parse(&format!("http://{endpoint}"))
             .and_then(|url| url.join("gossip"))
@@ -421,8 +420,8 @@ async fn drive_gossip(
     .await;
 
     if state.membership().members().is_empty() {
-        bail!(ClusterError::Internal(
-            "failed to bootstrap the cluster, no initial peer available".to_string(),
+        bail!(ClusterError(
+            "failed to bootstrap the cluster: no initial peer available".to_string(),
         ))
     }
 
