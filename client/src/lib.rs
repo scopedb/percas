@@ -12,15 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! A client library for interacting with a Percas cluster.
+
+#![deny(missing_docs)]
+
 mod client;
 mod route;
 
-pub use client::Client;
-pub use client::ClientBuilder;
+pub use self::client::Client;
+pub use self::client::ClientBuilder;
 
+/// Errors that can occur when using the client.
 #[derive(Debug)]
 pub enum Error {
+    /// The server responded with a "429 Too Many Requests" status code.
     TooManyRequests,
+    /// An opaque error message from the server.
     Opaque(String),
 }
 

@@ -38,7 +38,6 @@ percas-metrics = { workspace = true }
 percas-server = { workspace = true }
 percas-version = { workspace = true }
 serde = { workspace = true }
-thiserror = { workspace = true }
 toml_edit = { workspace = true, features = ["serde"] }
 uuid = { workspace = true }
 

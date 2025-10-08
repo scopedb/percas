@@ -2478,14 +2478,13 @@ dependencies = [
  "percas-version",
  "sealed_test",
  "serde",
- "thiserror",
  "toml_edit",
  "uuid",
 ]
 
 [[package]]
 name = "percas-client"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "murmur3",
  "reqwest",
@@ -2511,7 +2510,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
  "uuid",
 ]
@@ -2538,7 +2536,6 @@ dependencies = [
  "serde_json",
  "sysinfo",
  "tempfile",
- "thiserror",
  "tokio",
 ]
 

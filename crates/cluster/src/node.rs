@@ -46,7 +46,7 @@ impl From<NodeInfo> for PersistentNodeInfo {
 impl PersistentNodeInfo {
     pub fn load(path: &Path) -> Result<Option<Self>, ClusterError> {
         let make_error = || {
-            ClusterError::Internal(format!(
+            ClusterError(format!(
                 "failed to load node info from file: {}",
                 path.display()
             ))

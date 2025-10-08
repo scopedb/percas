@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use thiserror::Error;
-
 mod gossip;
 mod member;
 mod node;
 mod proxy;
 mod ring;
+
+use std::fmt;
 
 pub use gossip::GossipFuture;
 pub use gossip::GossipState;
@@ -27,11 +27,13 @@ pub use proxy::Proxy;
 pub use proxy::RouteDest;
 pub use ring::HashRing;
 
-#[derive(Debug, Error)]
-pub enum ClusterError {
-    #[error("{0}")]
-    Transport(String),
+#[derive(Debug)]
+pub struct ClusterError(String);
 
-    #[error("{0}")]
-    Internal(String),
+impl fmt::Display for ClusterError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
+
+impl std::error::Error for ClusterError {}
