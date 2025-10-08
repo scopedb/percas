@@ -2485,7 +2485,7 @@ dependencies = [
 
 [[package]]
 name = "percas-client"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "murmur3",
  "reqwest",

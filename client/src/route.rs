@@ -17,19 +17,13 @@ use std::collections::btree_map::Entry;
 
 use uuid::Uuid;
 
-#[derive(Debug, Clone)]
-pub struct RouteTable {
+#[derive(Default, Debug, Clone)]
+pub(crate) struct RouteTable {
     ring: BTreeMap<u32, BTreeMap<Uuid, String>>,
 }
 
 impl RouteTable {
-    pub fn new() -> Self {
-        Self {
-            ring: BTreeMap::new(),
-        }
-    }
-
-    pub fn insert(&mut self, hash: u32, node_id: Uuid, addr: String) {
+    pub(crate) fn insert(&mut self, hash: u32, node_id: Uuid, addr: String) {
         match self.ring.entry(hash) {
             Entry::Vacant(entry) => {
                 let mut map = BTreeMap::new();
@@ -42,9 +36,8 @@ impl RouteTable {
         }
     }
 
-    pub fn lookup(&self, key: &str) -> Option<(&Uuid, &String)> {
+    pub(crate) fn lookup(&self, key: &str) -> Option<(&Uuid, &String)> {
         let hash = murmur3::murmur3_32(&mut key.as_bytes(), 0).unwrap();
-
         self.ring
             .range(hash..)
             .next()
