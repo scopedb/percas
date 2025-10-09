@@ -14,14 +14,9 @@
 
 use std::path::Path;
 
-use exn::Result;
-use exn::ResultExt;
-use exn::bail;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
-
-use crate::ClusterError;
 
 /// PersistentNodeInfo is used to store the node information in a file.
 /// The `advertise_addr` and `advertise_peer_addr` fields are not included in this struct, since
@@ -44,28 +39,20 @@ impl From<NodeInfo> for PersistentNodeInfo {
 }
 
 impl PersistentNodeInfo {
-    pub fn load(path: &Path) -> Result<Option<Self>, ClusterError> {
-        let make_error = || {
-            ClusterError(format!(
-                "failed to load node info from file: {}",
-                path.display()
-            ))
-        };
-
+    pub fn load(path: &Path) -> Result<Option<Self>, std::io::Error> {
         if path.exists() {
-            let data = std::fs::read_to_string(path).or_raise(make_error)?;
-            if let Ok(info) = serde_json::from_str::<Self>(&data) {
-                return Ok(Some(info));
-            } else {
-                bail!(make_error());
+            let data = std::fs::read_to_string(path)?;
+            match serde_json::from_str::<Self>(&data) {
+                Ok(info) => Ok(Some(info)),
+                Err(err) => Err(std::io::Error::other(err)),
             }
+        } else {
+            Ok(None)
         }
-
-        Ok(None)
     }
 
     pub fn persist(&self, path: &Path) -> Result<(), std::io::Error> {
-        let data = serde_json::to_string_pretty(self).unwrap();
+        let data = serde_json::to_string_pretty(self)?;
         std::fs::write(path, data)?;
         Ok(())
     }
@@ -99,7 +86,7 @@ impl NodeInfo {
         path: &Path,
         advertise_addr: String,
         advertise_peer_addr: String,
-    ) -> Result<Option<Self>, ClusterError> {
+    ) -> Result<Option<Self>, std::io::Error> {
         if let Some(info) = PersistentNodeInfo::load(path)? {
             Ok(Some(Self {
                 node_id: info.node_id,

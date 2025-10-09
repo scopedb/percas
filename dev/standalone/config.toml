@@ -13,8 +13,6 @@
 # limitations under the License.
 
 [server]
-mode = "standalone"
-dir = ".percas"
 listen_addr = "0.0.0.0:7654"
 advertise_addr = "127.0.0.1:7654"
 

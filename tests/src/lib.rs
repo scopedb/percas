@@ -26,10 +26,12 @@ use percas_core::Runtime;
 use percas_core::ServerConfig;
 use percas_core::StorageConfig;
 use percas_core::TelemetryConfig;
+use percas_core::default_cluster_id;
 use percas_core::make_runtime;
 use percas_server::server::ServerState;
 use percas_server::server::make_acceptor_and_advertise_addr;
 use percas_server::telemetry;
+use uuid::Uuid;
 
 fn make_test_name<TestFn>() -> String {
     let replacer = regex::Regex::new(r"[^a-zA-Z0-9]").unwrap();
@@ -57,6 +59,7 @@ impl TestServerState {
 }
 
 fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
+    let node_id = Uuid::now_v7();
     let service_name = format!("test_harness:{test_name}").leak();
 
     let mut drop_guard = Vec::<DropGuard>::new();
@@ -64,7 +67,7 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
         telemetry::init(
             rt,
             service_name,
-            uuid::Uuid::now_v7(),
+            node_id,
             TelemetryConfig {
                 logs: LogsConfig::disabled(),
                 traces: None,
@@ -80,10 +83,14 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
 
     let default_config = Config::default();
     let config = Config {
-        server: ServerConfig::Standalone {
+        server: ServerConfig {
             dir: temp_dir.path().to_path_buf(),
             listen_addr: listen_addr.clone(),
             advertise_addr: None,
+            listen_peer_addr: listen_addr.to_string(),
+            advertise_peer_addr: None,
+            initial_advertise_peer_addrs: vec![],
+            cluster_id: default_cluster_id(),
         },
         storage: StorageConfig {
             data_dir: temp_dir.path().to_path_buf().join("data"),
@@ -102,6 +109,16 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
             .await
             .unwrap();
 
+        let (cluster_proxy, gossip_futs) = percas_server::server::start_gossip(
+            rt,
+            shutdown_rx.clone(),
+            config.server,
+            node_id,
+            advertise_addr.to_string(),
+        )
+        .await
+        .unwrap();
+
         let engine = FoyerEngine::try_new(
             &config.storage.data_dir,
             config.storage.memory_capacity,
@@ -119,8 +136,8 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
             ctx,
             acceptor,
             advertise_addr,
-            None,
-            vec![],
+            cluster_proxy,
+            gossip_futs,
         )
         .await
         .unwrap()
