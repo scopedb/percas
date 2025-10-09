@@ -17,13 +17,19 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use exn::Result;
+use exn::ResultExt;
 use fastimer::schedule::SimpleActionExt;
 use mea::shutdown::ShutdownRecv;
 use mea::shutdown::ShutdownSend;
 use mea::waitgroup::WaitGroup;
 use percas_cluster::GossipFuture;
+use percas_cluster::GossipState;
+use percas_cluster::NodeInfo;
 use percas_cluster::Proxy;
 use percas_core::Runtime;
+use percas_core::ServerConfig;
+use percas_core::node_file_path;
 use percas_core::timer;
 use percas_metrics::GlobalMetrics;
 use percas_metrics::OperationMetrics;
@@ -40,13 +46,15 @@ use poem::listener::TcpListener;
 use poem::web::Data;
 use poem::web::Path;
 use poem::web::headers::ContentType;
+use uuid::Uuid;
 
 use crate::PercasContext;
+use crate::ServerError;
 use crate::middleware::ClusterProxyMiddleware;
 use crate::middleware::LoggerMiddleware;
 use crate::scheduled::ReportMetricsAction;
 
-pub(crate) type ServerFuture<T> = percas_core::JoinHandle<Result<T, io::Error>>;
+pub(crate) type ServerFuture<T> = percas_core::JoinHandle<Result<T, ServerError>>;
 
 #[derive(Debug)]
 pub struct ServerState {
@@ -129,9 +137,11 @@ pub async fn start_server(
     ctx: Arc<PercasContext>,
     acceptor: TcpAcceptor,
     advertise_addr: SocketAddr,
-    cluster_proxy: Option<Proxy>,
+    cluster_proxy: Proxy,
     gossip_futs: Vec<GossipFuture>,
-) -> Result<ServerState, io::Error> {
+) -> Result<ServerState, ServerError> {
+    let make_error = || ServerError("failed to start server".to_string());
+
     let wg = WaitGroup::new();
     let shutdown_rx_server = shutdown_rx;
 
@@ -163,6 +173,7 @@ pub async fn start_server(
             poem::Server::new_with_acceptor(acceptor)
                 .run_with_graceful_shutdown(route, signal, Some(Duration::from_secs(10)))
                 .await
+                .or_raise(make_error)
         })
     };
 
@@ -187,6 +198,60 @@ pub async fn start_server(
         shutdown_rx_server,
         shutdown_tx_actions,
     })
+}
+
+pub async fn start_gossip(
+    gossip_rt: &Runtime,
+    shutdown_rx: ShutdownRecv,
+    config: ServerConfig,
+    node_id: Uuid,
+    advertise_addr: String,
+) -> Result<(Proxy, Vec<GossipFuture>), ServerError> {
+    let make_error = || ServerError("failed to start gossip".to_string());
+
+    let listen_peer_addr = config.listen_peer_addr;
+    let (acceptor, advertise_peer_addr) = make_acceptor_and_advertise_addr(
+        listen_peer_addr.as_str(),
+        config.advertise_peer_addr.as_deref(),
+    )
+    .await
+    .or_raise(make_error)?;
+    let advertise_peer_addr = advertise_peer_addr.to_string();
+    let initial_peer_addrs = config.initial_advertise_peer_addrs;
+    let cluster_id = config.cluster_id;
+
+    let current_node = if let Some(mut node) = NodeInfo::load(
+        &node_file_path(&config.dir),
+        advertise_addr.clone(),
+        advertise_peer_addr.clone(),
+    ) {
+        node.advance_incarnation();
+        node.persist(&node_file_path(&config.dir));
+        node
+    } else {
+        let node = NodeInfo::init(
+            node_id,
+            cluster_id,
+            advertise_addr.clone(),
+            advertise_peer_addr,
+        );
+        node.persist(&node_file_path(&config.dir));
+        node
+    };
+
+    let gossip = Arc::new(GossipState::new(
+        current_node,
+        initial_peer_addrs,
+        config.dir.clone(),
+    ));
+
+    let futs = gossip
+        .clone()
+        .start(gossip_rt, shutdown_rx, acceptor)
+        .await
+        .or_raise(make_error)?;
+
+    Ok((Proxy::new(gossip), futs))
 }
 
 pub fn too_many_requests() -> Response {

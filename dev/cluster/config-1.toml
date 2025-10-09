@@ -13,7 +13,6 @@
 # limitations under the License.
 
 [server]
-mode = "cluster"
 dir = ".percas-cluster/node-1"
 listen_addr = "0.0.0.0:7656"
 advertise_addr = "127.0.0.1:7656"

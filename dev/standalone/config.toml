@@ -13,14 +13,14 @@
 # limitations under the License.
 
 [server]
-mode = "standalone"
 dir = ".percas"
 listen_addr = "0.0.0.0:7654"
-advertise_addr = "127.0.0.1:7654"
+listen_peer_addr = "0.0.0.0:7655"
+cluster_id = "percas-cluster"
 
 [storage]
 data_dir = ".percas/data"
-disk_capacity = 536_870_912
+disk_capacity = 536870912
 
 [telemetry.logs.file]
 filter = "INFO"

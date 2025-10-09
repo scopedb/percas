@@ -6,6 +6,10 @@ For the changelog of the `percase-client` crate, please refer to its own [CHANGE
 
 ## Unreleased
 
+### Breaking Changes
+
+* Standalone mode is removed. `server.mode` option is removed from the config file.
+
 ## v0.3.0 (2025-10-07)
 
 ### New Features

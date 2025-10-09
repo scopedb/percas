@@ -2471,7 +2471,6 @@ dependencies = [
  "log",
  "mea",
  "mixtrics",
- "percas-cluster",
  "percas-core",
  "percas-metrics",
  "percas-server",
@@ -2551,6 +2550,7 @@ name = "percas-server"
 version = "0.3.0"
 dependencies = [
  "arc-swap",
+ "exn",
  "fastimer",
  "fastrace",
  "fastrace-opentelemetry",
@@ -2563,7 +2563,6 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
- "percas-client",
  "percas-cluster",
  "percas-core",
  "percas-metrics",

@@ -33,34 +33,21 @@ pub struct Config {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
-#[serde(tag = "mode")]
-pub enum ServerConfig {
-    #[serde(rename = "standalone")]
-    Standalone {
-        #[serde(default = "default_dir")]
-        dir: PathBuf,
-        #[serde(default = "default_listen_addr")]
-        listen_addr: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        advertise_addr: Option<String>,
-    },
-    #[serde(rename = "cluster")]
-    Cluster {
-        #[serde(default = "default_dir")]
-        dir: PathBuf,
-        #[serde(default = "default_listen_addr")]
-        listen_addr: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        advertise_addr: Option<String>,
-        #[serde(default = "default_listen_peer_addr")]
-        listen_peer_addr: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        advertise_peer_addr: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        initial_advertise_peer_addrs: Option<Vec<String>>,
-        #[serde(default = "default_cluster_id")]
-        cluster_id: String,
-    },
+pub struct ServerConfig {
+    #[serde(default = "default_dir")]
+    pub dir: PathBuf,
+    #[serde(default = "default_listen_addr")]
+    pub listen_addr: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub advertise_addr: Option<String>,
+    #[serde(default = "default_listen_peer_addr")]
+    pub listen_peer_addr: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub advertise_peer_addr: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub initial_advertise_peer_addrs: Vec<String>,
+    #[serde(default = "default_cluster_id")]
+    pub cluster_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,7 +79,7 @@ pub fn default_data_dir() -> PathBuf {
     PathBuf::from("/var/lib/percas/data")
 }
 
-fn default_cluster_id() -> String {
+pub fn default_cluster_id() -> String {
     "percas-cluster".to_string()
 }
 
@@ -199,10 +186,14 @@ const fn default_metrics_push_interval() -> jiff::SignedDuration {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            server: ServerConfig::Standalone {
+            server: ServerConfig {
                 dir: default_dir(),
                 listen_addr: default_listen_addr(),
                 advertise_addr: None,
+                listen_peer_addr: default_listen_peer_addr(),
+                advertise_peer_addr: None,
+                initial_advertise_peer_addrs: Vec::new(),
+                cluster_id: default_cluster_id(),
             },
             storage: StorageConfig {
                 data_dir: default_data_dir(),
@@ -287,11 +278,6 @@ pub const fn known_option_entries() -> &'static [OptionEntry] {
         OptionEntry {
             env_name: "PERCAS_CONFIG_SERVER_LISTEN_PEER_ADDR",
             ent_path: "server.listen_peer_addr",
-            ent_type: "string",
-        },
-        OptionEntry {
-            env_name: "PERCAS_CONFIG_SERVER_MODE",
-            ent_path: "server.mode",
             ent_type: "string",
         },
         OptionEntry {

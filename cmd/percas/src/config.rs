@@ -143,15 +143,14 @@ mod tests {
         .config;
 
         dev_config.storage.data_dir = default_data_dir();
-        if let ServerConfig::Standalone {
+
+        let ServerConfig {
             dir,
             advertise_addr,
             ..
-        } = &mut dev_config.server
-        {
-            *dir = default_dir();
-            *advertise_addr = None;
-        }
+        } = &mut dev_config.server;
+        *dir = default_dir();
+        *advertise_addr = None;
 
         assert_eq!(dev_config, Config::default());
     }
@@ -166,15 +165,14 @@ mod tests {
         .config;
 
         dev_config.storage.data_dir = default_data_dir();
-        if let ServerConfig::Standalone {
+
+        let ServerConfig {
             dir,
             advertise_addr,
             ..
-        } = &mut dev_config.server
-        {
-            *dir = default_dir();
-            *advertise_addr = None;
-        }
+        } = &mut dev_config.server;
+        *dir = default_dir();
+        *advertise_addr = None;
 
         assert_eq!(dev_config, Config::default());
     }

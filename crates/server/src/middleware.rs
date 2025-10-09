@@ -69,11 +69,11 @@ where
 }
 
 pub struct ClusterProxyMiddleware {
-    proxy: Option<Proxy>,
+    proxy: Proxy,
 }
 
 impl ClusterProxyMiddleware {
-    pub fn new(proxy: Option<Proxy>) -> Self {
+    pub fn new(proxy: Proxy) -> Self {
         Self { proxy }
     }
 }
@@ -94,7 +94,7 @@ where
 }
 
 pub struct ClusterProxyEndpoint<E> {
-    proxy: Option<Proxy>,
+    proxy: Proxy,
     endpoint: E,
 }
 
@@ -107,39 +107,31 @@ where
 
     async fn call(&self, req: Request) -> Result<Self::Output, poem::Error> {
         let key = req.path_params::<String>()?;
-
-        if let Some(proxy) = &self.proxy {
-            match proxy.route(&key) {
-                RouteDest::Local => self
-                    .endpoint
-                    .call(req)
-                    .await
-                    .map(IntoResponse::into_response),
-                RouteDest::RemoteAddr(addr) => {
-                    let operation = match req.method().as_str() {
-                        "GET" => OperationMetrics::OPERATION_GET,
-                        "PUT" => OperationMetrics::OPERATION_PUT,
-                        "DELETE" => OperationMetrics::OPERATION_DELETE,
-                        _ => OperationMetrics::OPERATION_UNKNOWN,
-                    };
-                    GlobalMetrics::get().operation.count.add(
-                        1,
-                        &OperationMetrics::operation_labels(
-                            operation,
-                            OperationMetrics::STATUS_REDIRECT,
-                        ),
-                    );
-
-                    let location = format!("http://{addr}{}", req.uri().path());
-
-                    Ok(temporary_redirect(&location))
-                }
-            }
-        } else {
-            self.endpoint
+        match self.proxy.route(&key) {
+            RouteDest::Local => self
+                .endpoint
                 .call(req)
                 .await
-                .map(IntoResponse::into_response)
+                .map(IntoResponse::into_response),
+            RouteDest::RemoteAddr(addr) => {
+                let operation = match req.method().as_str() {
+                    "GET" => OperationMetrics::OPERATION_GET,
+                    "PUT" => OperationMetrics::OPERATION_PUT,
+                    "DELETE" => OperationMetrics::OPERATION_DELETE,
+                    _ => OperationMetrics::OPERATION_UNKNOWN,
+                };
+
+                GlobalMetrics::get().operation.count.add(
+                    1,
+                    &OperationMetrics::operation_labels(
+                        operation,
+                        OperationMetrics::STATUS_REDIRECT,
+                    ),
+                );
+
+                let location = format!("http://{addr}{}", req.uri().path());
+                Ok(temporary_redirect(&location))
+            }
         }
     }
 }
