@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fmt;
+
 use percas_core::FoyerEngine;
 
 pub mod middleware;
@@ -20,5 +22,22 @@ pub mod server;
 pub mod telemetry;
 
 pub struct PercasContext {
-    pub engine: FoyerEngine,
+    engine: FoyerEngine,
 }
+
+impl PercasContext {
+    pub fn new(engine: FoyerEngine) -> Self {
+        Self { engine }
+    }
+}
+
+#[derive(Debug)]
+pub struct ServerError(String);
+
+impl fmt::Display for ServerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for ServerError {}

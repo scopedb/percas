@@ -14,18 +14,22 @@
 
 use std::path::Path;
 
+use exn::Result;
+use exn::ResultExt;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
+
+use crate::ClusterError;
 
 /// PersistentNodeInfo is used to store the node information in a file.
 /// The `advertise_addr` and `advertise_peer_addr` fields are not included in this struct, since
 /// addr may change after the node is restarted if the node is deployed in cloud environments.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct PersistentNodeInfo {
-    pub node_id: Uuid,
-    pub cluster_id: String,
-    pub incarnation: u64,
+struct PersistentNodeInfo {
+    node_id: Uuid,
+    cluster_id: String,
+    incarnation: u64,
 }
 
 impl From<NodeInfo> for PersistentNodeInfo {
@@ -39,22 +43,29 @@ impl From<NodeInfo> for PersistentNodeInfo {
 }
 
 impl PersistentNodeInfo {
-    pub fn load(path: &Path) -> Result<Option<Self>, std::io::Error> {
+    fn load(path: &Path) -> Result<Option<Self>, ClusterError> {
+        let make_error =
+            || ClusterError(format!("failed to load node info from {}", path.display()));
+
         if path.exists() {
-            let data = std::fs::read_to_string(path)?;
-            match serde_json::from_str::<Self>(&data) {
-                Ok(info) => Ok(Some(info)),
-                Err(err) => Err(std::io::Error::other(err)),
-            }
+            let data = std::fs::read_to_string(path).or_raise(make_error)?;
+            let info = serde_json::from_str(&data).or_raise(make_error)?;
+            Ok(Some(info))
         } else {
             Ok(None)
         }
     }
 
-    pub fn persist(&self, path: &Path) -> Result<(), std::io::Error> {
-        let data = serde_json::to_string_pretty(self)?;
-        std::fs::write(path, data)?;
-        Ok(())
+    fn persist(&self, path: &Path) -> Result<(), ClusterError> {
+        let make_error = || {
+            ClusterError(format!(
+                "failed to persist node info into {}",
+                path.display()
+            ))
+        };
+
+        let data = serde_json::to_string_pretty(self).or_raise(make_error)?;
+        std::fs::write(path, data).or_raise(make_error)
     }
 }
 
@@ -82,26 +93,24 @@ impl NodeInfo {
         self.incarnation += 1;
     }
 
-    pub fn load(
-        path: &Path,
-        advertise_addr: String,
-        advertise_peer_addr: String,
-    ) -> Result<Option<Self>, std::io::Error> {
-        if let Some(info) = PersistentNodeInfo::load(path)? {
-            Ok(Some(Self {
-                node_id: info.node_id,
-                cluster_id: info.cluster_id,
-                advertise_addr,
-                advertise_peer_addr,
-                incarnation: info.incarnation,
-            }))
-        } else {
-            Ok(None)
-        }
+    pub fn load(path: &Path, advertise_addr: String, advertise_peer_addr: String) -> Option<Self> {
+        let info = PersistentNodeInfo::load(path).expect("unrecoverable: failed to load node info");
+        info.map(|info| Self {
+            node_id: info.node_id,
+            cluster_id: info.cluster_id,
+            advertise_addr,
+            advertise_peer_addr,
+            incarnation: info.incarnation,
+        })
     }
 
-    pub fn persist(&self, path: &Path) -> Result<(), std::io::Error> {
-        let persistent_info = PersistentNodeInfo::from(self.clone());
-        persistent_info.persist(path)
+    pub fn persist(&self, path: &Path) {
+        PersistentNodeInfo {
+            node_id: self.node_id,
+            cluster_id: self.cluster_id.clone(),
+            incarnation: self.incarnation,
+        }
+        .persist(path)
+        .expect("unrecoverable: failed to persist node info")
     }
 }

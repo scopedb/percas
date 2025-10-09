@@ -53,7 +53,6 @@ use crate::member::MemberState;
 use crate::member::MemberStatus;
 use crate::member::Membership;
 use crate::node::NodeInfo;
-use crate::node::PersistentNodeInfo;
 use crate::ring::HashRing;
 
 const DEFAULT_PING_INTERVAL: Duration = Duration::from_secs(1);
@@ -196,7 +195,7 @@ impl GossipState {
             .unwrap()
             .is_dead(self.current().node_id)
         {
-            log::info!("current node is marked as dead, advancing incarnation");
+            log::info!("current node is marked as dead; advancing incarnation");
             self.advance_incarnation();
         }
 
@@ -206,10 +205,7 @@ impl GossipState {
     fn advance_incarnation(&self) {
         let mut current = self.current_node.write().unwrap();
         current.advance_incarnation();
-        let persistent_info = PersistentNodeInfo::from(current.clone());
-        persistent_info
-            .persist(&node_file_path(&self.dir))
-            .expect("unrecoverable error");
+        current.persist(&node_file_path(&self.dir));
     }
 
     fn remove_dead_members(&self) -> Vec<NodeInfo> {

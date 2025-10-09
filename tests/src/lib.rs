@@ -128,7 +128,7 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
         )
         .await
         .unwrap();
-        let ctx = Arc::new(percas_server::PercasContext { engine });
+        let ctx = Arc::new(percas_server::PercasContext::new(engine));
 
         percas_server::server::start_server(
             rt,

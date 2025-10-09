@@ -26,6 +26,7 @@ version.workspace = true
 
 [dependencies]
 arc-swap = { workspace = true }
+exn = { workspace = true }
 fastimer = { workspace = true }
 fastrace = { workspace = true }
 fastrace-opentelemetry = { workspace = true }
@@ -38,7 +39,6 @@ mea = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-otlp = { workspace = true }
 opentelemetry_sdk = { workspace = true }
-percas-client = { workspace = true }
 percas-cluster = { workspace = true }
 percas-core = { workspace = true }
 percas-metrics = { workspace = true }
