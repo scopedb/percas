@@ -105,20 +105,6 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
 
     let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
     let server_state = rt.block_on(async move {
-        let (acceptor, advertise_addr) = make_acceptor_and_advertise_addr(&listen_addr, None)
-            .await
-            .unwrap();
-
-        let (cluster_proxy, gossip_futs) = percas_server::server::start_gossip(
-            rt,
-            shutdown_rx.clone(),
-            config.server,
-            node_id,
-            advertise_addr.to_string(),
-        )
-        .await
-        .unwrap();
-
         let engine = FoyerEngine::try_new(
             &config.storage.data_dir,
             config.storage.memory_capacity,
@@ -130,13 +116,27 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
         .unwrap();
         let ctx = Arc::new(percas_server::PercasContext::new(engine));
 
+        let (acceptor, advertise_addr) = make_acceptor_and_advertise_addr(&listen_addr, None)
+            .await
+            .unwrap();
+
+        let (gossip_state, gossip_futs) = percas_server::server::start_gossip(
+            rt,
+            shutdown_rx.clone(),
+            config.server,
+            node_id,
+            advertise_addr.to_string(),
+        )
+        .await
+        .unwrap();
+
         percas_server::server::start_server(
             rt,
             shutdown_rx,
             ctx,
             acceptor,
             advertise_addr,
-            cluster_proxy,
+            gossip_state,
             gossip_futs,
         )
         .await

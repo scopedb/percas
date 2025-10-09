@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::LazyLock;
 use std::sync::RwLock;
 use std::time::Duration;
 use std::time::Instant;
 
+use reqwest::Method;
 use reqwest::StatusCode;
 use reqwest::Url;
 use reqwest::redirect::Policy;
@@ -23,9 +25,13 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::Error;
+use crate::protos::Version;
 use crate::route::RouteTable;
 
 const UPDATE_ROUTE_TABLE_INTERVAL: Duration = Duration::from_secs(10);
+
+static HTTP_METHOD_QUERY: LazyLock<Method> =
+    LazyLock::new(|| Method::from_bytes("QUERY".as_bytes()).unwrap());
 
 fn make_opaque_error(msg: impl ToString) -> Error {
     Error::Opaque(msg.to_string())
@@ -35,7 +41,6 @@ fn make_opaque_error(msg: impl ToString) -> Error {
 #[derive(Debug, Clone)]
 pub struct ClientBuilder {
     addr: String,
-    peer_addr: Option<String>,
     client: Option<reqwest::Client>,
 }
 
@@ -44,15 +49,8 @@ impl ClientBuilder {
     pub fn new(addr: impl Into<String>) -> Self {
         Self {
             addr: addr.into(),
-            peer_addr: None,
             client: None,
         }
-    }
-
-    /// Set the peer server address for cluster operations and queries.
-    pub fn peer_addr(mut self, peer_addr: impl Into<String>) -> Self {
-        self.peer_addr = Some(peer_addr.into());
-        self
     }
 
     /// Set a custom HTTP client. If not set, a default client will be used.
@@ -63,17 +61,9 @@ impl ClientBuilder {
 
     /// Build the client.
     pub fn build(self) -> Result<Client, Error> {
-        let Self {
-            addr,
-            peer_addr,
-            client,
-        } = self;
+        let Self { addr, client } = self;
 
         let addr = Url::parse(&addr).map_err(make_opaque_error)?;
-        let peer_addr = match peer_addr {
-            None => None,
-            Some(peer_addr) => Some(Url::parse(&peer_addr).map_err(make_opaque_error)?),
-        };
         let client = match client {
             Some(client) => client,
             None => reqwest::ClientBuilder::new()
@@ -88,7 +78,6 @@ impl ClientBuilder {
         Ok(Client {
             client,
             addr,
-            peer_addr,
             last_updated: RwLock::new(last_updated),
             route_table: RwLock::new(None),
         })
@@ -99,8 +88,6 @@ impl ClientBuilder {
 pub struct Client {
     client: reqwest::Client,
     addr: Url,
-    peer_addr: Option<Url>,
-
     last_updated: RwLock<Instant>,
     route_table: RwLock<Option<RouteTable>>,
 }
@@ -173,6 +160,24 @@ impl Client {
             status => Err(make_opaque_error(status)),
         }
     }
+
+    /// Get the version of the Percas server.
+    pub async fn version(&self) -> Result<Version, Error> {
+        let url = self.addr.join("/version").map_err(make_opaque_error)?;
+
+        let resp = self
+            .client
+            .request(HTTP_METHOD_QUERY.clone(), url)
+            .send()
+            .await
+            .map_err(make_opaque_error)?;
+
+        match resp.status() {
+            StatusCode::OK => resp.json::<Version>().await.map_err(make_opaque_error),
+            StatusCode::TOO_MANY_REQUESTS => Err(Error::TooManyRequests),
+            status => Err(make_opaque_error(status)),
+        }
+    }
 }
 
 impl Client {
@@ -180,19 +185,14 @@ impl Client {
         if let Some(route_table) = &*self.route_table.read().unwrap()
             && let Some((_, addr)) = route_table.lookup(key)
         {
-            Url::parse(addr).map_err(make_opaque_error)
+            Url::parse(format!("http://{addr}").as_str()).map_err(make_opaque_error)
         } else {
             Url::parse(self.addr.as_str()).map_err(make_opaque_error)
         }
     }
 
     async fn update_route_table_if_needed(&self) -> Result<(), Error> {
-        let url = if let Some(peer_addr) = &self.peer_addr {
-            peer_addr.join("members").map_err(make_opaque_error)?
-        } else {
-            // no peer address configured, internal router features disabled
-            return Ok(());
-        };
+        let url = self.addr.join("/members").map_err(make_opaque_error)?;
 
         if self.last_updated.read().unwrap().elapsed() > UPDATE_ROUTE_TABLE_INTERVAL {
             #[derive(Deserialize)]
@@ -209,7 +209,7 @@ impl Client {
 
             let resp = self
                 .client
-                .get(url)
+                .request(HTTP_METHOD_QUERY.clone(), url)
                 .send()
                 .await
                 .map_err(make_opaque_error)?;

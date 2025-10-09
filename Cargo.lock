@@ -2556,6 +2556,8 @@ dependencies = [
  "fastrace-opentelemetry",
  "foyer",
  "futures-util",
+ "insta",
+ "jiff",
  "local-ip-address",
  "log",
  "logforth",
@@ -2566,8 +2568,10 @@ dependencies = [
  "percas-cluster",
  "percas-core",
  "percas-metrics",
+ "percas-version",
  "poem",
  "scopeguard",
+ "serde",
  "uuid",
 ]
 

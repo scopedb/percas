@@ -32,6 +32,7 @@ fastrace = { workspace = true }
 fastrace-opentelemetry = { workspace = true }
 foyer = { workspace = true }
 futures-util = { workspace = true }
+jiff = { workspace = true }
 local-ip-address = { workspace = true }
 log = { workspace = true }
 logforth = { workspace = true }
@@ -42,9 +43,14 @@ opentelemetry_sdk = { workspace = true }
 percas-cluster = { workspace = true }
 percas-core = { workspace = true }
 percas-metrics = { workspace = true }
+percas-version = { workspace = true }
 poem = { workspace = true }
 scopeguard = { workspace = true }
+serde = { workspace = true }
 uuid = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
 
 [lints]
 workspace = true

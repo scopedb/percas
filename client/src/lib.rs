@@ -22,6 +22,8 @@ mod route;
 pub use self::client::Client;
 pub use self::client::ClientBuilder;
 
+pub mod protos;
+
 /// Errors that can occur when using the client.
 #[derive(Debug)]
 pub enum Error {

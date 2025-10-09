@@ -15,16 +15,19 @@
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::time::Duration;
 
 use exn::Result;
 use exn::ResultExt;
 use fastimer::schedule::SimpleActionExt;
+use jiff::Timestamp;
 use mea::shutdown::ShutdownRecv;
 use mea::shutdown::ShutdownSend;
 use mea::waitgroup::WaitGroup;
 use percas_cluster::GossipFuture;
 use percas_cluster::GossipState;
+use percas_cluster::MemberStatus;
 use percas_cluster::NodeInfo;
 use percas_cluster::Proxy;
 use percas_core::Runtime;
@@ -35,17 +38,22 @@ use percas_metrics::GlobalMetrics;
 use percas_metrics::OperationMetrics;
 use poem::Body;
 use poem::EndpointExt;
+use poem::IntoResponse;
 use poem::Response;
 use poem::Route;
 use poem::handler;
+use poem::http::Method;
 use poem::http::StatusCode;
 use poem::listener::Acceptor;
 use poem::listener::Listener;
 use poem::listener::TcpAcceptor;
 use poem::listener::TcpListener;
 use poem::web::Data;
+use poem::web::Json;
 use poem::web::Path;
 use poem::web::headers::ContentType;
+use serde::Deserialize;
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::PercasContext;
@@ -54,7 +62,10 @@ use crate::middleware::ClusterProxyMiddleware;
 use crate::middleware::LoggerMiddleware;
 use crate::scheduled::ReportMetricsAction;
 
-pub(crate) type ServerFuture<T> = percas_core::JoinHandle<Result<T, ServerError>>;
+static HTTP_METHOD_QUERY: LazyLock<Method> =
+    LazyLock::new(|| Method::from_bytes("QUERY".as_bytes()).unwrap());
+
+type ServerFuture<T> = percas_core::JoinHandle<Result<T, ServerError>>;
 
 #[derive(Debug)]
 pub struct ServerState {
@@ -137,7 +148,7 @@ pub async fn start_server(
     ctx: Arc<PercasContext>,
     acceptor: TcpAcceptor,
     advertise_addr: SocketAddr,
-    cluster_proxy: Proxy,
+    gossip_state: Arc<GossipState>,
     gossip_futs: Vec<GossipFuture>,
 ) -> Result<ServerState, ServerError> {
     let make_error = || ServerError("failed to start server".to_string());
@@ -149,7 +160,7 @@ pub async fn start_server(
         let shutdown_clone = shutdown_rx_server.clone();
         let wg_clone = wg.clone();
 
-        let proxy_middleware = ClusterProxyMiddleware::new(cluster_proxy);
+        let proxy_middleware = ClusterProxyMiddleware::new(Proxy::new(gossip_state.clone()));
         let route = Route::new()
             .at(
                 "/*key",
@@ -157,6 +168,16 @@ pub async fn start_server(
                     .put(put)
                     .delete(delete)
                     .with(proxy_middleware),
+            )
+            .at(
+                "/members",
+                poem::RouteMethod::new()
+                    .method(HTTP_METHOD_QUERY.clone(), list_members)
+                    .data(gossip_state),
+            )
+            .at(
+                "/version",
+                poem::RouteMethod::new().method(HTTP_METHOD_QUERY.clone(), fetch_version),
             )
             .data(ctx.clone())
             .with(LoggerMiddleware);
@@ -206,7 +227,7 @@ pub async fn start_gossip(
     config: ServerConfig,
     node_id: Uuid,
     advertise_addr: String,
-) -> Result<(Proxy, Vec<GossipFuture>), ServerError> {
+) -> Result<(Arc<GossipState>, Vec<GossipFuture>), ServerError> {
     let make_error = || ServerError("failed to start gossip".to_string());
 
     let listen_peer_addr = config.listen_peer_addr;
@@ -251,7 +272,7 @@ pub async fn start_gossip(
         .await
         .or_raise(make_error)?;
 
-    Ok((Proxy::new(gossip), futs))
+    Ok((gossip, futs))
 }
 
 pub fn too_many_requests() -> Response {
@@ -391,4 +412,96 @@ pub async fn delete(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> 
         .record(start.elapsed().as_secs_f64(), &labels);
 
     delete_success()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+struct Member {
+    node_id: Uuid,
+    cluster_id: String,
+    advertise_addr: String,
+    advertise_peer_addr: String,
+    incarnation: u64,
+    status: MemberStatus,
+    heartbeat: Timestamp,
+    vnodes: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+struct ListMembersResponse {
+    members: Vec<Member>,
+}
+
+#[handler]
+async fn list_members(Data(state): Data<&Arc<GossipState>>) -> Response {
+    let resp = ListMembersResponse {
+        members: state
+            .membership()
+            .members()
+            .values()
+            .map(|m| Member {
+                node_id: m.info.node_id,
+                cluster_id: m.info.cluster_id.clone(),
+                advertise_addr: m.info.advertise_addr.clone(),
+                advertise_peer_addr: m.info.advertise_peer_addr.clone(),
+                incarnation: m.info.incarnation,
+                status: m.status,
+                heartbeat: m.heartbeat,
+                vnodes: state.ring().list_vnodes(&m.info.node_id),
+            })
+            .collect(),
+    };
+    Json(resp).into_response()
+}
+
+#[handler]
+async fn fetch_version() -> Response {
+    Json(percas_version::build_info()).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use insta::assert_json_snapshot;
+    use jiff::Timestamp;
+    use uuid::Uuid;
+
+    use super::*;
+
+    #[test]
+    fn test_list_members_serde() {
+        let resp = ListMembersResponse {
+            members: vec![Member {
+                node_id: Uuid::nil(),
+                cluster_id: "cluster".to_string(),
+                advertise_addr: "127.0.0.1:7654".to_string(),
+                advertise_peer_addr: "127.0.0.1:7655".to_string(),
+                incarnation: 2,
+                status: MemberStatus::Alive,
+                heartbeat: Timestamp::constant(123, 456),
+                vnodes: vec![1, 2, 3],
+            }],
+        };
+        assert_json_snapshot!(
+            resp,
+            @r#"
+            {
+              "members": [
+                {
+                  "node_id": "00000000-0000-0000-0000-000000000000",
+                  "cluster_id": "cluster",
+                  "advertise_addr": "127.0.0.1:7654",
+                  "advertise_peer_addr": "127.0.0.1:7655",
+                  "incarnation": 2,
+                  "status": "alive",
+                  "heartbeat": "1970-01-01T00:02:03.000000456Z",
+                  "vnodes": [
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ]
+            }
+            "#
+        );
+    }
 }

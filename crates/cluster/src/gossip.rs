@@ -113,9 +113,7 @@ impl GossipState {
         acceptor: TcpAcceptor,
     ) -> Result<Vec<GossipFuture>, ClusterError> {
         let wg = WaitGroup::new();
-        let route = Route::new()
-            .at("/gossip", poem::post(gossip).data(self.clone()))
-            .at("/members", poem::get(list_members).data(self.clone()));
+        let route = Route::new().at("/gossip", poem::post(gossip).data(self.clone()));
 
         let mut gossip_futs = vec![];
 
@@ -561,94 +559,5 @@ async fn gossip(Json(msg): Json<Message>, Data(state): Data<&Arc<GossipState>>) 
         Json(response).into_response()
     } else {
         ().into_response()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct Member {
-    node_id: Uuid,
-    cluster_id: String,
-    advertise_addr: String,
-    advertise_peer_addr: String,
-    incarnation: u64,
-    status: MemberStatus,
-    heartbeat: Timestamp,
-    vnodes: Vec<u32>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct ListMembersResponse {
-    members: Vec<Member>,
-}
-
-#[handler]
-async fn list_members(Data(state): Data<&Arc<GossipState>>) -> Response {
-    let resp = ListMembersResponse {
-        members: state
-            .membership()
-            .members()
-            .values()
-            .map(|m| Member {
-                node_id: m.info.node_id,
-                cluster_id: m.info.cluster_id.clone(),
-                advertise_addr: m.info.advertise_addr.clone(),
-                advertise_peer_addr: m.info.advertise_peer_addr.clone(),
-                incarnation: m.info.incarnation,
-                status: m.status,
-                heartbeat: m.heartbeat,
-                vnodes: state.ring().list_vnodes(&m.info.node_id),
-            })
-            .collect(),
-    };
-    Json(resp).into_response()
-}
-
-#[cfg(test)]
-mod tests {
-    use insta::assert_json_snapshot;
-    use jiff::Timestamp;
-    use uuid::Uuid;
-
-    use crate::gossip::ListMembersResponse;
-    use crate::gossip::Member;
-    use crate::member::MemberStatus;
-
-    #[test]
-    fn test_list_members_serde() {
-        let resp = ListMembersResponse {
-            members: vec![Member {
-                node_id: Uuid::nil(),
-                cluster_id: "cluster".to_string(),
-                advertise_addr: "127.0.0.1:7654".to_string(),
-                advertise_peer_addr: "127.0.0.1:7655".to_string(),
-                incarnation: 2,
-                status: MemberStatus::Alive,
-                heartbeat: Timestamp::constant(123, 456),
-                vnodes: vec![1, 2, 3],
-            }],
-        };
-        assert_json_snapshot!(
-            resp,
-            @r#"
-            {
-              "members": [
-                {
-                  "node_id": "00000000-0000-0000-0000-000000000000",
-                  "cluster_id": "cluster",
-                  "advertise_addr": "127.0.0.1:7654",
-                  "advertise_peer_addr": "127.0.0.1:7655",
-                  "incarnation": 2,
-                  "status": "alive",
-                  "heartbeat": "1970-01-01T00:02:03.000000456Z",
-                  "vnodes": [
-                    1,
-                    2,
-                    3
-                  ]
-                }
-              ]
-            }
-            "#
-        );
     }
 }

@@ -22,6 +22,9 @@ use std::fmt;
 
 pub use gossip::GossipFuture;
 pub use gossip::GossipState;
+pub use member::MemberState;
+pub use member::MemberStatus;
+pub use member::Membership;
 pub use node::NodeInfo;
 pub use proxy::Proxy;
 pub use proxy::RouteDest;
