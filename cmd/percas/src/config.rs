@@ -146,7 +146,7 @@ mod tests {
 
         let ServerConfig {
             dir,
-            advertise_addr,
+            advertise_data_addr: advertise_addr,
             ..
         } = &mut dev_config.server;
         *dir = default_dir();
@@ -168,7 +168,7 @@ mod tests {
 
         let ServerConfig {
             dir,
-            advertise_addr,
+            advertise_data_addr: advertise_addr,
             ..
         } = &mut dev_config.server;
         *dir = default_dir();

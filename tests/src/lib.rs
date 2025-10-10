@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::any::Any;
+use std::net::SocketAddr;
 use std::process::ExitCode;
 use std::sync::Arc;
 
@@ -79,17 +80,17 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
     );
 
     let temp_dir = tempfile::tempdir().unwrap();
-    let listen_addr = "0.0.0.0:0".to_string();
+    let listen_addr = SocketAddr::from(([0, 0, 0, 0], 0));
 
     let default_config = Config::default();
     let config = Config {
         server: ServerConfig {
             dir: temp_dir.path().to_path_buf(),
-            listen_addr: listen_addr.clone(),
-            advertise_addr: None,
-            listen_peer_addr: listen_addr.to_string(),
-            advertise_peer_addr: None,
-            initial_advertise_peer_addrs: vec![],
+            listen_data_addr: listen_addr,
+            advertise_data_addr: None,
+            listen_ctrl_addr: listen_addr,
+            advertise_ctrl_addr: None,
+            initial_peers: vec![],
             cluster_id: default_cluster_id(),
         },
         storage: StorageConfig {
@@ -116,12 +117,12 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
         .unwrap();
         let ctx = Arc::new(percas_server::PercasContext::new(engine));
 
-        let (data_acceptor, advertise_addr) = make_acceptor_and_advertise_addr(&listen_addr, None)
+        let (data_acceptor, advertise_data_addr) = make_acceptor_and_advertise_addr(listen_addr, None)
             .await
             .unwrap();
 
         let (ctrl_acceptor, advertise_peer_addr) =
-            make_acceptor_and_advertise_addr(&listen_addr, None)
+            make_acceptor_and_advertise_addr(listen_addr, None)
                 .await
                 .unwrap();
 
@@ -131,7 +132,7 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
             config.server,
             node_id,
             ctrl_acceptor,
-            advertise_addr.to_string(),
+            advertise_data_addr.to_string(),
             advertise_peer_addr.to_string(),
         )
         .await
@@ -142,7 +143,7 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
             shutdown_rx,
             ctx,
             data_acceptor,
-            advertise_addr,
+            advertise_data_addr,
             advertise_peer_addr,
             gossip_state,
             gossip_futs,

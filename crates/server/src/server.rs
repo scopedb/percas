@@ -110,8 +110,8 @@ impl ServerState {
 }
 
 pub async fn make_acceptor_and_advertise_addr(
-    listen_addr: &str,
-    advertise_addr: Option<&str>,
+    listen_addr: SocketAddr,
+    advertise_addr: Option<SocketAddr>,
 ) -> Result<(TcpAcceptor, SocketAddr), io::Error> {
     log::info!("listening on {listen_addr}");
 
@@ -136,9 +136,7 @@ pub async fn make_acceptor_and_advertise_addr(
                 listen_addr
             }
         }
-        Some(advertise_addr) => advertise_addr
-            .parse::<SocketAddr>()
-            .map_err(io::Error::other)?,
+        Some(advertise_addr) => advertise_addr,
     };
 
     Ok((acceptor, advertise_addr))
@@ -222,18 +220,18 @@ pub async fn start_gossip(
     config: ServerConfig,
     node_id: Uuid,
     acceptor: TcpAcceptor,
-    advertise_addr: String,
-    advertise_peer_addr: String,
+    advertise_data_addr: SocketAddr,
+    advertise_ctrl_addr: SocketAddr,
 ) -> Result<(Arc<GossipState>, Vec<GossipFuture>), ServerError> {
     let make_error = || ServerError("failed to start gossip".to_string());
 
-    let initial_peer_addrs = config.initial_advertise_peer_addrs;
+    let initial_peer_addrs = config.initial_peers;
     let cluster_id = config.cluster_id;
 
     let current_node = if let Some(mut node) = NodeInfo::load(
         &node_file_path(&config.dir),
-        advertise_addr.clone(),
-        advertise_peer_addr.clone(),
+        advertise_data_addr.clone(),
+        advertise_ctrl_addr.clone(),
     ) {
         node.advance_incarnation();
         node.persist(&node_file_path(&config.dir));
@@ -242,8 +240,8 @@ pub async fn start_gossip(
         let node = NodeInfo::init(
             node_id,
             cluster_id,
-            advertise_addr.clone(),
-            advertise_peer_addr,
+            advertise_data_addr.clone(),
+            advertise_ctrl_addr,
         );
         node.persist(&node_file_path(&config.dir));
         node

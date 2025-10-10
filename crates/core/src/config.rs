@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::net::SocketAddr;
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
 
 use serde::Deserialize;
 use serde::Serialize;
+use url::Url;
 
 use crate::newtype::DiskThrottle;
 
@@ -36,16 +38,16 @@ pub struct Config {
 pub struct ServerConfig {
     #[serde(default = "default_dir")]
     pub dir: PathBuf,
-    #[serde(default = "default_listen_addr")]
-    pub listen_addr: String,
+    #[serde(default = "default_listen_data_addr")]
+    pub listen_data_addr: SocketAddr,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub advertise_addr: Option<String>,
-    #[serde(default = "default_listen_peer_addr")]
-    pub listen_peer_addr: String,
+    pub advertise_data_addr: Option<SocketAddr>,
+    #[serde(default = "default_listen_ctrl_addr")]
+    pub listen_ctrl_addr: SocketAddr,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub advertise_peer_addr: Option<String>,
+    pub advertise_ctrl_addr: Option<SocketAddr>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub initial_advertise_peer_addrs: Vec<String>,
+    pub initial_peers: Vec<Url>,
     #[serde(default = "default_cluster_id")]
     pub cluster_id: String,
 }
@@ -63,12 +65,12 @@ pub struct StorageConfig {
     pub memory_capacity: Option<u64>,
 }
 
-fn default_listen_addr() -> String {
-    "0.0.0.0:7654".to_string()
+fn default_listen_data_addr() -> SocketAddr {
+    SocketAddr::from(([0, 0, 0, 0], 7654))
 }
 
-fn default_listen_peer_addr() -> String {
-    "0.0.0.0:7655".to_string()
+fn default_listen_ctrl_addr() -> SocketAddr {
+    SocketAddr::from(([0, 0, 0, 0], 7655))
 }
 
 pub fn default_dir() -> PathBuf {
@@ -188,11 +190,11 @@ impl Default for Config {
         Self {
             server: ServerConfig {
                 dir: default_dir(),
-                listen_addr: default_listen_addr(),
-                advertise_addr: None,
-                listen_peer_addr: default_listen_peer_addr(),
-                advertise_peer_addr: None,
-                initial_advertise_peer_addrs: Vec::new(),
+                listen_data_addr: default_listen_data_addr(),
+                advertise_data_addr: None,
+                listen_ctrl_addr: default_listen_ctrl_addr(),
+                advertise_ctrl_addr: None,
+                initial_peers: Vec::new(),
                 cluster_id: default_cluster_id(),
             },
             storage: StorageConfig {
@@ -246,13 +248,13 @@ pub struct OptionEntry {
 pub const fn known_option_entries() -> &'static [OptionEntry] {
     &[
         OptionEntry {
-            env_name: "PERCAS_CONFIG_SERVER_ADVERTISE_ADDR",
-            ent_path: "server.advertise_addr",
+            env_name: "PERCAS_CONFIG_SERVER_ADVERTISE_CTRL_ADDR",
+            ent_path: "server.advertise_ctrl_addr",
             ent_type: "string",
         },
         OptionEntry {
-            env_name: "PERCAS_CONFIG_SERVER_ADVERTISE_PEER_ADDR",
-            ent_path: "server.advertise_peer_addr",
+            env_name: "PERCAS_CONFIG_SERVER_ADVERTISE_DATA_ADDR",
+            ent_path: "server.advertise_data_addr",
             ent_type: "string",
         },
         OptionEntry {
@@ -266,18 +268,18 @@ pub const fn known_option_entries() -> &'static [OptionEntry] {
             ent_type: "string",
         },
         OptionEntry {
-            env_name: "PERCAS_CONFIG_SERVER_INITIAL_ADVERTISE_PEER_ADDRS",
-            ent_path: "server.initial_advertise_peer_addrs",
+            env_name: "PERCAS_CONFIG_SERVER_INITIAL_PEERS",
+            ent_path: "server.initial_peers",
             ent_type: "array",
         },
         OptionEntry {
-            env_name: "PERCAS_CONFIG_SERVER_LISTEN_ADDR",
-            ent_path: "server.listen_addr",
+            env_name: "PERCAS_CONFIG_SERVER_LISTEN_CTRL_ADDR",
+            ent_path: "server.listen_ctrl_addr",
             ent_type: "string",
         },
         OptionEntry {
-            env_name: "PERCAS_CONFIG_SERVER_LISTEN_PEER_ADDR",
-            ent_path: "server.listen_peer_addr",
+            env_name: "PERCAS_CONFIG_SERVER_LISTEN_DATA_ADDR",
+            ent_path: "server.listen_data_addr",
             ent_type: "string",
         },
         OptionEntry {
@@ -426,7 +428,7 @@ mod codegen {
 
         let options = result.into_values().collect::<Vec<_>>();
         let known_option_entries = known_option_entries().to_vec();
-        assert_that!(options, container_eq(known_option_entries));
+        assert_that!(known_option_entries, container_eq(options));
     }
 
     fn fetch_ref_object<'a>(defs: &'a Object, r: &str) -> &'a Object {
@@ -501,5 +503,46 @@ mod codegen {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_config() {
+        let config = Config::default();
+        insta::assert_toml_snapshot!(config, @r"
+        [server]
+        dir = '/var/lib/percas'
+        listen_data_addr = '0.0.0.0:7654'
+        listen_ctrl_addr = '0.0.0.0:7655'
+        cluster_id = 'percas-cluster'
+
+        [storage]
+        data_dir = '/var/lib/percas/data'
+        disk_capacity = 536870912
+        [telemetry.logs.file]
+        filter = 'INFO'
+        dir = 'logs'
+        max_files = 64
+
+        [telemetry.logs.stderr]
+        filter = 'INFO'
+
+        [telemetry.logs.opentelemetry]
+        filter = 'INFO'
+        otlp_endpoint = 'http://127.0.0.1:4317'
+
+        [telemetry.traces]
+        capture_log_filter = 'INFO'
+
+        [telemetry.traces.opentelemetry]
+        otlp_endpoint = 'http://127.0.0.1:4317'
+        [telemetry.metrics.opentelemetry]
+        otlp_endpoint = 'http://127.0.0.1:4317'
+        push_interval = 'PT30S'
+        ");
     }
 }

@@ -119,16 +119,16 @@ async fn run_server(
 
     let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
 
-    let (data_acceptor, advertise_addr) = make_acceptor_and_advertise_addr(
-        server_config.listen_addr.as_str(),
-        server_config.advertise_addr.as_deref(),
+    let (data_acceptor, advertise_data_addr) = make_acceptor_and_advertise_addr(
+        server_config.listen_data_addr,
+        server_config.advertise_data_addr,
     )
     .await
     .or_raise(make_error)?;
 
-    let (ctrl_acceptor, advertise_peer_addr) = make_acceptor_and_advertise_addr(
-        server_config.listen_peer_addr.as_str(),
-        server_config.advertise_peer_addr.as_deref(),
+    let (ctrl_acceptor, advertise_ctrl_addr) = make_acceptor_and_advertise_addr(
+        server_config.listen_ctrl_addr,
+        server_config.advertise_ctrl_addr,
     )
     .await
     .or_raise(make_error)?;
@@ -139,8 +139,8 @@ async fn run_server(
         server_config,
         node_id,
         ctrl_acceptor,
-        advertise_addr.to_string(),
-        advertise_peer_addr.to_string(),
+        advertise_data_addr,
+        advertise_ctrl_addr,
     )
     .await
     .or_raise(make_error)?;
@@ -150,8 +150,8 @@ async fn run_server(
         shutdown_rx,
         ctx,
         data_acceptor,
-        advertise_addr,
-        advertise_peer_addr,
+        advertise_data_addr,
+        advertise_ctrl_addr,
         gossip_state,
         gossip_futs,
     )
