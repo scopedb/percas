@@ -18,7 +18,7 @@ listen_data_addr = "0.0.0.0:7656"
 advertise_data_addr = "127.0.0.1:7656"
 listen_ctrl_addr = "0.0.0.0:7657"
 advertise_ctrl_addr = "127.0.0.1:7657"
-initial_peers = ["https://127.0.0.1:7655"]
+initial_peers = ["http://127.0.0.1:7655"]
 
 [storage]
 data_dir = ".percas-cluster/node-1/data"

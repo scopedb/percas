@@ -479,7 +479,7 @@ impl Transport {
         message: &GossipMessage,
     ) -> Result<GossipMessage, GossipError> {
         let make_error = || GossipError(format!("failed to send message to {url}"));
-        let url = url.join("gossip").or_raise(make_error)?;
+        let url = url.join("/gossip").or_raise(make_error)?;
         let resp = self
             .client
             .post(url)
