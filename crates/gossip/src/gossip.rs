@@ -33,7 +33,6 @@ use percas_core::timer;
 use rand::Rng;
 use rand::SeedableRng;
 use reqwest::Client;
-use reqwest::ClientBuilder;
 use reqwest::Url;
 use serde::Deserialize;
 use serde::Serialize;
@@ -469,8 +468,9 @@ struct Transport {
 
 impl Transport {
     pub fn new() -> Self {
-        let client = ClientBuilder::new().build().unwrap();
-        Transport { client }
+        Transport {
+            client: Client::new(),
+        }
     }
 
     pub async fn send(
@@ -479,7 +479,7 @@ impl Transport {
         message: &GossipMessage,
     ) -> Result<GossipMessage, GossipError> {
         let make_error = || GossipError(format!("failed to send message to {url}"));
-        let url = url.join("/gossip").or_raise(make_error)?;
+        let url = url.join("gossip").or_raise(make_error)?;
         let resp = self
             .client
             .post(url)

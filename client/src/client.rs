@@ -174,7 +174,7 @@ impl Client {
 
     /// Get the version of the Percas server.
     pub async fn version(&self) -> Result<Version, Error> {
-        let url = self.ctrl_url.join("/version").map_err(make_opaque_error)?;
+        let url = self.ctrl_url.join("version").map_err(make_opaque_error)?;
 
         let resp = self
             .client
@@ -203,7 +203,7 @@ impl Client {
     }
 
     async fn update_route_table_if_needed(&self) -> Result<(), Error> {
-        let url = self.ctrl_url.join("/members").map_err(make_opaque_error)?;
+        let url = self.ctrl_url.join("members").map_err(make_opaque_error)?;
 
         if self.last_updated.read().unwrap().elapsed() > UPDATE_ROUTE_TABLE_INTERVAL {
             #[derive(Deserialize)]
