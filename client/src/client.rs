@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::sync::LazyLock;
 use std::sync::RwLock;
 use std::time::Duration;
 use std::time::Instant;
 
-use reqwest::Method;
 use reqwest::StatusCode;
 use reqwest::Url;
 use reqwest::redirect::Policy;
@@ -30,9 +28,6 @@ use crate::route::RouteTable;
 
 const UPDATE_ROUTE_TABLE_INTERVAL: Duration = Duration::from_secs(10);
 
-static HTTP_METHOD_QUERY: LazyLock<Method> =
-    LazyLock::new(|| Method::from_bytes("QUERY".as_bytes()).unwrap());
-
 fn make_opaque_error(msg: impl ToString) -> Error {
     Error::Opaque(msg.to_string())
 }
@@ -40,15 +35,17 @@ fn make_opaque_error(msg: impl ToString) -> Error {
 /// A builder for creating a `Client`.
 #[derive(Debug, Clone)]
 pub struct ClientBuilder {
-    addr: String,
+    data_addr: String,
+    ctrl_addr: String,
     client: Option<reqwest::Client>,
 }
 
 impl ClientBuilder {
-    /// Create a new client builder with the given data server address.
-    pub fn new(addr: impl Into<String>) -> Self {
+    /// Create a new client builder with the given data server address and control server address.
+    pub fn new(data_addr: impl Into<String>, ctrl_addr: impl Into<String>) -> Self {
         Self {
-            addr: addr.into(),
+            data_addr: data_addr.into(),
+            ctrl_addr: ctrl_addr.into(),
             client: None,
         }
     }
@@ -61,9 +58,14 @@ impl ClientBuilder {
 
     /// Build the client.
     pub fn build(self) -> Result<Client, Error> {
-        let Self { addr, client } = self;
+        let Self {
+            data_addr,
+            ctrl_addr,
+            client,
+        } = self;
 
-        let addr = Url::parse(&addr).map_err(make_opaque_error)?;
+        let data_addr = Url::parse(&data_addr).map_err(make_opaque_error)?;
+        let ctrl_addr = Url::parse(&ctrl_addr).map_err(make_opaque_error)?;
         let client = match client {
             Some(client) => client,
             None => reqwest::ClientBuilder::new()
@@ -77,7 +79,8 @@ impl ClientBuilder {
         let last_updated = Instant::now() - UPDATE_ROUTE_TABLE_INTERVAL - Duration::from_secs(1);
         Ok(Client {
             client,
-            addr,
+            data_addr,
+            ctrl_addr,
             last_updated: RwLock::new(last_updated),
             route_table: RwLock::new(None),
         })
@@ -87,7 +90,8 @@ impl ClientBuilder {
 /// A client for interacting with a Percas cluster.
 pub struct Client {
     client: reqwest::Client,
-    addr: Url,
+    data_addr: Url,
+    ctrl_addr: Url,
     last_updated: RwLock<Instant>,
     route_table: RwLock<Option<RouteTable>>,
 }
@@ -163,11 +167,11 @@ impl Client {
 
     /// Get the version of the Percas server.
     pub async fn version(&self) -> Result<Version, Error> {
-        let url = self.addr.join("/version").map_err(make_opaque_error)?;
+        let url = self.ctrl_addr.join("/version").map_err(make_opaque_error)?;
 
         let resp = self
             .client
-            .request(HTTP_METHOD_QUERY.clone(), url)
+            .get(url)
             .send()
             .await
             .map_err(make_opaque_error)?;
@@ -187,12 +191,12 @@ impl Client {
         {
             Url::parse(format!("http://{addr}").as_str()).map_err(make_opaque_error)
         } else {
-            Url::parse(self.addr.as_str()).map_err(make_opaque_error)
+            Url::parse(self.data_addr.as_str()).map_err(make_opaque_error)
         }
     }
 
     async fn update_route_table_if_needed(&self) -> Result<(), Error> {
-        let url = self.addr.join("/members").map_err(make_opaque_error)?;
+        let url = self.ctrl_addr.join("/members").map_err(make_opaque_error)?;
 
         if self.last_updated.read().unwrap().elapsed() > UPDATE_ROUTE_TABLE_INTERVAL {
             #[derive(Deserialize)]
@@ -209,7 +213,7 @@ impl Client {
 
             let resp = self
                 .client
-                .request(HTTP_METHOD_QUERY.clone(), url)
+                .get(url)
                 .send()
                 .await
                 .map_err(make_opaque_error)?;

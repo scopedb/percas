@@ -116,16 +116,23 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
         .unwrap();
         let ctx = Arc::new(percas_server::PercasContext::new(engine));
 
-        let (acceptor, advertise_addr) = make_acceptor_and_advertise_addr(&listen_addr, None)
+        let (data_acceptor, advertise_addr) = make_acceptor_and_advertise_addr(&listen_addr, None)
             .await
             .unwrap();
+
+        let (ctrl_acceptor, advertise_peer_addr) =
+            make_acceptor_and_advertise_addr(&listen_addr, None)
+                .await
+                .unwrap();
 
         let (gossip_state, gossip_futs) = percas_server::server::start_gossip(
             rt,
             shutdown_rx.clone(),
             config.server,
             node_id,
+            ctrl_acceptor,
             advertise_addr.to_string(),
+            advertise_peer_addr.to_string(),
         )
         .await
         .unwrap();
@@ -134,8 +141,9 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
             rt,
             shutdown_rx,
             ctx,
-            acceptor,
+            data_acceptor,
             advertise_addr,
+            advertise_peer_addr,
             gossip_state,
             gossip_futs,
         )
@@ -169,7 +177,8 @@ where
 
     rt.block_on(async move {
         let server_addr = format!("http://{}", state.server_state.advertise_addr());
-        let client = ClientBuilder::new(server_addr).build().unwrap();
+        let peer_addr = format!("http://{}", state.server_state.advertise_peer_addr());
+        let client = ClientBuilder::new(server_addr, peer_addr).build().unwrap();
 
         let exit_code = test(Testkit { client }).await.report();
 

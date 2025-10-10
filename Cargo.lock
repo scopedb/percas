@@ -2504,7 +2504,6 @@ dependencies = [
  "mea",
  "murmur3",
  "percas-core",
- "poem",
  "rand 0.9.2",
  "reqwest",
  "serde",
@@ -2536,6 +2535,7 @@ dependencies = [
  "sysinfo",
  "tempfile",
  "tokio",
+ "url",
 ]
 
 [[package]]
@@ -3163,6 +3163,7 @@ dependencies = [
  "schemars_derive",
  "serde",
  "serde_json",
+ "url",
 ]
 
 [[package]]

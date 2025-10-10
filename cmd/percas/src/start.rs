@@ -119,19 +119,28 @@ async fn run_server(
 
     let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
 
-    let (acceptor, advertise_addr) = make_acceptor_and_advertise_addr(
+    let (data_acceptor, advertise_addr) = make_acceptor_and_advertise_addr(
         server_config.listen_addr.as_str(),
         server_config.advertise_addr.as_deref(),
     )
     .await
     .or_raise(make_error)?;
 
-    let (cluster_proxy, gossip_futs) = percas_server::server::start_gossip(
+    let (ctrl_acceptor, advertise_peer_addr) = make_acceptor_and_advertise_addr(
+        server_config.listen_peer_addr.as_str(),
+        server_config.advertise_peer_addr.as_deref(),
+    )
+    .await
+    .or_raise(make_error)?;
+
+    let (gossip_state, gossip_futs) = percas_server::server::start_gossip(
         gossip_rt,
         shutdown_rx.clone(),
         server_config,
         node_id,
+        ctrl_acceptor,
         advertise_addr.to_string(),
+        advertise_peer_addr.to_string(),
     )
     .await
     .or_raise(make_error)?;
@@ -140,9 +149,10 @@ async fn run_server(
         server_rt,
         shutdown_rx,
         ctx,
-        acceptor,
+        data_acceptor,
         advertise_addr,
-        cluster_proxy,
+        advertise_peer_addr,
+        gossip_state,
         gossip_futs,
     )
     .await

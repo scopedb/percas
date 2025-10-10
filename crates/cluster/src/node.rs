@@ -20,7 +20,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::ClusterError;
+use crate::GossipError;
 
 /// PersistentNodeInfo is used to store the node information in a file.
 /// The `advertise_addr` and `advertise_peer_addr` fields are not included in this struct, since
@@ -43,9 +43,9 @@ impl From<NodeInfo> for PersistentNodeInfo {
 }
 
 impl PersistentNodeInfo {
-    fn load(path: &Path) -> Result<Option<Self>, ClusterError> {
+    fn load(path: &Path) -> Result<Option<Self>, GossipError> {
         let make_error =
-            || ClusterError(format!("failed to load node info from {}", path.display()));
+            || GossipError(format!("failed to load node info from {}", path.display()));
 
         if path.exists() {
             let data = std::fs::read_to_string(path).or_raise(make_error)?;
@@ -56,9 +56,9 @@ impl PersistentNodeInfo {
         }
     }
 
-    fn persist(&self, path: &Path) -> Result<(), ClusterError> {
+    fn persist(&self, path: &Path) -> Result<(), GossipError> {
         let make_error = || {
-            ClusterError(format!(
+            GossipError(format!(
                 "failed to persist node info into {}",
                 path.display()
             ))

@@ -25,20 +25,10 @@ use exn::bail;
 use fastimer::MakeDelayExt;
 use jiff::Timestamp;
 use mea::shutdown::ShutdownRecv;
-use mea::waitgroup::WaitGroup;
 use percas_core::JoinHandle;
 use percas_core::Runtime;
 use percas_core::node_file_path;
 use percas_core::timer;
-use poem::EndpointExt;
-use poem::IntoResponse;
-use poem::Response;
-use poem::Route;
-use poem::handler;
-use poem::listener::Acceptor;
-use poem::listener::TcpAcceptor;
-use poem::web::Data;
-use poem::web::Json;
 use rand::Rng;
 use rand::SeedableRng;
 use reqwest::Client;
@@ -48,7 +38,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::ClusterError;
+use crate::GossipError;
 use crate::member::MemberState;
 use crate::member::MemberStatus;
 use crate::member::Membership;
@@ -65,7 +55,7 @@ const DEFAULT_REBUILD_RING_INTERVAL: Duration = Duration::from_secs(5);
 
 const DEFAULT_MEMBER_DEADLINE: Duration = Duration::from_secs(30);
 
-pub type GossipFuture = JoinHandle<Result<(), ClusterError>>;
+pub type GossipFuture = JoinHandle<Result<(), GossipError>>;
 
 #[derive(Debug)]
 pub struct GossipState {
@@ -80,17 +70,13 @@ pub struct GossipState {
 
 impl GossipState {
     pub fn new(current_node: NodeInfo, initial_peers: Vec<String>, dir: PathBuf) -> Self {
-        let current_node = RwLock::new(current_node);
-        let members = RwLock::new(Membership::default());
-        let transport = Transport::new();
-        let ring = RwLock::new(Arc::new(HashRing::default()));
         Self {
             dir,
             initial_peers,
-            current_node,
-            membership: members,
-            transport,
-            ring,
+            current_node: RwLock::new(current_node),
+            membership: RwLock::new(Membership::default()),
+            transport: Transport::new(),
+            ring: RwLock::new(Arc::new(HashRing::default())),
         }
     }
 
@@ -106,49 +92,169 @@ impl GossipState {
         self.ring.read().unwrap().clone()
     }
 
+    /// Start the gossip protocol.
     pub async fn start(
         self: Arc<Self>,
         rt: &Runtime,
         shutdown_rx: ShutdownRecv,
-        acceptor: TcpAcceptor,
-    ) -> Result<Vec<GossipFuture>, ClusterError> {
-        let wg = WaitGroup::new();
-        let route = Route::new().at("/gossip", poem::post(gossip).data(self.clone()));
-
+    ) -> Result<Vec<GossipFuture>, GossipError> {
         let mut gossip_futs = vec![];
 
-        // Listen on the peer address
-        let server_fut = {
-            let wg = wg.clone();
-            let shutdown = shutdown_rx.clone();
-            rt.spawn(async move {
-                let listen_addr = acceptor.local_addr()[0].clone();
-                let signal = async move {
-                    log::info!("gossip proxy has started on [{listen_addr}]");
-                    drop(wg);
+        // Fast bootstrap
+        self.membership.write().unwrap().update_member(MemberState {
+            info: self.current(),
+            status: MemberStatus::Alive,
+            heartbeat: Timestamp::now(),
+        });
 
-                    shutdown.is_shutdown().await;
-                    log::info!("gossip proxy is closing");
-                };
-                poem::Server::new_with_acceptor(acceptor)
-                    .run_with_graceful_shutdown(route, signal, Some(Duration::from_secs(10)))
-                    .await
-                    .or_raise(|| ClusterError("failed to run gossip proxy".to_string()))
-            })
-        };
-        wg.await;
-        gossip_futs.push(server_fut);
+        let state_clone = self.clone();
+        rt.spawn(async move {
+            state_clone.fast_bootstrap().await;
+        })
+        .await;
 
-        // Start the gossip protocol
-        drive_gossip(rt, shutdown_rx, &mut gossip_futs, self).await?;
+        if self.membership().members().is_empty() {
+            bail!(GossipError(
+                "failed to bootstrap the cluster: no initial peer available".to_string(),
+            ))
+        }
+
+        // Ping
+        let state_clone = self.clone();
+        let shutdown_rx_clone = shutdown_rx.clone();
+        let mut rng = rand::rngs::StdRng::from_os_rng();
+        let ping_fut = rt.spawn(async move {
+            let fut = async move {
+                let state = state_clone;
+                let mut ticker = timer().interval(DEFAULT_PING_INTERVAL);
+                loop {
+                    ticker.tick().await;
+
+                    let membership = state.membership();
+                    if let Some((_, member)) = membership
+                        .members()
+                        .iter()
+                        .nth(rng.random_range(0..membership.members().len()))
+                    {
+                        if member.status == MemberStatus::Dead {
+                            log::debug!("skipping dead member: {member:?}");
+                            continue;
+                        }
+                        log::debug!("pinging member: {member:?}");
+                        state.ping(member.info.clone()).await;
+                    } else {
+                        log::error!("no members found in the cluster");
+                        state.fast_bootstrap().await;
+                    }
+                }
+            };
+
+            tokio::select! {
+                _ = fut => Ok(()),
+                _ = shutdown_rx_clone.is_shutdown() => {
+                    log::info!("gossip ping task is shutting down");
+                    Ok(())
+                }
+            }
+        });
+        gossip_futs.push(ping_fut);
+
+        // Anti-entropy
+        let state_clone = self.clone();
+        let shutdown_rx_clone = shutdown_rx.clone();
+        let mut rng = rand::rngs::StdRng::from_os_rng();
+        let anti_entropy_fut = rt.spawn(async move {
+            let fut = async move {
+                let state = state_clone;
+                let mut ticker = timer().interval(DEFAULT_SYNC_INTERVAL);
+                loop {
+                    ticker.tick().await;
+                    let membership = state.membership();
+                    if let Some((_, member)) = membership
+                        .members()
+                        .iter()
+                        .nth(rng.random_range(0..membership.members().len()))
+                    {
+                        if member.status == MemberStatus::Dead {
+                            log::debug!("skipping dead member: {member:?}");
+                            continue;
+                        }
+                        log::debug!("syncing member: {member:?}");
+                        state.sync(member.info.clone()).await;
+                    } else {
+                        log::error!("no members found in the cluster");
+                        state.fast_bootstrap().await;
+                    }
+                }
+            };
+
+            tokio::select! {
+                _ = fut => Ok(()),
+                _ = shutdown_rx_clone.is_shutdown() => {
+                    log::info!("gossip anti-entropy task is shutting down");
+                    Ok(())
+                }
+            }
+        });
+        gossip_futs.push(anti_entropy_fut);
+
+        // Rebuild ring
+        let state_clone = self.clone();
+        let shutdown_rx_clone = shutdown_rx.clone();
+        let rebuild_ring_fut = rt.spawn(async move {
+            let fut = async move {
+                let state = state_clone;
+                let mut ticker = timer().interval(DEFAULT_REBUILD_RING_INTERVAL);
+                loop {
+                    ticker.tick().await;
+                    state.rebuild_ring();
+                }
+            };
+
+            tokio::select! {
+                _ = fut => Ok(()),
+                _ = shutdown_rx_clone.is_shutdown() => {
+                    log::info!("gossip rebuild ring task is shutting down");
+                    Ok(())
+                }
+            }
+        });
+        gossip_futs.push(rebuild_ring_fut);
+
+        // Remove dead members
+        let state_clone = self.clone();
+        let shutdown_rx_clone = shutdown_rx.clone();
+        let remove_dead_members_fut = rt.spawn(async move {
+            let fut = async move {
+                let state = state_clone;
+                let mut ticker = timer().interval(DEFAULT_MEMBER_DEADLINE);
+                loop {
+                    ticker.tick().await;
+                    let dead_members = state.remove_dead_members();
+                    if !dead_members.is_empty() {
+                        log::info!("removed dead members: {dead_members:?}");
+                        state.rebuild_ring();
+                    }
+                }
+            };
+
+            tokio::select! {
+                _ = fut => Ok(()),
+                _ = shutdown_rx_clone.is_shutdown() => {
+                    log::info!("gossip remove dead members task is shutting down");
+                    Ok(())
+                }
+            }
+        });
+        gossip_futs.push(remove_dead_members_fut);
 
         Ok(gossip_futs)
     }
 
-    fn handle_message(&self, message: Message) -> Option<Message> {
+    pub fn handle_message(&self, message: GossipMessage) -> Option<GossipMessage> {
         log::debug!("received message: {message:?}");
         let result = match message {
-            Message::Ping(info) => {
+            GossipMessage::Ping(info) => {
                 self.membership.write().unwrap().update_member(MemberState {
                     info: info.clone(),
                     status: MemberStatus::Alive,
@@ -156,9 +262,9 @@ impl GossipState {
                 });
 
                 // Respond with an ack
-                Some(Message::Ack(self.current()))
+                Some(GossipMessage::Ack(self.current()))
             }
-            Message::Ack(info) => {
+            GossipMessage::Ack(info) => {
                 self.membership.write().unwrap().update_member(MemberState {
                     info: info.clone(),
                     status: MemberStatus::Alive,
@@ -167,7 +273,7 @@ impl GossipState {
 
                 None
             }
-            Message::Sync { members } => {
+            GossipMessage::Sync { members } => {
                 for member in members {
                     self.membership.write().unwrap().update_member(member);
                 }
@@ -181,7 +287,7 @@ impl GossipState {
 
                 // Respond with the current membership
                 let members = self.membership.read().unwrap().members().clone();
-                Some(Message::Sync {
+                Some(GossipMessage::Sync {
                     members: members.values().cloned().collect(),
                 })
             }
@@ -230,7 +336,7 @@ impl GossipState {
     }
 
     async fn ping(&self, peer: NodeInfo) {
-        let message = Message::Ping(self.current());
+        let message = GossipMessage::Ping(self.current());
         let do_send = || async {
             self.transport
                 .send(&peer.advertise_peer_addr, &message)
@@ -244,7 +350,7 @@ impl GossipState {
         );
 
         match with_retry.await {
-            Ok(msg @ Message::Ack(_)) => {
+            Ok(msg @ GossipMessage::Ack(_)) => {
                 self.handle_message(msg);
             }
 
@@ -255,7 +361,7 @@ impl GossipState {
     }
 
     async fn sync(&self, peer: NodeInfo) {
-        let message = Message::Sync {
+        let message = GossipMessage::Sync {
             members: self.membership().members().values().cloned().collect(),
         };
         let do_send = || async {
@@ -270,7 +376,7 @@ impl GossipState {
                 .with_max_times(DEFAULT_RETRIES),
         );
         match with_retry.await {
-            Ok(msg @ Message::Sync { .. }) => {
+            Ok(msg @ GossipMessage::Sync { .. }) => {
                 self.handle_message(msg);
             }
 
@@ -282,7 +388,7 @@ impl GossipState {
 
     async fn fast_bootstrap(&self) {
         for peer in &self.initial_peers {
-            let message = Message::Ping(self.current());
+            let message = GossipMessage::Ping(self.current());
             let do_send = || async {
                 self.transport
                     .send(peer, &message)
@@ -294,13 +400,13 @@ impl GossipState {
                     .with_delay(DEFAULT_RETRY_INTERVAL)
                     .with_max_times(DEFAULT_RETRIES),
             );
-            if let Ok(msg @ Message::Ack(_)) = with_retry.await {
+            if let Ok(msg @ GossipMessage::Ack(_)) = with_retry.await {
                 self.handle_message(msg);
             }
         }
 
         for peer in &self.initial_peers {
-            let message = Message::Sync {
+            let message = GossipMessage::Sync {
                 members: self.membership().members().values().cloned().collect(),
             };
             let do_send = || async {
@@ -314,7 +420,7 @@ impl GossipState {
                     .with_delay(DEFAULT_RETRY_INTERVAL)
                     .with_max_times(DEFAULT_RETRIES),
             );
-            if let Ok(msg @ Message::Sync { .. }) = with_retry.await {
+            if let Ok(msg @ GossipMessage::Sync { .. }) = with_retry.await {
                 self.handle_message(msg);
             }
         }
@@ -349,10 +455,9 @@ impl GossipState {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-enum Message {
+pub enum GossipMessage {
     Ping(NodeInfo),
     Ack(NodeInfo),
-
     Sync { members: Vec<MemberState> },
 }
 
@@ -367,8 +472,12 @@ impl Transport {
         Transport { client }
     }
 
-    pub async fn send(&self, endpoint: &str, message: &Message) -> Result<Message, ClusterError> {
-        let make_error = || ClusterError(format!("failed to send message to {endpoint}"));
+    pub async fn send(
+        &self,
+        endpoint: &str,
+        message: &GossipMessage,
+    ) -> Result<GossipMessage, GossipError> {
+        let make_error = || GossipError(format!("failed to send message to {endpoint}"));
 
         let url = Url::parse(&format!("http://{endpoint}"))
             .and_then(|url| url.join("gossip"))
@@ -387,177 +496,5 @@ impl Transport {
         } else {
             bail!(make_error())
         }
-    }
-}
-
-async fn drive_gossip(
-    rt: &Runtime,
-    shutdown_rx: ShutdownRecv,
-    gossip_futs: &mut Vec<GossipFuture>,
-    state: Arc<GossipState>,
-) -> Result<(), ClusterError> {
-    // Fast bootstrap
-    state
-        .membership
-        .write()
-        .unwrap()
-        .update_member(MemberState {
-            info: state.current(),
-            status: MemberStatus::Alive,
-            heartbeat: Timestamp::now(),
-        });
-
-    let state_clone = state.clone();
-    rt.spawn(async move {
-        state_clone.fast_bootstrap().await;
-    })
-    .await;
-
-    if state.membership().members().is_empty() {
-        bail!(ClusterError(
-            "failed to bootstrap the cluster: no initial peer available".to_string(),
-        ))
-    }
-
-    // Ping
-    let state_clone = state.clone();
-    let shutdown_rx_clone = shutdown_rx.clone();
-    let mut rng = rand::rngs::StdRng::from_os_rng();
-    let ping_fut = rt.spawn(async move {
-        let fut = async move {
-            let state = state_clone;
-            let mut ticker = timer().interval(DEFAULT_PING_INTERVAL);
-            loop {
-                ticker.tick().await;
-
-                let membership = state.membership();
-                if let Some((_, member)) = membership
-                    .members()
-                    .iter()
-                    .nth(rng.random_range(0..membership.members().len()))
-                {
-                    if member.status == MemberStatus::Dead {
-                        log::debug!("skipping dead member: {member:?}");
-                        continue;
-                    }
-                    log::debug!("pinging member: {member:?}");
-                    state.ping(member.info.clone()).await;
-                } else {
-                    log::error!("no members found in the cluster");
-                    state.fast_bootstrap().await;
-                }
-            }
-        };
-
-        tokio::select! {
-            _ = fut => Ok(()),
-            _ = shutdown_rx_clone.is_shutdown() => {
-                log::info!("gossip ping task is shutting down");
-                Ok(())
-            }
-        }
-    });
-    gossip_futs.push(ping_fut);
-
-    // Anti-entropy
-    let state_clone = state.clone();
-    let shutdown_rx_clone = shutdown_rx.clone();
-    let mut rng = rand::rngs::StdRng::from_os_rng();
-    let anti_entropy_fut = rt.spawn(async move {
-        let fut = async move {
-            let state = state_clone;
-            let mut ticker = timer().interval(DEFAULT_SYNC_INTERVAL);
-            loop {
-                ticker.tick().await;
-                let membership = state.membership();
-                if let Some((_, member)) = membership
-                    .members()
-                    .iter()
-                    .nth(rng.random_range(0..membership.members().len()))
-                {
-                    if member.status == MemberStatus::Dead {
-                        log::debug!("skipping dead member: {member:?}");
-                        continue;
-                    }
-                    log::debug!("syncing member: {member:?}");
-                    state.sync(member.info.clone()).await;
-                } else {
-                    log::error!("no members found in the cluster");
-                    state.fast_bootstrap().await;
-                }
-            }
-        };
-
-        tokio::select! {
-            _ = fut => Ok(()),
-            _ = shutdown_rx_clone.is_shutdown() => {
-                log::info!("gossip anti-entropy task is shutting down");
-                Ok(())
-            }
-        }
-    });
-    gossip_futs.push(anti_entropy_fut);
-
-    // Rebuild ring
-    let state_clone = state.clone();
-    let shutdown_rx_clone = shutdown_rx.clone();
-    let rebuild_ring_fut = rt.spawn(async move {
-        let fut = async move {
-            let state = state_clone;
-            let mut ticker = timer().interval(DEFAULT_REBUILD_RING_INTERVAL);
-            loop {
-                ticker.tick().await;
-                state.rebuild_ring();
-            }
-        };
-
-        tokio::select! {
-            _ = fut => Ok(()),
-            _ = shutdown_rx_clone.is_shutdown() => {
-                log::info!("gossip rebuild ring task is shutting down");
-                Ok(())
-            }
-        }
-    });
-    gossip_futs.push(rebuild_ring_fut);
-
-    // Remove dead members
-    let state_clone = state.clone();
-    let shutdown_rx_clone = shutdown_rx.clone();
-    let remove_dead_members_fut = rt.spawn(async move {
-        let fut = async move {
-            let state = state_clone;
-            let mut ticker = timer().interval(DEFAULT_MEMBER_DEADLINE);
-            loop {
-                ticker.tick().await;
-                let dead_members = state.remove_dead_members();
-                if !dead_members.is_empty() {
-                    log::info!("removed dead members: {dead_members:?}");
-                    state.rebuild_ring();
-                }
-            }
-        };
-
-        tokio::select! {
-            _ = fut => Ok(()),
-            _ = shutdown_rx_clone.is_shutdown() => {
-                log::info!("gossip remove dead members task is shutting down");
-                Ok(())
-            }
-        }
-    });
-    gossip_futs.push(remove_dead_members_fut);
-
-    Ok(())
-}
-
-#[handler]
-async fn gossip(Json(msg): Json<Message>, Data(state): Data<&Arc<GossipState>>) -> Response {
-    log::debug!("received message: {msg:?}");
-
-    if let Some(response) = state.handle_message(msg) {
-        Json(response).into_response()
-    } else {
-        ().into_response()
     }
 }

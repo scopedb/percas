@@ -36,6 +36,7 @@ rand = { workspace = true }
 serde = { workspace = true }
 sysinfo = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+url = { workspace = true }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = { workspace = true }
