@@ -132,12 +132,18 @@ impl Membership {
 #[cfg(test)]
 mod membership_tests {
     use jiff::Timestamp;
+    use reqwest::Url;
     use uuid::Uuid;
 
     use super::*;
 
     fn make_node(id: Uuid, _inc: u64) -> NodeInfo {
-        NodeInfo::init(id, "c".to_string(), "a".to_string(), "p".to_string())
+        NodeInfo::new(
+            id,
+            "cluster".to_string(),
+            Url::parse("http://127.0.0.1:7654").unwrap(),
+            Url::parse("http://127.0.0.1:7655").unwrap(),
+        )
     }
 
     #[test]
@@ -216,6 +222,7 @@ mod membership_tests {
 mod tests {
     use insta::assert_json_snapshot;
     use jiff::Timestamp;
+    use reqwest::Url;
     use uuid::Uuid;
 
     use crate::NodeInfo;
@@ -228,8 +235,8 @@ mod tests {
             info: NodeInfo {
                 node_id: Uuid::from_u64_pair(1234, 5678),
                 cluster_id: "cluster".to_string(),
-                advertise_addr: "127.0.0.1:9000".to_string(),
-                advertise_peer_addr: "127.0.0.1:9001".to_string(),
+                advertise_data_url: Url::parse("http://127.0.0.1:7654").unwrap(),
+                advertise_ctrl_url: Url::parse("http://127.0.0.1:7655").unwrap(),
                 incarnation: 1,
             },
             status: MemberStatus::Alive,
@@ -243,8 +250,8 @@ mod tests {
               "info": {
                 "node_id": "00000000-0000-04d2-0000-00000000162e",
                 "cluster_id": "cluster",
-                "advertise_addr": "127.0.0.1:9000",
-                "advertise_peer_addr": "127.0.0.1:9001",
+                "advertise_data_url": "http://127.0.0.1:7654/",
+                "advertise_ctrl_url": "http://127.0.0.1:7655/",
                 "incarnation": 1
               },
               "status": "alive",

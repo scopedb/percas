@@ -28,7 +28,7 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
-    - port: {{ .Values.service.peerPort }}
+    - port: {{ .Values.service.ctrlPort }}
       targetPort: peer
       protocol: TCP
       name: peer

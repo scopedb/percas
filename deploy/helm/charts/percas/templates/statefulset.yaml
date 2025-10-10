@@ -173,7 +173,7 @@ spec:
             - containerPort: {{ .Values.service.port }}
               name: http
               protocol: TCP
-            - containerPort: {{ .Values.service.peerPort }}
+            - containerPort: {{ .Values.service.ctrlPort }}
               name: peer
               protocol: TCP
 

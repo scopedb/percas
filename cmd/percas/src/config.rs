@@ -146,11 +146,11 @@ mod tests {
 
         let ServerConfig {
             dir,
-            advertise_data_addr: advertise_addr,
+            advertise_data_addr,
             ..
         } = &mut dev_config.server;
         *dir = default_dir();
-        *advertise_addr = None;
+        *advertise_data_addr = None;
 
         assert_eq!(dev_config, Config::default());
     }
@@ -168,11 +168,11 @@ mod tests {
 
         let ServerConfig {
             dir,
-            advertise_data_addr: advertise_addr,
+            advertise_data_addr,
             ..
         } = &mut dev_config.server;
         *dir = default_dir();
-        *advertise_addr = None;
+        *advertise_data_addr = None;
 
         assert_eq!(dev_config, Config::default());
     }
@@ -180,7 +180,7 @@ mod tests {
     #[sealed_test(env = [
         ("PERCAS_CONFIG_TELEMETRY_LOGS_OPENTELEMETRY_OTLP_ENDPOINT", "http://192.168.1.14:4317"),
     ])]
-    fn test_override_advertise_addr() {
+    fn test_override_otlp_endpoint() {
         let workspace = env!("CARGO_WORKSPACE_DIR");
         let dev_config = load_config(PathBuf::from(format!(
             "{workspace}/dev/standalone/config.toml"

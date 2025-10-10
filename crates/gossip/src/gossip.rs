@@ -22,6 +22,7 @@ use backon::Retryable;
 use exn::Result;
 use exn::ResultExt;
 use exn::bail;
+use exn::ensure;
 use fastimer::MakeDelayExt;
 use jiff::Timestamp;
 use mea::shutdown::ShutdownRecv;
@@ -60,7 +61,7 @@ pub type GossipFuture = JoinHandle<Result<(), GossipError>>;
 #[derive(Debug)]
 pub struct GossipState {
     dir: PathBuf,
-    initial_peers: Vec<String>,
+    initial_peers: Vec<Url>,
     current_node: RwLock<NodeInfo>,
     transport: Transport,
 
@@ -69,7 +70,7 @@ pub struct GossipState {
 }
 
 impl GossipState {
-    pub fn new(current_node: NodeInfo, initial_peers: Vec<String>, dir: PathBuf) -> Self {
+    pub fn new(current_node: NodeInfo, initial_peers: Vec<Url>, dir: PathBuf) -> Self {
         Self {
             dir,
             initial_peers,
@@ -339,7 +340,7 @@ impl GossipState {
         let message = GossipMessage::Ping(self.current());
         let do_send = || async {
             self.transport
-                .send(&peer.advertise_peer_addr, &message)
+                .send(&peer.advertise_ctrl_url, &message)
                 .await
                 .inspect_err(|e| log::error!("failed to send ping message: {e:?}"))
         };
@@ -366,7 +367,7 @@ impl GossipState {
         };
         let do_send = || async {
             self.transport
-                .send(&peer.advertise_peer_addr, &message)
+                .send(&peer.advertise_ctrl_url, &message)
                 .await
                 .inspect_err(|e| log::error!("failed to send sync message: {e:?}"))
         };
@@ -474,15 +475,11 @@ impl Transport {
 
     pub async fn send(
         &self,
-        endpoint: &str,
+        url: &Url,
         message: &GossipMessage,
     ) -> Result<GossipMessage, GossipError> {
-        let make_error = || GossipError(format!("failed to send message to {endpoint}"));
-
-        let url = Url::parse(&format!("http://{endpoint}"))
-            .and_then(|url| url.join("gossip"))
-            .or_raise(make_error)?;
-
+        let make_error = || GossipError(format!("failed to send message to {url}"));
+        let url = url.join("gossip").or_raise(make_error)?;
         let resp = self
             .client
             .post(url)
@@ -490,11 +487,7 @@ impl Transport {
             .send()
             .await
             .or_raise(make_error)?;
-
-        if resp.status().is_success() {
-            resp.json().await.or_raise(make_error)
-        } else {
-            bail!(make_error())
-        }
+        ensure!(resp.status().is_success(), make_error());
+        resp.json().await.or_raise(make_error)
     }
 }

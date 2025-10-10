@@ -513,36 +513,39 @@ mod tests {
     #[test]
     fn default_config() {
         let config = Config::default();
-        insta::assert_toml_snapshot!(config, @r"
-        [server]
-        dir = '/var/lib/percas'
-        listen_data_addr = '0.0.0.0:7654'
-        listen_ctrl_addr = '0.0.0.0:7655'
-        cluster_id = 'percas-cluster'
+        insta::assert_toml_snapshot!(
+            config,
+            @r"
+            [server]
+            dir = '/var/lib/percas'
+            listen_data_addr = '0.0.0.0:7654'
+            listen_ctrl_addr = '0.0.0.0:7655'
+            cluster_id = 'percas-cluster'
 
-        [storage]
-        data_dir = '/var/lib/percas/data'
-        disk_capacity = 536870912
-        [telemetry.logs.file]
-        filter = 'INFO'
-        dir = 'logs'
-        max_files = 64
+            [storage]
+            data_dir = '/var/lib/percas/data'
+            disk_capacity = 536870912
+            [telemetry.logs.file]
+            filter = 'INFO'
+            dir = 'logs'
+            max_files = 64
 
-        [telemetry.logs.stderr]
-        filter = 'INFO'
+            [telemetry.logs.stderr]
+            filter = 'INFO'
 
-        [telemetry.logs.opentelemetry]
-        filter = 'INFO'
-        otlp_endpoint = 'http://127.0.0.1:4317'
+            [telemetry.logs.opentelemetry]
+            filter = 'INFO'
+            otlp_endpoint = 'http://127.0.0.1:4317'
 
-        [telemetry.traces]
-        capture_log_filter = 'INFO'
+            [telemetry.traces]
+            capture_log_filter = 'INFO'
 
-        [telemetry.traces.opentelemetry]
-        otlp_endpoint = 'http://127.0.0.1:4317'
-        [telemetry.metrics.opentelemetry]
-        otlp_endpoint = 'http://127.0.0.1:4317'
-        push_interval = 'PT30S'
-        ");
+            [telemetry.traces.opentelemetry]
+            otlp_endpoint = 'http://127.0.0.1:4317'
+            [telemetry.metrics.opentelemetry]
+            otlp_endpoint = 'http://127.0.0.1:4317'
+            push_interval = 'PT30S'
+            "
+        );
     }
 }

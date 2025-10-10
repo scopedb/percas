@@ -2573,6 +2573,7 @@ dependencies = [
  "poem",
  "scopeguard",
  "serde",
+ "url",
  "uuid",
 ]
 

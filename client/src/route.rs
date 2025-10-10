@@ -15,28 +15,29 @@
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 
+use reqwest::Url;
 use uuid::Uuid;
 
 #[derive(Default, Debug, Clone)]
 pub(crate) struct RouteTable {
-    ring: BTreeMap<u32, BTreeMap<Uuid, String>>,
+    ring: BTreeMap<u32, BTreeMap<Uuid, Url>>,
 }
 
 impl RouteTable {
-    pub(crate) fn insert(&mut self, hash: u32, node_id: Uuid, addr: String) {
+    pub(crate) fn insert(&mut self, hash: u32, node_id: Uuid, url: Url) {
         match self.ring.entry(hash) {
             Entry::Vacant(entry) => {
                 let mut map = BTreeMap::new();
-                map.insert(node_id, addr);
+                map.insert(node_id, url);
                 entry.insert(map);
             }
             Entry::Occupied(mut entry) => {
-                entry.get_mut().insert(node_id, addr);
+                entry.get_mut().insert(node_id, url);
             }
         }
     }
 
-    pub(crate) fn lookup(&self, key: &str) -> Option<(&Uuid, &String)> {
+    pub(crate) fn lookup(&self, key: &str) -> Option<(&Uuid, &Url)> {
         let hash = murmur3::murmur3_32(&mut key.as_bytes(), 0).unwrap();
         self.ring
             .range(hash..)

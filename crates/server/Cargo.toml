@@ -47,6 +47,7 @@ percas-version = { workspace = true }
 poem = { workspace = true }
 scopeguard = { workspace = true }
 serde = { workspace = true }
+url = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]

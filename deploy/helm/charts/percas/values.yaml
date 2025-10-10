@@ -390,9 +390,9 @@ service:
   ## @default 7654
   port: 7654
 
-  ## @param service.peerPort The port for the peer discovery service.
+  ## @param service.ctrlPort The port for the peer discovery service.
   ## @default 7655
-  peerPort: 7655
+  ctrlPort: 7655
 
   ## @param service.extraPorts Extra ports to add to the service.
   ## @default []

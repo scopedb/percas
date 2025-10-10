@@ -15,13 +15,15 @@
 use std::io;
 use std::path::Path;
 
+use reqwest::Url;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
 /// PersistentNodeInfo is used to store the node information in a file.
-/// The `advertise_addr` and `advertise_peer_addr` fields are not included in this struct, since
-/// addr may change after the node is restarted if the node is deployed in cloud environments.
+///
+/// The `advertise_data_url` and `advertise_ctrl_url` fields are not included in this struct,
+/// since url may change after the node is restarted if the node is deployed in cloud environments.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 struct PersistentNodeInfo {
     node_id: Uuid,
@@ -60,18 +62,23 @@ impl PersistentNodeInfo {
 pub struct NodeInfo {
     pub node_id: Uuid,
     pub cluster_id: String,
-    pub advertise_addr: String,
-    pub advertise_peer_addr: String,
+    pub advertise_data_url: Url,
+    pub advertise_ctrl_url: Url,
     pub incarnation: u64,
 }
 
 impl NodeInfo {
-    pub fn init(node_id: Uuid, cluster_id: String, addr: String, peer_addr: String) -> Self {
+    pub fn new(
+        node_id: Uuid,
+        cluster_id: String,
+        advertise_data_url: Url,
+        advertise_ctrl_url: Url,
+    ) -> Self {
         Self {
             node_id,
             cluster_id,
-            advertise_addr: addr,
-            advertise_peer_addr: peer_addr,
+            advertise_data_url,
+            advertise_ctrl_url,
             incarnation: 0,
         }
     }
@@ -80,7 +87,7 @@ impl NodeInfo {
         self.incarnation += 1;
     }
 
-    pub fn load(path: &Path, advertise_addr: String, advertise_peer_addr: String) -> Option<Self> {
+    pub fn load(path: &Path, data_url: Url, ctrl_url: Url) -> Option<Self> {
         let info = PersistentNodeInfo::load(path).unwrap_or_else(|err| {
             panic!(
                 "unrecoverable: failed to load node info from {}: {err}",
@@ -91,8 +98,8 @@ impl NodeInfo {
         info.map(|info| Self {
             node_id: info.node_id,
             cluster_id: info.cluster_id,
-            advertise_addr,
-            advertise_peer_addr,
+            advertise_data_url: data_url,
+            advertise_ctrl_url: ctrl_url,
             incarnation: info.incarnation,
         })
     }

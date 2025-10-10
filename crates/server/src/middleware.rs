@@ -113,7 +113,7 @@ where
                 .call(req)
                 .await
                 .map(IntoResponse::into_response),
-            RouteDest::RemoteAddr(addr) => {
+            RouteDest::RemoteAddr(mut url) => {
                 let operation = match req.method().as_str() {
                     "GET" => OperationMetrics::OPERATION_GET,
                     "PUT" => OperationMetrics::OPERATION_PUT,
@@ -129,8 +129,8 @@ where
                     ),
                 );
 
-                let location = format!("http://{addr}{}", req.uri().path());
-                Ok(temporary_redirect(&location))
+                url.set_path(req.uri().path());
+                Ok(temporary_redirect(url.as_ref()))
             }
         }
     }

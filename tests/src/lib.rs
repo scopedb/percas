@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::any::Any;
 use std::net::SocketAddr;
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -30,7 +29,7 @@ use percas_core::TelemetryConfig;
 use percas_core::default_cluster_id;
 use percas_core::make_runtime;
 use percas_server::server::ServerState;
-use percas_server::server::make_acceptor_and_advertise_addr;
+use percas_server::server::make_acceptor_and_advertise_url;
 use percas_server::telemetry;
 use uuid::Uuid;
 
@@ -43,13 +42,11 @@ fn make_test_name<TestFn>() -> String {
     replacer.replace_all(test_name, "_").to_string()
 }
 
-type DropGuard = Box<dyn Any>;
-
-#[derive(Debug)]
 struct TestServerState {
     pub server_state: ServerState,
     shutdown_tx: ShutdownSend,
-    _drop_guards: Vec<DropGuard>,
+    #[expect(dead_code)]
+    drop_guards: Vec<Box<dyn Send + Sync + 'static>>,
 }
 
 impl TestServerState {
@@ -63,20 +60,15 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
     let node_id = Uuid::now_v7();
     let service_name = format!("test_harness:{test_name}").leak();
 
-    let mut drop_guard = Vec::<DropGuard>::new();
-    drop_guard.extend(
-        telemetry::init(
-            rt,
-            service_name,
-            node_id,
-            TelemetryConfig {
-                logs: LogsConfig::disabled(),
-                traces: None,
-                metrics: None,
-            },
-        )
-        .into_iter()
-        .map(|x| Box::new(x) as DropGuard),
+    let mut drop_guards = telemetry::init(
+        rt,
+        service_name,
+        node_id,
+        TelemetryConfig {
+            logs: LogsConfig::disabled(),
+            traces: None,
+            metrics: None,
+        },
     );
 
     let temp_dir = tempfile::tempdir().unwrap();
@@ -117,12 +109,13 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
         .unwrap();
         let ctx = Arc::new(percas_server::PercasContext::new(engine));
 
-        let (data_acceptor, advertise_data_addr) = make_acceptor_and_advertise_addr(listen_addr, None)
-            .await
-            .unwrap();
+        let (data_acceptor, advertise_data_url) =
+            make_acceptor_and_advertise_url(listen_addr, None)
+                .await
+                .unwrap();
 
-        let (ctrl_acceptor, advertise_peer_addr) =
-            make_acceptor_and_advertise_addr(listen_addr, None)
+        let (ctrl_acceptor, advertise_ctrl_url) =
+            make_acceptor_and_advertise_url(listen_addr, None)
                 .await
                 .unwrap();
 
@@ -132,8 +125,8 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
             config.server,
             node_id,
             ctrl_acceptor,
-            advertise_data_addr.to_string(),
-            advertise_peer_addr.to_string(),
+            advertise_data_url.clone(),
+            advertise_ctrl_url.clone(),
         )
         .await
         .unwrap();
@@ -143,8 +136,8 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
             shutdown_rx,
             ctx,
             data_acceptor,
-            advertise_data_addr,
-            advertise_peer_addr,
+            advertise_data_url,
+            advertise_ctrl_url,
             gossip_state,
             gossip_futs,
         )
@@ -152,11 +145,11 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
         .unwrap()
     });
 
-    drop_guard.push(Box::new(temp_dir));
+    drop_guards.push(Box::new(temp_dir));
     Some(TestServerState {
         server_state,
         shutdown_tx,
-        _drop_guards: drop_guard,
+        drop_guards,
     })
 }
 
@@ -177,9 +170,12 @@ where
     };
 
     rt.block_on(async move {
-        let server_addr = format!("http://{}", state.server_state.advertise_addr());
-        let peer_addr = format!("http://{}", state.server_state.advertise_peer_addr());
-        let client = ClientBuilder::new(server_addr, peer_addr).build().unwrap();
+        let client = ClientBuilder::new(
+            state.server_state.advertise_data_url().to_string(),
+            state.server_state.advertise_ctrl_url().to_string(),
+        )
+        .build()
+        .unwrap();
 
         let exit_code = test(Testkit { client }).await.report();
 

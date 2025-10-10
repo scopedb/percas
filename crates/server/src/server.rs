@@ -54,6 +54,7 @@ use poem::web::Path;
 use poem::web::headers::ContentType;
 use serde::Deserialize;
 use serde::Serialize;
+use url::Url;
 use uuid::Uuid;
 
 use crate::PercasContext;
@@ -66,8 +67,8 @@ type ServerFuture<T> = percas_core::JoinHandle<Result<T, ServerError>>;
 
 #[derive(Debug)]
 pub struct ServerState {
-    advertise_addr: SocketAddr,
-    advertise_peer_addr: SocketAddr,
+    advertise_data_url: Url,
+    advertise_ctrl_url: Url,
     server_fut: ServerFuture<()>,
     gossip_futs: Vec<GossipFuture>,
 
@@ -76,12 +77,12 @@ pub struct ServerState {
 }
 
 impl ServerState {
-    pub fn advertise_addr(&self) -> SocketAddr {
-        self.advertise_addr
+    pub fn advertise_data_url(&self) -> &Url {
+        &self.advertise_data_url
     }
 
-    pub fn advertise_peer_addr(&self) -> SocketAddr {
-        self.advertise_peer_addr
+    pub fn advertise_ctrl_url(&self) -> &Url {
+        &self.advertise_ctrl_url
     }
 
     pub async fn await_shutdown(self) {
@@ -109,10 +110,10 @@ impl ServerState {
     }
 }
 
-pub async fn make_acceptor_and_advertise_addr(
+pub async fn make_acceptor_and_advertise_url(
     listen_addr: SocketAddr,
     advertise_addr: Option<SocketAddr>,
-) -> Result<(TcpAcceptor, SocketAddr), io::Error> {
+) -> Result<(TcpAcceptor, Url), io::Error> {
     log::info!("listening on {listen_addr}");
 
     let acceptor = TcpListener::bind(&listen_addr).into_acceptor().await?;
@@ -139,7 +140,14 @@ pub async fn make_acceptor_and_advertise_addr(
         Some(advertise_addr) => advertise_addr,
     };
 
-    Ok((acceptor, advertise_addr))
+    let advertise_url = Url::parse(&format!("http://{advertise_addr}")).map_err(|err| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("failed to parse advertise url: {err}"),
+        )
+    })?;
+
+    Ok((acceptor, advertise_url))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -148,8 +156,8 @@ pub async fn start_server(
     shutdown_rx: ShutdownRecv,
     ctx: Arc<PercasContext>,
     acceptor: TcpAcceptor,
-    advertise_addr: SocketAddr,
-    advertise_peer_addr: SocketAddr,
+    advertise_data_url: Url,
+    advertise_ctrl_url: Url,
     gossip_state: Arc<GossipState>,
     gossip_futs: Vec<GossipFuture>,
 ) -> Result<ServerState, ServerError> {
@@ -205,8 +213,8 @@ pub async fn start_server(
     shutdown_tx_actions.push(shutdown_tx);
 
     Ok(ServerState {
-        advertise_addr,
-        advertise_peer_addr,
+        advertise_data_url,
+        advertise_ctrl_url,
         server_fut,
         gossip_futs,
         shutdown_rx_server,
@@ -220,38 +228,34 @@ pub async fn start_gossip(
     config: ServerConfig,
     node_id: Uuid,
     acceptor: TcpAcceptor,
-    advertise_data_addr: SocketAddr,
-    advertise_ctrl_addr: SocketAddr,
+    advertise_data_url: Url,
+    advertise_ctrl_url: Url,
 ) -> Result<(Arc<GossipState>, Vec<GossipFuture>), ServerError> {
     let make_error = || ServerError("failed to start gossip".to_string());
 
-    let initial_peer_addrs = config.initial_peers;
-    let cluster_id = config.cluster_id;
+    let ServerConfig {
+        dir,
+        initial_peers,
+        cluster_id,
+        ..
+    } = config;
 
+    let node_file_path = node_file_path(&dir);
     let current_node = if let Some(mut node) = NodeInfo::load(
-        &node_file_path(&config.dir),
-        advertise_data_addr.clone(),
-        advertise_ctrl_addr.clone(),
+        &node_file_path,
+        advertise_data_url.clone(),
+        advertise_ctrl_url.clone(),
     ) {
         node.advance_incarnation();
-        node.persist(&node_file_path(&config.dir));
+        node.persist(&node_file_path);
         node
     } else {
-        let node = NodeInfo::init(
-            node_id,
-            cluster_id,
-            advertise_data_addr.clone(),
-            advertise_ctrl_addr,
-        );
-        node.persist(&node_file_path(&config.dir));
+        let node = NodeInfo::new(node_id, cluster_id, advertise_data_url, advertise_ctrl_url);
+        node.persist(&node_file_path);
         node
     };
 
-    let gossip_state = Arc::new(GossipState::new(
-        current_node,
-        initial_peer_addrs,
-        config.dir.clone(),
-    ));
+    let gossip_state = Arc::new(GossipState::new(current_node, initial_peers, dir));
 
     let route = Route::new()
         .at("/gossip", poem::post(gossip).data(gossip_state.clone()))
@@ -448,8 +452,8 @@ async fn gossip(Json(msg): Json<GossipMessage>, Data(state): Data<&Arc<GossipSta
 struct Member {
     node_id: Uuid,
     cluster_id: String,
-    advertise_addr: String,
-    advertise_peer_addr: String,
+    advertise_data_url: Url,
+    advertise_ctrl_url: Url,
     incarnation: u64,
     status: MemberStatus,
     heartbeat: Timestamp,
@@ -471,8 +475,8 @@ async fn list_members(Data(state): Data<&Arc<GossipState>>) -> Response {
             .map(|m| Member {
                 node_id: m.info.node_id,
                 cluster_id: m.info.cluster_id.clone(),
-                advertise_addr: m.info.advertise_addr.clone(),
-                advertise_peer_addr: m.info.advertise_peer_addr.clone(),
+                advertise_data_url: m.info.advertise_data_url.clone(),
+                advertise_ctrl_url: m.info.advertise_ctrl_url.clone(),
                 incarnation: m.info.incarnation,
                 status: m.status,
                 heartbeat: m.heartbeat,
@@ -502,8 +506,8 @@ mod tests {
             members: vec![Member {
                 node_id: Uuid::nil(),
                 cluster_id: "cluster".to_string(),
-                advertise_addr: "127.0.0.1:7654".to_string(),
-                advertise_peer_addr: "127.0.0.1:7655".to_string(),
+                advertise_data_url: "http://127.0.0.1:7654".parse().unwrap(),
+                advertise_ctrl_url: "http://127.0.0.1:7655".parse().unwrap(),
                 incarnation: 2,
                 status: MemberStatus::Alive,
                 heartbeat: Timestamp::constant(123, 456),
@@ -518,8 +522,8 @@ mod tests {
                 {
                   "node_id": "00000000-0000-0000-0000-000000000000",
                   "cluster_id": "cluster",
-                  "advertise_addr": "127.0.0.1:7654",
-                  "advertise_peer_addr": "127.0.0.1:7655",
+                  "advertise_data_url": "http://127.0.0.1:7654/",
+                  "advertise_ctrl_url": "http://127.0.0.1:7655/",
                   "incarnation": 2,
                   "status": "alive",
                   "heartbeat": "1970-01-01T00:02:03.000000456Z",

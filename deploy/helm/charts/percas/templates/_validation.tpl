@@ -44,8 +44,8 @@ Validate that the service is configured correctly.
 */}}
 {{- define "percas.validate.service" -}}
 {{- with .Values.service }}
-{{- if eq .port .peerPort }}
-- service.port and service.peerPort must be different
+{{- if eq .port .ctrlPort }}
+- service.port and service.ctrlPort must be different
 {{- end }}
 {{- end }}
 {{- end }}
