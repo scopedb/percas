@@ -27,7 +27,7 @@ use percas_core::make_runtime;
 use percas_core::num_cpus;
 use percas_metrics::GlobalMetrics;
 use percas_server::PercasContext;
-use percas_server::server::make_acceptor_and_advertise_addr;
+use percas_server::server::make_acceptor_and_advertise_url;
 use percas_server::telemetry;
 use uuid::Uuid;
 
@@ -119,19 +119,28 @@ async fn run_server(
 
     let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
 
-    let (acceptor, advertise_addr) = make_acceptor_and_advertise_addr(
-        server_config.listen_addr.as_str(),
-        server_config.advertise_addr.as_deref(),
+    let (data_acceptor, advertise_data_url) = make_acceptor_and_advertise_url(
+        server_config.listen_data_addr,
+        server_config.advertise_data_addr,
     )
     .await
     .or_raise(make_error)?;
 
-    let (cluster_proxy, gossip_futs) = percas_server::server::start_gossip(
+    let (ctrl_acceptor, advertise_ctrl_url) = make_acceptor_and_advertise_url(
+        server_config.listen_ctrl_addr,
+        server_config.advertise_ctrl_addr,
+    )
+    .await
+    .or_raise(make_error)?;
+
+    let (gossip_state, gossip_futs) = percas_server::server::start_gossip(
         gossip_rt,
         shutdown_rx.clone(),
         server_config,
         node_id,
-        advertise_addr.to_string(),
+        ctrl_acceptor,
+        advertise_data_url.clone(),
+        advertise_ctrl_url.clone(),
     )
     .await
     .or_raise(make_error)?;
@@ -140,9 +149,10 @@ async fn run_server(
         server_rt,
         shutdown_rx,
         ctx,
-        acceptor,
-        advertise_addr,
-        cluster_proxy,
+        data_acceptor,
+        advertise_data_url,
+        advertise_ctrl_url,
+        gossip_state,
         gossip_futs,
     )
     .await

@@ -14,13 +14,15 @@
 
 use std::sync::Arc;
 
+use reqwest::Url;
+
 use crate::gossip::GossipState;
 use crate::member::MemberStatus;
 
 #[derive(Debug, Clone)]
 pub enum RouteDest {
     Local,
-    RemoteAddr(String),
+    RemoteAddr(Url),
 }
 
 #[derive(Debug, Clone)]
@@ -52,12 +54,12 @@ impl Proxy {
                     return RouteDest::Local;
                 }
 
-                RouteDest::RemoteAddr(target.info.advertise_addr.clone())
+                RouteDest::RemoteAddr(target.info.advertise_data_url.clone())
             } else {
                 RouteDest::Local
             }
         } else {
-            log::debug!("no target found for key: [{key}] , current ring: {ring:#?}");
+            log::debug!("no target found for key: [{key}], current ring: {ring:#?}");
             RouteDest::Local
         }
     }

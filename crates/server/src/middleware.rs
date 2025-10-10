@@ -15,9 +15,9 @@
 use std::sync::Arc;
 
 use mea::semaphore::Semaphore;
-use percas_cluster::Proxy;
-use percas_cluster::RouteDest;
 use percas_core::num_cpus;
+use percas_gossip::Proxy;
+use percas_gossip::RouteDest;
 use percas_metrics::GlobalMetrics;
 use percas_metrics::OperationMetrics;
 use poem::Endpoint;
@@ -113,7 +113,7 @@ where
                 .call(req)
                 .await
                 .map(IntoResponse::into_response),
-            RouteDest::RemoteAddr(addr) => {
+            RouteDest::RemoteAddr(mut url) => {
                 let operation = match req.method().as_str() {
                     "GET" => OperationMetrics::OPERATION_GET,
                     "PUT" => OperationMetrics::OPERATION_PUT,
@@ -129,8 +129,8 @@ where
                     ),
                 );
 
-                let location = format!("http://{addr}{}", req.uri().path());
-                Ok(temporary_redirect(&location))
+                url.set_path(req.uri().path());
+                Ok(temporary_redirect(url.as_ref()))
             }
         }
     }

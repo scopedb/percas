@@ -14,8 +14,8 @@
 
 [server]
 dir = ".percas"
-listen_addr = "0.0.0.0:7654"
-listen_peer_addr = "0.0.0.0:7655"
+listen_data_addr = "0.0.0.0:7654"
+listen_ctrl_addr = "0.0.0.0:7655"
 cluster_id = "percas-cluster"
 
 [storage]

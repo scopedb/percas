@@ -23,6 +23,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::Error;
+use crate::protos::Version;
 use crate::route::RouteTable;
 
 const UPDATE_ROUTE_TABLE_INTERVAL: Duration = Duration::from_secs(10);
@@ -34,25 +35,29 @@ fn make_opaque_error(msg: impl ToString) -> Error {
 /// A builder for creating a `Client`.
 #[derive(Debug, Clone)]
 pub struct ClientBuilder {
-    addr: String,
-    peer_addr: Option<String>,
+    data_url: String,
+    ctrl_url: String,
     client: Option<reqwest::Client>,
 }
 
 impl ClientBuilder {
-    /// Create a new client builder with the given data server address.
-    pub fn new(addr: impl Into<String>) -> Self {
+    /// Create a new client builder with the given data server url and control server url.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use percas_client::ClientBuilder;
+    ///
+    /// let builder = ClientBuilder::new("http://percas-data:8080", "http://percas-ctrl:8081");
+    /// let client = builder.build().unwrap();
+    /// let _ = client; // use client
+    /// ```
+    pub fn new(data_url: impl Into<String>, ctrl_url: impl Into<String>) -> Self {
         Self {
-            addr: addr.into(),
-            peer_addr: None,
+            data_url: data_url.into(),
+            ctrl_url: ctrl_url.into(),
             client: None,
         }
-    }
-
-    /// Set the peer server address for cluster operations and queries.
-    pub fn peer_addr(mut self, peer_addr: impl Into<String>) -> Self {
-        self.peer_addr = Some(peer_addr.into());
-        self
     }
 
     /// Set a custom HTTP client. If not set, a default client will be used.
@@ -64,16 +69,13 @@ impl ClientBuilder {
     /// Build the client.
     pub fn build(self) -> Result<Client, Error> {
         let Self {
-            addr,
-            peer_addr,
+            data_url,
+            ctrl_url,
             client,
         } = self;
 
-        let addr = Url::parse(&addr).map_err(make_opaque_error)?;
-        let peer_addr = match peer_addr {
-            None => None,
-            Some(peer_addr) => Some(Url::parse(&peer_addr).map_err(make_opaque_error)?),
-        };
+        let data_url = Url::parse(&data_url).map_err(make_opaque_error)?;
+        let ctrl_url = Url::parse(&ctrl_url).map_err(make_opaque_error)?;
         let client = match client {
             Some(client) => client,
             None => reqwest::ClientBuilder::new()
@@ -87,8 +89,8 @@ impl ClientBuilder {
         let last_updated = Instant::now() - UPDATE_ROUTE_TABLE_INTERVAL - Duration::from_secs(1);
         Ok(Client {
             client,
-            addr,
-            peer_addr,
+            data_url,
+            ctrl_url,
             last_updated: RwLock::new(last_updated),
             route_table: RwLock::new(None),
         })
@@ -98,9 +100,8 @@ impl ClientBuilder {
 /// A client for interacting with a Percas cluster.
 pub struct Client {
     client: reqwest::Client,
-    addr: Url,
-    peer_addr: Option<Url>,
-
+    data_url: Url,
+    ctrl_url: Url,
     last_updated: RwLock<Instant>,
     route_table: RwLock<Option<RouteTable>>,
 }
@@ -110,8 +111,7 @@ impl Client {
     pub async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, Error> {
         self.update_route_table_if_needed().await?;
 
-        let url = self.route(key)?;
-        let url = url.join(key).map_err(make_opaque_error)?;
+        let url = self.route(key).join(key).map_err(make_opaque_error)?;
 
         let resp = self
             .client
@@ -135,8 +135,7 @@ impl Client {
     pub async fn put(&self, key: &str, value: &[u8]) -> Result<(), Error> {
         self.update_route_table_if_needed().await?;
 
-        let url = self.route(key)?;
-        let url = url.join(key).map_err(make_opaque_error)?;
+        let url = self.route(key).join(key).map_err(make_opaque_error)?;
 
         let resp = self
             .client
@@ -157,8 +156,7 @@ impl Client {
     pub async fn delete(&self, key: &str) -> Result<(), Error> {
         self.update_route_table_if_needed().await?;
 
-        let url = self.route(key)?;
-        let url = url.join(key).map_err(make_opaque_error)?;
+        let url = self.route(key).join(key).map_err(make_opaque_error)?;
 
         let resp = self
             .client
@@ -173,32 +171,48 @@ impl Client {
             status => Err(make_opaque_error(status)),
         }
     }
+
+    /// Get the version of the Percas server.
+    pub async fn version(&self) -> Result<Version, Error> {
+        let url = self.ctrl_url.join("version").map_err(make_opaque_error)?;
+
+        let resp = self
+            .client
+            .get(url)
+            .send()
+            .await
+            .map_err(make_opaque_error)?;
+
+        match resp.status() {
+            StatusCode::OK => resp.json::<Version>().await.map_err(make_opaque_error),
+            StatusCode::TOO_MANY_REQUESTS => Err(Error::TooManyRequests),
+            status => Err(make_opaque_error(status)),
+        }
+    }
 }
 
 impl Client {
-    fn route(&self, key: &str) -> Result<Url, Error> {
+    fn route(&self, key: &str) -> Url {
         if let Some(route_table) = &*self.route_table.read().unwrap()
-            && let Some((_, addr)) = route_table.lookup(key)
+            && let Some((_, url)) = route_table.lookup(key)
         {
-            Url::parse(addr).map_err(make_opaque_error)
+            url.clone()
         } else {
-            Url::parse(self.addr.as_str()).map_err(make_opaque_error)
+            self.data_url.clone()
         }
     }
 
     async fn update_route_table_if_needed(&self) -> Result<(), Error> {
-        let url = if let Some(peer_addr) = &self.peer_addr {
-            peer_addr.join("members").map_err(make_opaque_error)?
-        } else {
-            // no peer address configured, internal router features disabled
-            return Ok(());
-        };
+        let url = self.ctrl_url.join("members").map_err(make_opaque_error)?;
 
         if self.last_updated.read().unwrap().elapsed() > UPDATE_ROUTE_TABLE_INTERVAL {
             #[derive(Deserialize)]
+            #[expect(dead_code)] // some fields may be unused
             struct Member {
                 node_id: Uuid,
-                advertise_addr: String,
+                advertise_data_url: Url,
+                advertise_ctrl_url: Url,
+                incarnation: u64,
                 vnodes: Vec<u32>,
             }
 
@@ -226,9 +240,9 @@ impl Client {
             };
 
             let mut route_table = RouteTable::default();
-            for member in &members {
-                for vnode in &member.vnodes {
-                    route_table.insert(*vnode, member.node_id, member.advertise_addr.clone());
+            for member in members {
+                for vnode in member.vnodes {
+                    route_table.insert(vnode, member.node_id, member.advertise_data_url.clone());
                 }
             }
             *self.route_table.write().unwrap() = Some(route_table);

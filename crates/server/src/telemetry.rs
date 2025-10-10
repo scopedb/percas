@@ -175,9 +175,16 @@ fn init_logs(
     }
 
     // stderr appender
-    if let Some(stderr) = &config.logs.stderr {
+    if let Ok(filter) = std::env::var("RUST_LOG") {
         builder = builder.dispatch(|b| {
-            b.filter(make_rust_log_filter_with_default_env(&stderr.filter))
+            b.filter(make_rust_log_filter(&filter))
+                .diagnostic(FastraceDiagnostic::default())
+                .diagnostic(static_diagnostic.clone())
+                .append(append::Stderr::default().with_layout(layout::TextLayout::default()))
+        });
+    } else if let Some(stderr) = &config.logs.stderr {
+        builder = builder.dispatch(|b| {
+            b.filter(make_rust_log_filter(&stderr.filter))
                 .diagnostic(FastraceDiagnostic::default())
                 .diagnostic(static_diagnostic.clone())
                 .append(append::Stderr::default().with_layout(layout::TextLayout::default()))
@@ -217,12 +224,4 @@ fn make_rust_log_filter(filter: &str) -> EnvFilter {
     let builder = EnvFilterBuilder::try_from_spec(filter)
         .unwrap_or_else(|_| panic!("failed to parse filter: {filter}"));
     builder.build()
-}
-
-fn make_rust_log_filter_with_default_env(filter: &str) -> EnvFilter {
-    if let Ok(filter) = std::env::var("RUST_LOG") {
-        make_rust_log_filter(&filter)
-    } else {
-        make_rust_log_filter(filter)
-    }
 }

@@ -20,21 +20,26 @@ use std::time::Duration;
 use exn::Result;
 use exn::ResultExt;
 use fastimer::schedule::SimpleActionExt;
+use jiff::Timestamp;
 use mea::shutdown::ShutdownRecv;
 use mea::shutdown::ShutdownSend;
 use mea::waitgroup::WaitGroup;
-use percas_cluster::GossipFuture;
-use percas_cluster::GossipState;
-use percas_cluster::NodeInfo;
-use percas_cluster::Proxy;
 use percas_core::Runtime;
 use percas_core::ServerConfig;
 use percas_core::node_file_path;
 use percas_core::timer;
+use percas_gossip::GossipError;
+use percas_gossip::GossipFuture;
+use percas_gossip::GossipMessage;
+use percas_gossip::GossipState;
+use percas_gossip::MemberStatus;
+use percas_gossip::NodeInfo;
+use percas_gossip::Proxy;
 use percas_metrics::GlobalMetrics;
 use percas_metrics::OperationMetrics;
 use poem::Body;
 use poem::EndpointExt;
+use poem::IntoResponse;
 use poem::Response;
 use poem::Route;
 use poem::handler;
@@ -44,8 +49,12 @@ use poem::listener::Listener;
 use poem::listener::TcpAcceptor;
 use poem::listener::TcpListener;
 use poem::web::Data;
+use poem::web::Json;
 use poem::web::Path;
 use poem::web::headers::ContentType;
+use serde::Deserialize;
+use serde::Serialize;
+use url::Url;
 use uuid::Uuid;
 
 use crate::PercasContext;
@@ -54,11 +63,12 @@ use crate::middleware::ClusterProxyMiddleware;
 use crate::middleware::LoggerMiddleware;
 use crate::scheduled::ReportMetricsAction;
 
-pub(crate) type ServerFuture<T> = percas_core::JoinHandle<Result<T, ServerError>>;
+type ServerFuture<T> = percas_core::JoinHandle<Result<T, ServerError>>;
 
 #[derive(Debug)]
 pub struct ServerState {
-    advertise_addr: SocketAddr,
+    advertise_data_url: Url,
+    advertise_ctrl_url: Url,
     server_fut: ServerFuture<()>,
     gossip_futs: Vec<GossipFuture>,
 
@@ -67,8 +77,12 @@ pub struct ServerState {
 }
 
 impl ServerState {
-    pub fn advertise_addr(&self) -> SocketAddr {
-        self.advertise_addr
+    pub fn advertise_data_url(&self) -> &Url {
+        &self.advertise_data_url
+    }
+
+    pub fn advertise_ctrl_url(&self) -> &Url {
+        &self.advertise_ctrl_url
     }
 
     pub async fn await_shutdown(self) {
@@ -96,10 +110,10 @@ impl ServerState {
     }
 }
 
-pub async fn make_acceptor_and_advertise_addr(
-    listen_addr: &str,
-    advertise_addr: Option<&str>,
-) -> Result<(TcpAcceptor, SocketAddr), io::Error> {
+pub async fn make_acceptor_and_advertise_url(
+    listen_addr: SocketAddr,
+    advertise_addr: Option<SocketAddr>,
+) -> Result<(TcpAcceptor, Url), io::Error> {
     log::info!("listening on {listen_addr}");
 
     let acceptor = TcpListener::bind(&listen_addr).into_acceptor().await?;
@@ -123,21 +137,28 @@ pub async fn make_acceptor_and_advertise_addr(
                 listen_addr
             }
         }
-        Some(advertise_addr) => advertise_addr
-            .parse::<SocketAddr>()
-            .map_err(io::Error::other)?,
+        Some(advertise_addr) => advertise_addr,
     };
 
-    Ok((acceptor, advertise_addr))
+    let advertise_url = Url::parse(&format!("http://{advertise_addr}")).map_err(|err| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("failed to parse advertise url: {err}"),
+        )
+    })?;
+
+    Ok((acceptor, advertise_url))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn start_server(
     rt: &Runtime,
     shutdown_rx: ShutdownRecv,
     ctx: Arc<PercasContext>,
     acceptor: TcpAcceptor,
-    advertise_addr: SocketAddr,
-    cluster_proxy: Proxy,
+    advertise_data_url: Url,
+    advertise_ctrl_url: Url,
+    gossip_state: Arc<GossipState>,
     gossip_futs: Vec<GossipFuture>,
 ) -> Result<ServerState, ServerError> {
     let make_error = || ServerError("failed to start server".to_string());
@@ -149,7 +170,7 @@ pub async fn start_server(
         let shutdown_clone = shutdown_rx_server.clone();
         let wg_clone = wg.clone();
 
-        let proxy_middleware = ClusterProxyMiddleware::new(cluster_proxy);
+        let proxy_middleware = ClusterProxyMiddleware::new(Proxy::new(gossip_state.clone()));
         let route = Route::new()
             .at(
                 "/*key",
@@ -192,7 +213,8 @@ pub async fn start_server(
     shutdown_tx_actions.push(shutdown_tx);
 
     Ok(ServerState {
-        advertise_addr,
+        advertise_data_url,
+        advertise_ctrl_url,
         server_fut,
         gossip_futs,
         shutdown_rx_server,
@@ -205,53 +227,75 @@ pub async fn start_gossip(
     shutdown_rx: ShutdownRecv,
     config: ServerConfig,
     node_id: Uuid,
-    advertise_addr: String,
-) -> Result<(Proxy, Vec<GossipFuture>), ServerError> {
+    acceptor: TcpAcceptor,
+    advertise_data_url: Url,
+    advertise_ctrl_url: Url,
+) -> Result<(Arc<GossipState>, Vec<GossipFuture>), ServerError> {
     let make_error = || ServerError("failed to start gossip".to_string());
 
-    let listen_peer_addr = config.listen_peer_addr;
-    let (acceptor, advertise_peer_addr) = make_acceptor_and_advertise_addr(
-        listen_peer_addr.as_str(),
-        config.advertise_peer_addr.as_deref(),
-    )
-    .await
-    .or_raise(make_error)?;
-    let advertise_peer_addr = advertise_peer_addr.to_string();
-    let initial_peer_addrs = config.initial_advertise_peer_addrs;
-    let cluster_id = config.cluster_id;
+    let ServerConfig {
+        dir,
+        initial_peers,
+        cluster_id,
+        ..
+    } = config;
 
+    let node_file_path = node_file_path(&dir);
     let current_node = if let Some(mut node) = NodeInfo::load(
-        &node_file_path(&config.dir),
-        advertise_addr.clone(),
-        advertise_peer_addr.clone(),
+        &node_file_path,
+        advertise_data_url.clone(),
+        advertise_ctrl_url.clone(),
     ) {
         node.advance_incarnation();
-        node.persist(&node_file_path(&config.dir));
+        node.persist(&node_file_path);
         node
     } else {
-        let node = NodeInfo::init(
-            node_id,
-            cluster_id,
-            advertise_addr.clone(),
-            advertise_peer_addr,
-        );
-        node.persist(&node_file_path(&config.dir));
+        let node = NodeInfo::new(node_id, cluster_id, advertise_data_url, advertise_ctrl_url);
+        node.persist(&node_file_path);
         node
     };
 
-    let gossip = Arc::new(GossipState::new(
-        current_node,
-        initial_peer_addrs,
-        config.dir.clone(),
-    ));
+    let gossip_state = Arc::new(GossipState::new(current_node, initial_peers, dir));
 
-    let futs = gossip
+    let route = Route::new()
+        .at("/gossip", poem::post(gossip).data(gossip_state.clone()))
+        .at(
+            "/members",
+            poem::get(list_members).data(gossip_state.clone()),
+        )
+        .at("/version", poem::get(fetch_version));
+
+    let wg = WaitGroup::new();
+
+    let mut gossip_futs = vec![];
+    let server_fut = {
+        let wg = wg.clone();
+        let shutdown = shutdown_rx.clone();
+        gossip_rt.spawn(async move {
+            let listen_addr = acceptor.local_addr()[0].clone();
+            let signal = async move {
+                log::info!("gossip proxy has started on [{listen_addr}]");
+                drop(wg);
+
+                shutdown.is_shutdown().await;
+                log::info!("gossip proxy is closing");
+            };
+            poem::Server::new_with_acceptor(acceptor)
+                .run_with_graceful_shutdown(route, signal, Some(Duration::from_secs(10)))
+                .await
+                .or_raise(|| GossipError::new("failed to run gossip proxy"))
+        })
+    };
+    wg.await;
+    gossip_futs.push(server_fut);
+
+    let futs = gossip_state
         .clone()
-        .start(gossip_rt, shutdown_rx, acceptor)
+        .start(gossip_rt, shutdown_rx)
         .await
         .or_raise(make_error)?;
-
-    Ok((Proxy::new(gossip), futs))
+    gossip_futs.extend(futs);
+    Ok((gossip_state, gossip_futs))
 }
 
 pub fn too_many_requests() -> Response {
@@ -391,4 +435,107 @@ pub async fn delete(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> 
         .record(start.elapsed().as_secs_f64(), &labels);
 
     delete_success()
+}
+
+#[handler]
+async fn gossip(Json(msg): Json<GossipMessage>, Data(state): Data<&Arc<GossipState>>) -> Response {
+    log::debug!("received message: {msg:?}");
+
+    if let Some(response) = state.handle_message(msg) {
+        Json(response).into_response()
+    } else {
+        ().into_response()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+struct Member {
+    node_id: Uuid,
+    cluster_id: String,
+    advertise_data_url: Url,
+    advertise_ctrl_url: Url,
+    incarnation: u64,
+    status: MemberStatus,
+    heartbeat: Timestamp,
+    vnodes: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+struct ListMembersResponse {
+    members: Vec<Member>,
+}
+
+#[handler]
+async fn list_members(Data(state): Data<&Arc<GossipState>>) -> Response {
+    let resp = ListMembersResponse {
+        members: state
+            .membership()
+            .members()
+            .values()
+            .map(|m| Member {
+                node_id: m.info.node_id,
+                cluster_id: m.info.cluster_id.clone(),
+                advertise_data_url: m.info.advertise_data_url.clone(),
+                advertise_ctrl_url: m.info.advertise_ctrl_url.clone(),
+                incarnation: m.info.incarnation,
+                status: m.status,
+                heartbeat: m.heartbeat,
+                vnodes: state.ring().list_vnodes(&m.info.node_id),
+            })
+            .collect(),
+    };
+    Json(resp).into_response()
+}
+
+#[handler]
+async fn fetch_version() -> Response {
+    Json(percas_version::build_info()).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use insta::assert_json_snapshot;
+    use jiff::Timestamp;
+    use uuid::Uuid;
+
+    use super::*;
+
+    #[test]
+    fn test_list_members_serde() {
+        let resp = ListMembersResponse {
+            members: vec![Member {
+                node_id: Uuid::nil(),
+                cluster_id: "cluster".to_string(),
+                advertise_data_url: "http://127.0.0.1:7654".parse().unwrap(),
+                advertise_ctrl_url: "http://127.0.0.1:7655".parse().unwrap(),
+                incarnation: 2,
+                status: MemberStatus::Alive,
+                heartbeat: Timestamp::constant(123, 456),
+                vnodes: vec![1, 2, 3],
+            }],
+        };
+        assert_json_snapshot!(
+            resp,
+            @r#"
+            {
+              "members": [
+                {
+                  "node_id": "00000000-0000-0000-0000-000000000000",
+                  "cluster_id": "cluster",
+                  "advertise_data_url": "http://127.0.0.1:7654/",
+                  "advertise_ctrl_url": "http://127.0.0.1:7655/",
+                  "incarnation": 2,
+                  "status": "alive",
+                  "heartbeat": "1970-01-01T00:02:03.000000456Z",
+                  "vnodes": [
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ]
+            }
+            "#
+        );
+    }
 }

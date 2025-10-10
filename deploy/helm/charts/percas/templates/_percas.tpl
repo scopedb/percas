@@ -142,14 +142,14 @@ Percas environment variables
       fieldPath: metadata.labels['apps.kubernetes.io/pod-index']
 - name: PERCAS_CONFIG_SERVER_MODE
   value: "cluster"
-- name: PERCAS_CONFIG_SERVER_LISTEN_ADDR
+- name: PERCAS_CONFIG_SERVER_LISTEN_DATA_ADDR
   value: "0.0.0.0:{{ .Values.service.port }}"
-- name: PERCAS_CONFIG_SERVER_ADVERTISE_ADDR
+- name: PERCAS_CONFIG_SERVER_ADVERTISE_DATA_ADDR
   value: "{{ include "percas.headlessServiceDomain" . }}:{{ .Values.service.port }}"
-- name: PERCAS_CONFIG_SERVER_LISTEN_PEER_ADDR
-  value: "0.0.0.0:{{ .Values.service.peerPort }}"
-- name: PERCAS_CONFIG_SERVER_ADVERTISE_PEER_ADDR
-  value: "{{ include "percas.fullname" . }}-$(POD_INDEX).{{ include "percas.headlessServiceDomain" . }}:{{ .Values.service.peerPort }}"
+- name: PERCAS_CONFIG_SERVER_LISTEN_CTRL_ADDR
+  value: "0.0.0.0:{{ .Values.service.ctrlPort }}"
+- name: PERCAS_CONFIG_SERVER_ADVERTISE_CTRL_ADDR
+  value: "{{ include "percas.fullname" . }}-$(POD_INDEX).{{ include "percas.headlessServiceDomain" . }}:{{ .Values.service.ctrlPort }}"
 - name: PERCAS_CONFIG_SERVER_CLUSTER_ID
   value: "{{ include "percas.clusterID" . }}"
 {{- end }}
@@ -170,8 +170,8 @@ Percas config
 # options will be set with env variables
 [server]
 dir = "{{ include "percas.dir" . }}"
-initial_advertise_peer_addrs = [
-  "{{ include "percas.fullname" . }}-0.{{ include "percas.headlessServiceDomain" . }}:{{ .Values.service.peerPort }}"
+initial_peers = [
+  "{{ include "percas.fullname" . }}-0.{{ include "percas.headlessServiceDomain" . }}:{{ .Values.service.ctrlPort }}"
 ]
 
 [storage]

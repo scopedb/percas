@@ -21,19 +21,29 @@ mod ring;
 use std::fmt;
 
 pub use gossip::GossipFuture;
+pub use gossip::GossipMessage;
 pub use gossip::GossipState;
+pub use member::MemberState;
+pub use member::MemberStatus;
+pub use member::Membership;
 pub use node::NodeInfo;
 pub use proxy::Proxy;
 pub use proxy::RouteDest;
 pub use ring::HashRing;
 
 #[derive(Debug)]
-pub struct ClusterError(String);
+pub struct GossipError(String);
 
-impl fmt::Display for ClusterError {
+impl GossipError {
+    pub fn new(msg: impl Into<String>) -> Self {
+        Self(msg.into())
+    }
+}
+
+impl fmt::Display for GossipError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-impl std::error::Error for ClusterError {}
+impl std::error::Error for GossipError {}

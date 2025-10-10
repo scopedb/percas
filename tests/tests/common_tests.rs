@@ -19,6 +19,12 @@ use insta::assert_snapshot;
 use test_harness::test;
 
 #[test(harness)]
+async fn test_version(testkit: Testkit) {
+    let version = testkit.client.version().await.unwrap();
+    println!("{version:?}");
+}
+
+#[test(harness)]
 async fn test_put_get(testkit: Testkit) {
     let (key, value) = ("key", "value");
     testkit.client.put(key, value.as_bytes()).await.unwrap();

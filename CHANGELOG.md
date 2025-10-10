@@ -9,6 +9,12 @@ For the changelog of the `percase-client` crate, please refer to its own [CHANGE
 ### Breaking Changes
 
 * Standalone mode is removed. `server.mode` option is removed from the config file.
+* `server.listen_addr` is now `server.listen_data_addr`.
+* `server.advertised_addr` is now `server.advertised_data_addr`.
+* `server.listen_peer_addr` is now `server.listen_ctrl_addr`
+* `server.advertise_peer_addr` is now `server.advertised_ctrl_addr`.
+* `server.initial_advertise_peer_addrs` is now `initial_peers` and accepts urls with scheme (e.g. `initial_peers = ["http://percas:7655"]`).
+* The corresponding environment variables are also renamed accordingly.
 
 ## v0.3.0 (2025-10-07)
 
