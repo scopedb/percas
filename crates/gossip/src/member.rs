@@ -30,7 +30,7 @@ pub enum MemberStatus {
 }
 
 impl MemberStatus {
-    // Downgrade the status of a member.
+    /// Downgrade the status of a member.
     pub fn downgrade_to(&mut self, other: &MemberStatus) {
         match (&self, other) {
             (MemberStatus::Alive, MemberStatus::Alive) => {}
@@ -68,13 +68,13 @@ impl Membership {
     /// modified (added, replaced, or had its status/heartbeat changed).
     ///
     /// Merge rules:
-    /// - If incoming incarnation > current.incarnation -> replace entry.
-    /// - If incoming incarnation < current.incarnation -> ignore.
+    /// - If incoming incarnation > current incarnation -> replace entry.
+    /// - If incoming incarnation < current incarnation -> ignore.
     /// - If incarnation equal:
     ///     * Use heartbeat as a tiebreaker: the larger heartbeat is considered the fresher
     ///       observation.
     ///     * Status changes are accepted if the incoming observation is at least as fresh
-    ///       (heartbeat >= current.heartbeat). This avoids flipping status based on stale reports.
+    ///       (heartbeat >= current heartbeat). This avoids flipping status based on stale reports.
     pub fn update_member(&mut self, member: MemberState) -> bool {
         match self.members.entry(member.info.node_id) {
             Entry::Occupied(mut entry) => {
@@ -136,8 +136,8 @@ mod membership_tests {
 
     use super::*;
 
-    fn make_node(id: Uuid, _inc: u64) -> crate::node::NodeInfo {
-        crate::node::NodeInfo::init(id, "c".to_string(), "a".to_string(), "p".to_string())
+    fn make_node(id: Uuid, _inc: u64) -> NodeInfo {
+        NodeInfo::init(id, "c".to_string(), "a".to_string(), "p".to_string())
     }
 
     #[test]

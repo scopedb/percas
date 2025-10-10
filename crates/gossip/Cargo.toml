@@ -13,10 +13,10 @@
 # limitations under the License.
 
 [package]
-name = "percas-cluster"
+name = "percas-gossip"
 publish = false
 
-description = "The cluster service for Percas."
+description = "The gossip implementation for Percas."
 
 edition.workspace = true
 license.workspace = true

@@ -16,7 +16,7 @@
 members = [
   "client",
   "cmd/percas",
-  "crates/cluster",
+  "crates/gossip",
   "crates/core",
   "crates/metrics",
   "crates/server",
@@ -39,8 +39,8 @@ percas-client = { path = "client" }
 
 # Workspace unpublished members
 percas = { path = "cmd/percas" }
-percas-cluster = { path = "crates/cluster" }
 percas-core = { path = "crates/core" }
+percas-gossip = { path = "crates/gossip" }
 percas-metrics = { path = "crates/metrics" }
 percas-server = { path = "crates/server" }
 percas-version = { path = "crates/version" }

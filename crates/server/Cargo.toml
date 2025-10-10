@@ -40,8 +40,8 @@ mea = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-otlp = { workspace = true }
 opentelemetry_sdk = { workspace = true }
-percas-cluster = { workspace = true }
 percas-core = { workspace = true }
+percas-gossip = { workspace = true }
 percas-metrics = { workspace = true }
 percas-version = { workspace = true }
 poem = { workspace = true }

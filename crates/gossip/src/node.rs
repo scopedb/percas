@@ -12,15 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io;
 use std::path::Path;
 
-use exn::Result;
-use exn::ResultExt;
 use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
-
-use crate::GossipError;
 
 /// PersistentNodeInfo is used to store the node information in a file.
 /// The `advertise_addr` and `advertise_peer_addr` fields are not included in this struct, since
@@ -43,29 +40,19 @@ impl From<NodeInfo> for PersistentNodeInfo {
 }
 
 impl PersistentNodeInfo {
-    fn load(path: &Path) -> Result<Option<Self>, GossipError> {
-        let make_error =
-            || GossipError(format!("failed to load node info from {}", path.display()));
-
+    fn load(path: &Path) -> Result<Option<Self>, io::Error> {
         if path.exists() {
-            let data = std::fs::read_to_string(path).or_raise(make_error)?;
-            let info = serde_json::from_str(&data).or_raise(make_error)?;
+            let data = std::fs::read_to_string(path)?;
+            let info = serde_json::from_str(&data)?;
             Ok(Some(info))
         } else {
             Ok(None)
         }
     }
 
-    fn persist(&self, path: &Path) -> Result<(), GossipError> {
-        let make_error = || {
-            GossipError(format!(
-                "failed to persist node info into {}",
-                path.display()
-            ))
-        };
-
-        let data = serde_json::to_string_pretty(self).or_raise(make_error)?;
-        std::fs::write(path, data).or_raise(make_error)
+    fn persist(&self, path: &Path) -> Result<(), io::Error> {
+        let data = serde_json::to_string_pretty(self)?;
+        std::fs::write(path, data)
     }
 }
 
@@ -94,7 +81,13 @@ impl NodeInfo {
     }
 
     pub fn load(path: &Path, advertise_addr: String, advertise_peer_addr: String) -> Option<Self> {
-        let info = PersistentNodeInfo::load(path).expect("unrecoverable: failed to load node info");
+        let info = PersistentNodeInfo::load(path).unwrap_or_else(|err| {
+            panic!(
+                "unrecoverable: failed to load node info from {}: {err}",
+                path.display()
+            )
+        });
+
         info.map(|info| Self {
             node_id: info.node_id,
             cluster_id: info.cluster_id,
@@ -105,12 +98,17 @@ impl NodeInfo {
     }
 
     pub fn persist(&self, path: &Path) {
-        PersistentNodeInfo {
+        let info = PersistentNodeInfo {
             node_id: self.node_id,
             cluster_id: self.cluster_id.clone(),
             incarnation: self.incarnation,
-        }
-        .persist(path)
-        .expect("unrecoverable: failed to persist node info")
+        };
+
+        info.persist(path).unwrap_or_else(|err| {
+            panic!(
+                "unrecoverable: failed to persist node info to {}: {err}",
+                path.display()
+            )
+        })
     }
 }

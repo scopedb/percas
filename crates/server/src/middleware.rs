@@ -15,9 +15,9 @@
 use std::sync::Arc;
 
 use mea::semaphore::Semaphore;
-use percas_cluster::Proxy;
-use percas_cluster::RouteDest;
 use percas_core::num_cpus;
+use percas_gossip::Proxy;
+use percas_gossip::RouteDest;
 use percas_metrics::GlobalMetrics;
 use percas_metrics::OperationMetrics;
 use poem::Endpoint;

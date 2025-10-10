@@ -2492,27 +2492,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "percas-cluster"
-version = "0.3.0"
-dependencies = [
- "backon",
- "exn",
- "fastimer",
- "insta",
- "jiff",
- "log",
- "mea",
- "murmur3",
- "percas-core",
- "rand 0.9.2",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "percas-core"
 version = "0.3.0"
 dependencies = [
@@ -2536,6 +2515,27 @@ dependencies = [
  "tempfile",
  "tokio",
  "url",
+]
+
+[[package]]
+name = "percas-gossip"
+version = "0.3.0"
+dependencies = [
+ "backon",
+ "exn",
+ "fastimer",
+ "insta",
+ "jiff",
+ "log",
+ "mea",
+ "murmur3",
+ "percas-core",
+ "rand 0.9.2",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -2565,8 +2565,8 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
- "percas-cluster",
  "percas-core",
+ "percas-gossip",
  "percas-metrics",
  "percas-version",
  "poem",

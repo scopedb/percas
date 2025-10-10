@@ -19,6 +19,7 @@ use std::fmt::Debug;
 const DEFAULT_VNODE_COUNT: u32 = 64;
 
 /// A consistent hash ring implementation.
+///
 /// This implementation uses MurmurHash3 to hash the nodes and keys.
 /// It supports virtual nodes to improve load balancing, every added node
 /// will be replicated `vnodes` times in the ring.
@@ -26,7 +27,7 @@ const DEFAULT_VNODE_COUNT: u32 = 64;
 /// # Examples
 ///
 /// ```
-/// use percas_cluster::HashRing;
+/// use percas_gossip::HashRing;
 ///
 /// let ring = HashRing::from(["node-1", "node-2", "node-3"]);
 /// assert_eq!(ring.lookup("key1"), Some("node-2"));
