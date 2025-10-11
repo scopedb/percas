@@ -96,9 +96,10 @@ impl FoyerEngine {
         let parallelism = num_cpus().get();
         let cache = HybridCacheBuilder::new()
             .with_policy(HybridCachePolicy::WriteOnEviction)
-            .with_metrics_registry(
-                metrics_registry.map_or(Box::new(NoopMetricsRegistry), |v| Box::new(v)),
-            )
+            .with_metrics_registry(match metrics_registry {
+                Some(registry) => Box::new(registry),
+                None => Box::new(NoopMetricsRegistry),
+            })
             .memory((memory_capacity.0 as f64 * DEFAULT_MEMORY_CAPACITY_FACTOR) as usize)
             .with_weighter(|key: &Vec<u8>, value: &Vec<u8>| {
                 let key_size = key.len();
