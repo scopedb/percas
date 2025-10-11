@@ -21,12 +21,13 @@ use percas_client::Client;
 use percas_client::ClientBuilder;
 use percas_core::Config;
 use percas_core::FoyerEngine;
-use percas_core::LogsConfig;
 use percas_core::Runtime;
 use percas_core::ServerConfig;
 use percas_core::StorageConfig;
 use percas_core::TelemetryConfig;
 use percas_core::default_cluster_id;
+use percas_core::default_disk_capacity;
+use percas_core::default_memory_capacity;
 use percas_core::make_runtime;
 use percas_server::server::ServerState;
 use percas_server::server::make_acceptor_and_advertise_url;
@@ -60,21 +61,9 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
     let node_id = Uuid::now_v7();
     let service_name = format!("test_harness:{test_name}").leak();
 
-    let mut drop_guards = telemetry::init(
-        rt,
-        service_name,
-        node_id,
-        TelemetryConfig {
-            logs: LogsConfig::disabled(),
-            traces: None,
-            metrics: None,
-        },
-    );
-
     let temp_dir = tempfile::tempdir().unwrap();
     let listen_addr = SocketAddr::from(([0, 0, 0, 0], 0));
 
-    let default_config = Config::default();
     let config = Config {
         server: ServerConfig {
             dir: temp_dir.path().to_path_buf(),
@@ -87,21 +76,24 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
         },
         storage: StorageConfig {
             data_dir: temp_dir.path().to_path_buf().join("data"),
-            ..default_config.storage
+            disk_capacity: default_disk_capacity(),
+            memory_capacity: default_memory_capacity(),
+            disk_throttle: None,
         },
         telemetry: TelemetryConfig {
-            logs: LogsConfig::disabled(),
+            logs: Default::default(),
             traces: None,
             metrics: None,
         },
     };
 
+    let mut drop_guards = telemetry::init(rt, service_name, node_id, config.telemetry);
     let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
     let server_state = rt.block_on(async move {
         let engine = FoyerEngine::try_new(
             &config.storage.data_dir,
-            config.storage.memory_capacity,
-            config.storage.disk_capacity,
+            config.storage.memory_capacity.into(),
+            config.storage.disk_capacity.into(),
             config.storage.disk_throttle,
             None,
         )

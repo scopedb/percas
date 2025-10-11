@@ -26,7 +26,7 @@ disk_capacity = 536_870_912
 
 [telemetry.logs.file]
 filter = "INFO"
-dir = "logs/node-1"
+dir = ".percas-cluster/node-1/logs"
 max_files = 64
 
 [telemetry.logs.opentelemetry]

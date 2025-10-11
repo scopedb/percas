@@ -18,8 +18,6 @@ mod node;
 mod proxy;
 mod ring;
 
-use std::fmt;
-
 pub use gossip::GossipFuture;
 pub use gossip::GossipMessage;
 pub use gossip::GossipState;
@@ -31,18 +29,12 @@ pub use proxy::Proxy;
 pub use proxy::RouteDest;
 pub use ring::HashRing;
 
-#[derive(Debug)]
+#[derive(Debug, parse_display::Display)]
 pub struct GossipError(String);
 
 impl GossipError {
     pub fn new(msg: impl Into<String>) -> Self {
         Self(msg.into())
-    }
-}
-
-impl fmt::Display for GossipError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
     }
 }
 
