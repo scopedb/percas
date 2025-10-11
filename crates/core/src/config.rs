@@ -17,6 +17,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::path::PathBuf;
 
+use bytesize::ByteSize;
 use serde::Deserialize;
 use serde::Serialize;
 use url::Url;
@@ -199,7 +200,7 @@ impl Default for Config {
             },
             storage: StorageConfig {
                 data_dir: default_data_dir(),
-                disk_capacity: 512 * 1024 * 1024,
+                disk_capacity: ByteSize::mib(512).0,
                 disk_throttle: None,
                 memory_capacity: None,
             },

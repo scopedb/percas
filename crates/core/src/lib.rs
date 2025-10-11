@@ -17,8 +17,10 @@ mod engine;
 mod newtype;
 mod runtime;
 
+use std::num::NonZeroU64;
 use std::num::NonZeroUsize;
 
+use bytesize::ByteSize;
 pub use config::*;
 pub use engine::*;
 pub use runtime::*;
@@ -37,18 +39,18 @@ pub fn num_cpus() -> NonZeroUsize {
     }
 }
 
-pub fn available_memory() -> NonZeroUsize {
-    const RESERVED_MEMORY: usize = 128 * 1024 * 1024; // 128 MB
-    static MEMORY: std::sync::OnceLock<NonZeroUsize> = std::sync::OnceLock::new();
+pub fn available_memory() -> NonZeroU64 {
+    const RESERVED_MEMORY: ByteSize = ByteSize::mib(128);
+    static MEMORY: std::sync::OnceLock<NonZeroU64> = std::sync::OnceLock::new();
 
     *MEMORY.get_or_init(|| {
         let mut sys = sysinfo::System::new();
         sys.refresh_memory();
-        let mem = sys.cgroup_limits().map_or_else(
-            || sys.total_memory() as usize,
-            |limits| limits.total_memory as usize,
-        );
+        let mem = sys
+            .cgroup_limits()
+            .map_or_else(|| sys.total_memory(), |limits| limits.total_memory);
 
-        NonZeroUsize::new(mem.saturating_sub(RESERVED_MEMORY).max(RESERVED_MEMORY)).unwrap()
+        let reserved = RESERVED_MEMORY.0;
+        NonZeroU64::new(mem.saturating_sub(reserved).max(reserved)).unwrap()
     })
 }

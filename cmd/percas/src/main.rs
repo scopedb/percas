@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fmt;
-
 use clap::Parser;
 use exn::Result;
+use parse_display::Display;
 use percas_version::version;
 
 mod config;
@@ -43,14 +42,8 @@ enum SubCommand {
     Start(start::CommandStart),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Display)]
 struct Error(String);
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
 
 impl std::error::Error for Error {}
 

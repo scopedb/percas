@@ -25,12 +25,14 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
+bytesize = { workspace = true }
 exn = { workspace = true }
 fastimer = { workspace = true }
 foyer = { workspace = true }
 jiff = { workspace = true }
 log = { workspace = true }
 mixtrics = { workspace = true }
+parse-display = { workspace = true }
 pin-project = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
@@ -42,7 +44,6 @@ url = { workspace = true }
 jemallocator = { workspace = true }
 
 [dev-dependencies]
-bytesize = { workspace = true }
 criterion = { workspace = true }
 googletest = { workspace = true }
 insta = { workspace = true }

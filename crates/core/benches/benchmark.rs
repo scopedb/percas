@@ -14,6 +14,7 @@
 
 #![feature(random)]
 
+use bytesize::ByteSize;
 use criterion::BenchmarkId;
 use criterion::Criterion;
 use criterion::criterion_group;
@@ -32,7 +33,7 @@ fn foyer_engine(c: &mut Criterion) {
     {
         let dir = tempdir_in("/tmp").unwrap();
         let engine = runtime.block_on(async {
-            FoyerEngine::try_new(dir.path(), Some(0), 4 * 1024 * 1024 * 1024, None, None)
+            FoyerEngine::try_new(dir.path(), Some(0), ByteSize::gib(4).0, None, None)
                 .await
                 .unwrap()
         });
@@ -41,7 +42,7 @@ fn foyer_engine(c: &mut Criterion) {
             .for_each(|len| {
                 let payload = gen_payload(len);
                 c.bench_with_input(
-                    BenchmarkId::new("put", bytesize::ByteSize::b(len as u64)),
+                    BenchmarkId::new("put", ByteSize::b(len as u64)),
                     &payload,
                     |b, s| {
                         b.to_async(&runtime).iter(|| async {
@@ -59,7 +60,7 @@ fn foyer_engine(c: &mut Criterion) {
             .for_each(|len| {
                 let dir = tempdir_in("/tmp").unwrap();
                 let engine = runtime.block_on(async {
-                    FoyerEngine::try_new(dir.path(), Some(0), 4 * 1024 * 1024 * 1024, None, None)
+                    FoyerEngine::try_new(dir.path(), Some(0), ByteSize::gib(4).0, None, None)
                         .await
                         .unwrap()
                 });
@@ -69,7 +70,7 @@ fn foyer_engine(c: &mut Criterion) {
                     engine.put(key, &payload);
                 });
                 c.bench_with_input(
-                    BenchmarkId::new("get", bytesize::ByteSize::b(len as u64)),
+                    BenchmarkId::new("get", ByteSize::b(len as u64)),
                     &keys,
                     |b, s| {
                         b.to_async(&runtime).iter(|| async {

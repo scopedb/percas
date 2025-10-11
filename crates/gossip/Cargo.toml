@@ -32,6 +32,7 @@ jiff = { workspace = true }
 log = { workspace = true }
 mea = { workspace = true }
 murmur3 = { workspace = true }
+parse-display = { workspace = true }
 percas-core = { workspace = true }
 rand = { workspace = true }
 reqwest = { workspace = true }

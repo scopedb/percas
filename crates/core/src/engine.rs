@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fmt;
 use std::path::Path;
 use std::sync::Arc;
 
+use bytesize::ByteSize;
 use exn::IntoExn;
 use exn::Result;
 use exn::bail;
@@ -33,23 +33,18 @@ use foyer::RecoverMode;
 use foyer::RuntimeOptions;
 use mixtrics::registry::noop::NoopMetricsRegistry;
 use mixtrics::registry::opentelemetry_0_31::OpenTelemetryMetricsRegistry;
+use parse_display::Display;
 
 use crate::available_memory;
 use crate::newtype::DiskThrottle;
 use crate::num_cpus;
 
 const DEFAULT_MEMORY_CAPACITY_FACTOR: f64 = 0.5; // 50% of available memory
-const DEFAULT_BLOCK_SIZE: usize = 64 * 1024 * 1024; // 64 MiB
+const DEFAULT_BLOCK_SIZE: ByteSize = ByteSize::mib(64);
 const DEFAULT_FLUSHERS: usize = 4; // Number of flushers for the block engine
 
-#[derive(Debug)]
+#[derive(Debug, Display)]
 pub struct EngineError(String);
-
-impl fmt::Display for EngineError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
 
 impl std::error::Error for EngineError {}
 
@@ -105,10 +100,10 @@ impl FoyerEngine {
             .with_metrics_registry(
                 metrics_registry.map_or(Box::new(NoopMetricsRegistry), |v| Box::new(v)),
             )
-            .memory(
-                (memory_capacity.map_or_else(|| available_memory().get(), |v| v as usize) as f64
-                    * DEFAULT_MEMORY_CAPACITY_FACTOR) as usize,
-            )
+            .memory({
+                let memory = memory_capacity.unwrap_or_else(|| available_memory().get());
+                (memory as f64 * DEFAULT_MEMORY_CAPACITY_FACTOR) as usize
+            })
             .with_weighter(|key: &Vec<u8>, value: &Vec<u8>| {
                 let key_size = key.len();
                 let value_size = value.len();
@@ -120,7 +115,7 @@ impl FoyerEngine {
             .with_engine_config(
                 BlockEngineBuilder::new(dev)
                     .with_recover_concurrency(parallelism)
-                    .with_block_size(DEFAULT_BLOCK_SIZE)
+                    .with_block_size(DEFAULT_BLOCK_SIZE.0 as usize)
                     .with_flushers(DEFAULT_FLUSHERS),
             )
             .with_io_engine(
@@ -178,10 +173,11 @@ mod tests {
     async fn test_get() {
         let temp_dir = tempfile::tempdir().unwrap();
 
-        let engine =
-            FoyerEngine::try_new(temp_dir.path(), Some(512 * 1024), 1024 * 1024, None, None)
-                .await
-                .unwrap();
+        let memory = ByteSize::kib(512);
+        let disk = ByteSize::mib(1);
+        let engine = FoyerEngine::try_new(temp_dir.path(), Some(memory.0), disk.0, None, None)
+            .await
+            .unwrap();
         engine.put(b"foo".to_vec().as_ref(), b"bar".to_vec().as_ref());
 
         assert_compact_debug_snapshot!(
