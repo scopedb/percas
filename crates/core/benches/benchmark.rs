@@ -41,7 +41,7 @@ fn foyer_engine(c: &mut Criterion) {
             .for_each(|len| {
                 let payload = gen_payload(len);
                 c.bench_with_input(
-                    BenchmarkId::new("put", humansize::format_size(len, humansize::BINARY)),
+                    BenchmarkId::new("put", bytesize::ByteSize::b(len as u64)),
                     &payload,
                     |b, s| {
                         b.to_async(&runtime).iter(|| async {
@@ -69,7 +69,7 @@ fn foyer_engine(c: &mut Criterion) {
                     engine.put(key, &payload);
                 });
                 c.bench_with_input(
-                    BenchmarkId::new("get", humansize::format_size(len, humansize::BINARY)),
+                    BenchmarkId::new("get", bytesize::ByteSize::b(len as u64)),
                     &keys,
                     |b, s| {
                         b.to_async(&runtime).iter(|| async {
