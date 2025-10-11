@@ -65,7 +65,7 @@ futures-util = { version = "0.3.31" }
 gix-discover = { version = "0.41.0" }
 googletest = { version = "0.14.0" }
 indent = { version = "0.1.1" }
-insta = { version = "1.42.2", features = ["json", "toml"] }
+insta = { version = "1.42.2", features = ["json", "toml", "redactions"] }
 jemallocator = { version = "0.5.4" }
 jiff = { version = "0.2", features = ["serde"] }
 local-ip-address = { version = "0.6.3" }

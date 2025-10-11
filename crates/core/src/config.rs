@@ -516,6 +516,9 @@ mod tests {
         let config = Config::default();
         insta::assert_toml_snapshot!(
             config,
+            {
+               ".storage.memory_capacity" => "[available memory size]",
+            },
             @r"
             [server]
             dir = '/var/lib/percas'
@@ -526,7 +529,7 @@ mod tests {
             [storage]
             data_dir = '/var/lib/percas/data'
             disk_capacity = '512.0 MiB'
-            memory_capacity = '31.9 GiB'
+            memory_capacity = '[available memory size]'
             [telemetry.logs.file]
             filter = 'INFO'
             dir = 'logs'
