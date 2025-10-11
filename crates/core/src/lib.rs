@@ -17,7 +17,6 @@ mod engine;
 mod newtype;
 mod runtime;
 
-use std::num::NonZeroU64;
 use std::num::NonZeroUsize;
 
 use bytesize::ByteSize;
@@ -39,9 +38,9 @@ pub fn num_cpus() -> NonZeroUsize {
     }
 }
 
-pub fn available_memory() -> NonZeroU64 {
+pub fn available_memory() -> ByteSize {
     const RESERVED_MEMORY: ByteSize = ByteSize::mib(128);
-    static MEMORY: std::sync::OnceLock<NonZeroU64> = std::sync::OnceLock::new();
+    static MEMORY: std::sync::OnceLock<ByteSize> = std::sync::OnceLock::new();
 
     *MEMORY.get_or_init(|| {
         let mut sys = sysinfo::System::new();
@@ -49,8 +48,7 @@ pub fn available_memory() -> NonZeroU64 {
         let mem = sys
             .cgroup_limits()
             .map_or_else(|| sys.total_memory(), |limits| limits.total_memory);
-
         let reserved = RESERVED_MEMORY.0;
-        NonZeroU64::new(mem.saturating_sub(reserved).max(reserved)).unwrap()
+        ByteSize(mem.saturating_sub(reserved).max(reserved))
     })
 }

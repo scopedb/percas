@@ -106,8 +106,8 @@ async fn run_server(
 
     let engine = FoyerEngine::try_new(
         config.storage.data_dir.as_path(),
-        config.storage.memory_capacity,
-        config.storage.disk_capacity,
+        config.storage.memory_capacity.into(),
+        config.storage.disk_capacity.into(),
         config.storage.disk_throttle,
         Some(OpenTelemetryMetricsRegistry::new(
             GlobalMetrics::get().meter.clone(),
