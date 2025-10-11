@@ -291,7 +291,7 @@ pub const fn known_option_entries() -> &'static [OptionEntry] {
         OptionEntry {
             env_name: "PERCAS_CONFIG_STORAGE_DISK_CAPACITY",
             ent_path: "storage.disk_capacity",
-            ent_type: "integer",
+            ent_type: "string",
         },
         OptionEntry {
             env_name: "PERCAS_CONFIG_STORAGE_DISK_THROTTLE_IOPS_COUNTER_MODE",
@@ -326,7 +326,7 @@ pub const fn known_option_entries() -> &'static [OptionEntry] {
         OptionEntry {
             env_name: "PERCAS_CONFIG_STORAGE_MEMORY_CAPACITY",
             ent_path: "storage.memory_capacity",
-            ent_type: "integer",
+            ent_type: "string",
         },
         OptionEntry {
             env_name: "PERCAS_CONFIG_TELEMETRY_LOGS_FILE_DIR",
@@ -429,7 +429,7 @@ mod codegen {
 
         let options = result.into_values().collect::<Vec<_>>();
         let known_option_entries = known_option_entries().to_vec();
-        assert_that!(known_option_entries, container_eq(options));
+        assert_that!(options, container_eq(known_option_entries));
     }
 
     fn fetch_ref_object<'a>(defs: &'a Object, r: &str) -> &'a Object {
@@ -525,7 +525,8 @@ mod tests {
 
             [storage]
             data_dir = '/var/lib/percas/data'
-            disk_capacity = 536870912
+            disk_capacity = '512.0 MiB'
+            memory_capacity = '31.9 GiB'
             [telemetry.logs.file]
             filter = 'INFO'
             dir = 'logs'
