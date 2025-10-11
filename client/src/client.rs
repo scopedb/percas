@@ -16,6 +16,7 @@ use std::sync::RwLock;
 use std::time::Duration;
 use std::time::Instant;
 
+use fastrace_reqwest::traceparent_headers;
 use reqwest::StatusCode;
 use reqwest::Url;
 use reqwest::redirect::Policy;
@@ -116,6 +117,7 @@ impl Client {
         let resp = self
             .client
             .get(url)
+            .headers(traceparent_headers())
             .send()
             .await
             .map_err(make_opaque_error)?;
@@ -140,6 +142,7 @@ impl Client {
         let resp = self
             .client
             .put(url)
+            .headers(traceparent_headers())
             .body(value.to_vec())
             .send()
             .await
@@ -161,6 +164,7 @@ impl Client {
         let resp = self
             .client
             .delete(url)
+            .headers(traceparent_headers())
             .send()
             .await
             .map_err(make_opaque_error)?;
@@ -179,6 +183,7 @@ impl Client {
         let resp = self
             .client
             .get(url)
+            .headers(traceparent_headers())
             .send()
             .await
             .map_err(make_opaque_error)?;
@@ -224,6 +229,7 @@ impl Client {
             let resp = self
                 .client
                 .get(url)
+                .headers(traceparent_headers())
                 .send()
                 .await
                 .map_err(make_opaque_error)?;

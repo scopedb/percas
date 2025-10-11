@@ -59,6 +59,7 @@ exn = { version = "0.1.2" }
 fastimer = { version = "0.10.0" }
 fastrace = { version = "0.7.9" }
 fastrace-opentelemetry = { version = "0.14.0" }
+fastrace-reqwest = { version = "0.2.0" }
 foyer = { version = "0.20.0", features = ["nightly"] }
 futures-util = { version = "0.3.31" }
 gix-discover = { version = "0.41.0" }
