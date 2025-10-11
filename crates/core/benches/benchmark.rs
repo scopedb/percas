@@ -37,48 +37,40 @@ fn foyer_engine(c: &mut Criterion) {
                 .await
                 .unwrap()
         });
-        [4 * 1024, 16 * 1024, 256 * 1024]
+        [ByteSize::kib(4), ByteSize::kib(16), ByteSize::kib(256)]
             .into_iter()
-            .for_each(|len| {
-                let payload = gen_payload(len);
-                c.bench_with_input(
-                    BenchmarkId::new("put", ByteSize::b(len as u64)),
-                    &payload,
-                    |b, s| {
-                        b.to_async(&runtime).iter(|| async {
-                            let key = gen_key(32);
-                            engine.put(&key, s);
-                        })
-                    },
-                );
+            .for_each(|bs| {
+                let payload = gen_payload(bs);
+                c.bench_with_input(BenchmarkId::new("put", bs), &payload, |b, s| {
+                    b.to_async(&runtime).iter(|| async {
+                        let key = gen_key(32);
+                        engine.put(&key, s);
+                    })
+                });
             });
     }
 
     {
-        [4 * 1024, 16 * 1024, 256 * 1024]
+        [ByteSize::kib(4), ByteSize::kib(16), ByteSize::kib(256)]
             .into_iter()
-            .for_each(|len| {
+            .for_each(|bs| {
                 let dir = tempdir_in("/tmp").unwrap();
                 let engine = runtime.block_on(async {
                     FoyerEngine::try_new(dir.path(), Some(0), ByteSize::gib(4).0, None, None)
                         .await
                         .unwrap()
                 });
-                let payload = gen_payload(len);
+                let payload = gen_payload(bs);
                 let keys = (0..1000).map(|_| gen_key(32)).collect::<Vec<_>>();
                 keys.iter().for_each(|key| {
                     engine.put(key, &payload);
                 });
-                c.bench_with_input(
-                    BenchmarkId::new("get", ByteSize::b(len as u64)),
-                    &keys,
-                    |b, s| {
-                        b.to_async(&runtime).iter(|| async {
-                            let key = &s[rand::rng().random_range(0..keys.len())];
-                            std::hint::black_box(engine.get(key).await);
-                        })
-                    },
-                );
+                c.bench_with_input(BenchmarkId::new("get", bs), &keys, |b, s| {
+                    b.to_async(&runtime).iter(|| async {
+                        let key = &s[rand::rng().random_range(0..keys.len())];
+                        std::hint::black_box(engine.get(key).await);
+                    })
+                });
             });
     }
 }
@@ -87,6 +79,7 @@ fn gen_key(len: usize) -> Vec<u8> {
     (0..len).map(|_| rand::rng().random()).collect()
 }
 
-fn gen_payload(len: usize) -> Vec<u8> {
+fn gen_payload(bs: ByteSize) -> Vec<u8> {
+    let len = bs.as_u64() as usize;
     vec![0x11; len]
 }
