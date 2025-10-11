@@ -68,8 +68,8 @@ impl ReportMetricsAction {
 
         let engine = &self.ctx.engine;
         // foyer will reserve all the space in the disk; the used space is meaningless
-        metrics.storage.used.record(engine.capacity(), &[]);
-        metrics.storage.capacity.record(engine.capacity(), &[]);
+        metrics.storage.used.record(engine.capacity().0, &[]);
+        metrics.storage.capacity.record(engine.capacity().0, &[]);
 
         let current = MetricsSnapshot::from(engine.statistics().as_ref());
         let previous = self.snapshot.load();

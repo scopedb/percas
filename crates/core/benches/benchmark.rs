@@ -33,9 +33,15 @@ fn foyer_engine(c: &mut Criterion) {
     {
         let dir = tempdir_in("/tmp").unwrap();
         let engine = runtime.block_on(async {
-            FoyerEngine::try_new(dir.path(), Some(0), ByteSize::gib(4).0, None, None)
-                .await
-                .unwrap()
+            FoyerEngine::try_new(
+                dir.path(),
+                ByteSize::default(),
+                ByteSize::gib(4),
+                None,
+                None,
+            )
+            .await
+            .unwrap()
         });
         [ByteSize::kib(4), ByteSize::kib(16), ByteSize::kib(256)]
             .into_iter()
@@ -56,9 +62,15 @@ fn foyer_engine(c: &mut Criterion) {
             .for_each(|bs| {
                 let dir = tempdir_in("/tmp").unwrap();
                 let engine = runtime.block_on(async {
-                    FoyerEngine::try_new(dir.path(), Some(0), ByteSize::gib(4).0, None, None)
-                        .await
-                        .unwrap()
+                    FoyerEngine::try_new(
+                        dir.path(),
+                        ByteSize::default(),
+                        ByteSize::gib(4),
+                        None,
+                        None,
+                    )
+                    .await
+                    .unwrap()
                 });
                 let payload = gen_payload(bs);
                 let keys = (0..1000).map(|_| gen_key(32)).collect::<Vec<_>>();

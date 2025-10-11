@@ -35,7 +35,6 @@ use mixtrics::registry::noop::NoopMetricsRegistry;
 use mixtrics::registry::opentelemetry_0_31::OpenTelemetryMetricsRegistry;
 use parse_display::Display;
 
-use crate::available_memory;
 use crate::newtype::DiskThrottle;
 use crate::num_cpus;
 
@@ -49,15 +48,15 @@ pub struct EngineError(String);
 impl std::error::Error for EngineError {}
 
 pub struct FoyerEngine {
-    capacity: u64,
+    capacity: ByteSize,
     inner: HybridCache<Vec<u8>, Vec<u8>>,
 }
 
 impl FoyerEngine {
     pub async fn try_new(
         data_dir: &Path,
-        memory_capacity: Option<u64>,
-        disk_capacity: u64,
+        memory_capacity: ByteSize,
+        disk_capacity: ByteSize,
         disk_throttle: Option<DiskThrottle>,
         metrics_registry: Option<OpenTelemetryMetricsRegistry>,
     ) -> Result<Self, EngineError> {
@@ -69,7 +68,7 @@ impl FoyerEngine {
             )));
         }
 
-        let mut db = FsDeviceBuilder::new(data_dir).with_capacity(disk_capacity as usize);
+        let mut db = FsDeviceBuilder::new(data_dir).with_capacity(disk_capacity.0 as usize);
         if let Some(throttle) = disk_throttle {
             db = db.with_throttle(throttle.into());
         } else {
@@ -100,10 +99,7 @@ impl FoyerEngine {
             .with_metrics_registry(
                 metrics_registry.map_or(Box::new(NoopMetricsRegistry), |v| Box::new(v)),
             )
-            .memory({
-                let memory = memory_capacity.unwrap_or_else(|| available_memory().get());
-                (memory as f64 * DEFAULT_MEMORY_CAPACITY_FACTOR) as usize
-            })
+            .memory((memory_capacity.0 as f64 * DEFAULT_MEMORY_CAPACITY_FACTOR) as usize)
             .with_weighter(|key: &Vec<u8>, value: &Vec<u8>| {
                 let key_size = key.len();
                 let value_size = value.len();
@@ -154,7 +150,7 @@ impl FoyerEngine {
         self.inner.remove(key);
     }
 
-    pub fn capacity(&self) -> u64 {
+    pub fn capacity(&self) -> ByteSize {
         self.capacity
     }
 
@@ -173,11 +169,16 @@ mod tests {
     async fn test_get() {
         let temp_dir = tempfile::tempdir().unwrap();
 
-        let memory = ByteSize::kib(512);
-        let disk = ByteSize::mib(1);
-        let engine = FoyerEngine::try_new(temp_dir.path(), Some(memory.0), disk.0, None, None)
-            .await
-            .unwrap();
+        let engine = FoyerEngine::try_new(
+            temp_dir.path(),
+            ByteSize::kib(512),
+            ByteSize::mib(1),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
         engine.put(b"foo".to_vec().as_ref(), b"bar".to_vec().as_ref());
 
         assert_compact_debug_snapshot!(
