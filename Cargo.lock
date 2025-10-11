@@ -826,6 +826,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fastrace-reqwest"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4705b6c98308ef10f178dadc516a460ca9191c0e1c6e07c73104c9679e82d4e"
+dependencies = [
+ "fastrace",
+ "reqwest",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2470,6 +2480,7 @@ dependencies = [
 name = "percas-client"
 version = "0.3.0"
 dependencies = [
+ "fastrace-reqwest",
  "murmur3",
  "reqwest",
  "serde",

@@ -31,6 +31,7 @@ sign-tag = true
 tag-message = "chore: Release {{crate_name}} version {{version}}"
 
 [dependencies]
+fastrace-reqwest = { workspace = true }
 murmur3 = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
