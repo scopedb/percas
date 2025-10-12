@@ -21,6 +21,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use url::Url;
 
+use crate::available_memory;
+use crate::newtype::ByteSize;
 use crate::newtype::DiskThrottle;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -58,11 +60,12 @@ pub struct ServerConfig {
 pub struct StorageConfig {
     #[serde(default = "default_data_dir")]
     pub data_dir: PathBuf,
-    pub disk_capacity: u64,
+    #[serde(default = "default_disk_capacity")]
+    pub disk_capacity: ByteSize,
+    #[serde(default = "default_memory_capacity")]
+    pub memory_capacity: ByteSize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disk_throttle: Option<DiskThrottle>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub memory_capacity: Option<u64>,
 }
 
 fn default_listen_data_addr() -> SocketAddr {
@@ -71,6 +74,14 @@ fn default_listen_data_addr() -> SocketAddr {
 
 fn default_listen_ctrl_addr() -> SocketAddr {
     SocketAddr::from(([0, 0, 0, 0], 7655))
+}
+
+pub fn default_disk_capacity() -> ByteSize {
+    bytesize::ByteSize::mib(512).into()
+}
+
+pub fn default_memory_capacity() -> ByteSize {
+    available_memory().into()
 }
 
 pub fn default_dir() -> PathBuf {
@@ -93,7 +104,7 @@ pub fn node_file_path(base_dir: &Path) -> PathBuf {
 #[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct TelemetryConfig {
-    #[serde(default = "LogsConfig::disabled")]
+    #[serde(default)]
     pub logs: LogsConfig,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub traces: Option<TracesConfig>,
@@ -101,7 +112,7 @@ pub struct TelemetryConfig {
     pub metrics: Option<MetricsConfig>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct LogsConfig {
@@ -111,16 +122,6 @@ pub struct LogsConfig {
     pub stderr: Option<StderrAppenderConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub opentelemetry: Option<OpentelemetryAppenderConfig>,
-}
-
-impl LogsConfig {
-    pub fn disabled() -> Self {
-        Self {
-            file: None,
-            stderr: None,
-            opentelemetry: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -199,9 +200,9 @@ impl Default for Config {
             },
             storage: StorageConfig {
                 data_dir: default_data_dir(),
-                disk_capacity: 512 * 1024 * 1024,
+                disk_capacity: default_disk_capacity(),
+                memory_capacity: default_memory_capacity(),
                 disk_throttle: None,
-                memory_capacity: None,
             },
             telemetry: TelemetryConfig {
                 logs: LogsConfig {
@@ -290,7 +291,7 @@ pub const fn known_option_entries() -> &'static [OptionEntry] {
         OptionEntry {
             env_name: "PERCAS_CONFIG_STORAGE_DISK_CAPACITY",
             ent_path: "storage.disk_capacity",
-            ent_type: "integer",
+            ent_type: "string",
         },
         OptionEntry {
             env_name: "PERCAS_CONFIG_STORAGE_DISK_THROTTLE_IOPS_COUNTER_MODE",
@@ -325,7 +326,7 @@ pub const fn known_option_entries() -> &'static [OptionEntry] {
         OptionEntry {
             env_name: "PERCAS_CONFIG_STORAGE_MEMORY_CAPACITY",
             ent_path: "storage.memory_capacity",
-            ent_type: "integer",
+            ent_type: "string",
         },
         OptionEntry {
             env_name: "PERCAS_CONFIG_TELEMETRY_LOGS_FILE_DIR",
@@ -428,7 +429,7 @@ mod codegen {
 
         let options = result.into_values().collect::<Vec<_>>();
         let known_option_entries = known_option_entries().to_vec();
-        assert_that!(known_option_entries, container_eq(options));
+        assert_that!(options, container_eq(known_option_entries));
     }
 
     fn fetch_ref_object<'a>(defs: &'a Object, r: &str) -> &'a Object {
@@ -515,6 +516,9 @@ mod tests {
         let config = Config::default();
         insta::assert_toml_snapshot!(
             config,
+            {
+               ".storage.memory_capacity" => "[available memory size]",
+            },
             @r"
             [server]
             dir = '/var/lib/percas'
@@ -524,7 +528,8 @@ mod tests {
 
             [storage]
             data_dir = '/var/lib/percas/data'
-            disk_capacity = 536870912
+            disk_capacity = '512.0 MiB'
+            memory_capacity = '[available memory size]'
             [telemetry.logs.file]
             filter = 'INFO'
             dir = 'logs'

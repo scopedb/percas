@@ -348,15 +348,10 @@ impl GossipState {
                 .with_delay(DEFAULT_RETRY_INTERVAL)
                 .with_max_times(DEFAULT_RETRIES),
         );
-
-        match with_retry.await {
-            Ok(msg @ GossipMessage::Ack(_)) => {
-                self.handle_message(msg);
-            }
-
-            _ => {
-                self.mark_dead(&peer);
-            }
+        if let Ok(msg @ GossipMessage::Ack(_)) = with_retry.await {
+            self.handle_message(msg);
+        } else {
+            self.mark_dead(&peer);
         }
     }
 
@@ -375,14 +370,10 @@ impl GossipState {
                 .with_delay(DEFAULT_RETRY_INTERVAL)
                 .with_max_times(DEFAULT_RETRIES),
         );
-        match with_retry.await {
-            Ok(msg @ GossipMessage::Sync { .. }) => {
-                self.handle_message(msg);
-            }
-
-            _ => {
-                self.mark_dead(&peer);
-            }
+        if let Ok(msg @ GossipMessage::Sync { .. }) = with_retry.await {
+            self.handle_message(msg);
+        } else {
+            self.mark_dead(&peer);
         }
     }
 

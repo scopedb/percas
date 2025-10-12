@@ -92,3 +92,60 @@ impl From<foyer::IopsCounter> for IopsCounter {
         }
     }
 }
+
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ByteSize(bytesize::ByteSize);
+
+impl From<ByteSize> for bytesize::ByteSize {
+    fn from(value: ByteSize) -> Self {
+        value.0
+    }
+}
+
+impl From<bytesize::ByteSize> for ByteSize {
+    fn from(value: bytesize::ByteSize) -> Self {
+        Self(value)
+    }
+}
+
+impl std::ops::Deref for ByteSize {
+    type Target = bytesize::ByteSize;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ByteSize {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[cfg(test)]
+mod json_schema {
+    use std::borrow::Cow;
+
+    use schemars::Schema;
+    use schemars::SchemaGenerator;
+    use schemars::json_schema;
+
+    use super::*;
+
+    impl schemars::JsonSchema for ByteSize {
+        fn schema_name() -> Cow<'static, str> {
+            Cow::Borrowed("ByteSize")
+        }
+
+        fn schema_id() -> Cow<'static, str> {
+            Cow::Borrowed("bytesize::ByteSize")
+        }
+
+        fn json_schema(_: &mut SchemaGenerator) -> Schema {
+            json_schema!({
+                "type": "string",
+                "pattern": r"^(\d+(\.\d+)?)\s*((?i)(b)|([kmgtpe]((b)|(ib))?))?$"
+            })
+        }
+    }
+}

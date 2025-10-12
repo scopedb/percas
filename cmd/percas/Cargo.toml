@@ -32,6 +32,7 @@ exn = { workspace = true }
 log = { workspace = true }
 mea = { workspace = true }
 mixtrics = { workspace = true }
+parse-display = { workspace = true }
 percas-core = { workspace = true }
 percas-metrics = { workspace = true }
 percas-server = { workspace = true }
