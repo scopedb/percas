@@ -16,7 +16,6 @@ use std::path::Path;
 use std::sync::Arc;
 
 use bytesize::ByteSize;
-use exn::IntoExn;
 use exn::Result;
 use exn::bail;
 use foyer::BlockEngineBuilder;
@@ -119,13 +118,13 @@ impl FoyerEngine {
                 PsyncIoEngineBuilder::new()
                     .build()
                     .await
-                    .map_err(|err| EngineError(err.to_string()).into_exn())?,
+                    .map_err(|err| EngineError(err.to_string()))?,
             )
             .with_recover_mode(RecoverMode::Quiet)
             .with_runtime_options(RuntimeOptions::Unified(Default::default()))
             .build()
             .await
-            .map_err(|err| EngineError(err.to_string()).into_exn())?;
+            .map_err(|err| EngineError(err.to_string()))?;
 
         Ok(FoyerEngine {
             capacity: disk_capacity,
@@ -133,26 +132,28 @@ impl FoyerEngine {
         })
     }
 
+    /// Get a value from the engine by key.
     pub async fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
-        self.inner
-            .get(&key.to_owned())
-            .await
-            .map_err(|e| EngineError(e.to_string()).into_exn())
-            .ok()
-            .flatten()
-            .map(|v| v.value().clone())
+        if let Ok(Some(value)) = self.inner.get(&key.to_owned()).await {
+            Some(value.value().clone())
+        } else {
+            None
+        }
     }
 
+    /// Put a key-value pair into the engine.
     pub fn put(&self, key: &[u8], value: &[u8]) {
         self.inner.insert(key.to_owned(), value.to_owned());
     }
 
+    /// Delete a key-value pair from the engine by key.
     pub fn delete(&self, key: &[u8]) {
         self.inner.remove(key);
     }
 
-    pub fn capacity(&self) -> ByteSize {
-        self.capacity
+    /// Return the disk capacity of the engine in bytes.
+    pub fn capacity(&self) -> u64 {
+        self.capacity.as_u64()
     }
 
     pub fn statistics(&self) -> &Arc<foyer::Statistics> {
