@@ -19,17 +19,17 @@ To get started with Percas, you can follow these steps:
    cargo x build
    ```
 
-### Standalone Mode
+### One Node Cluster
 
-To run a standalone instance of Percas, you can use the following command:
+To run a one node cluster, you can use the following command:
 
 ```shell
 ./target/debug/percas start --config-file dev/standalone/config.toml
 ```
 
-This will start a standalone instance of Percas listening on `localhost:7654`.
+This will start a one node cluster of Percas listening on `localhost:7654`.
 
-### Cluster Mode
+### Distributed Cluster
 
 Percas is a decentralized distributed cache service. Each node in the cluster operates independently without relying on a central coordinator, allowing for excellent scalability and fault tolerance.
 
@@ -49,15 +49,14 @@ Percas will automatically handle data distribution and request routing across al
 
 Percas provides a simple HTTP API for interacting with the cache. You can use any HTTP client to send requests to the cache.
 
-Here are some examples of how to use the HTTP API:
+Here are some examples of how to use the HTTP API (use `-L` with `curl` to follow redirects):
+
 ```shell
-curl -X PUT http://localhost:7654/my/lovely/key -d 'my_lovely_value'
-curl -X GET http://localhost:7654/my/lovely/key
-curl -X DELETE http://localhost:7654/my/lovely/key
+curl -L -X PUT http://localhost:7654/my/lovely/key -d 'my_lovely_value'
+curl -L -X GET http://localhost:7654/my/lovely/key
+curl -L -X DELETE http://localhost:7654/my/lovely/key
 ```
 
 ## License
 
 This work is licensed by [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-
-We're still developing a suitable license model. So far, Apache License 2.0 fits it well. Any source code and releases delivered under the current license model can be used following Apache License 2.0 from then on.
