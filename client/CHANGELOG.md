@@ -4,6 +4,8 @@ All significant changes to the `percase-client` crate will be documented in this
 
 ## Unreleased
 
+## v0.3.0 (2025-10-14)
+
 ### Breaking changes
 
 * `ClientFactory` is now `ClientBuilder` with support for setting a custom HTTP client.
