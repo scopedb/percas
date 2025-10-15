@@ -25,6 +25,7 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
+arc-swap = { workspace = true }
 backon = { workspace = true }
 exn = { workspace = true }
 fastimer = { workspace = true }

@@ -58,6 +58,10 @@ impl Membership {
         &self.members
     }
 
+    pub fn into_members(self) -> BTreeMap<Uuid, MemberState> {
+        self.members
+    }
+
     pub fn is_dead(&self, id: Uuid) -> bool {
         self.members
             .get(&id)
@@ -126,6 +130,16 @@ impl Membership {
     pub fn remove_member(&mut self, id: Uuid) {
         log::info!(target: "gossip", "removing member: {id}");
         self.members.remove(&id);
+    }
+}
+
+impl FromIterator<MemberState> for Membership {
+    fn from_iter<T: IntoIterator<Item = MemberState>>(iter: T) -> Self {
+        let mut membership = Membership::default();
+        for member in iter {
+            membership.update_member(member);
+        }
+        membership
     }
 }
 
