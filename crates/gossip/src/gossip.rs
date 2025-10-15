@@ -17,6 +17,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::time::Duration;
 
+use arc_swap::ArcSwap;
 use backon::ConstantBuilder;
 use backon::Retryable;
 use exn::Result;
@@ -64,8 +65,8 @@ pub struct GossipState {
     current_node: RwLock<NodeInfo>,
     transport: Transport,
 
-    membership: RwLock<Membership>,
-    ring: RwLock<Arc<HashRing<Uuid>>>,
+    membership: ArcSwap<Membership>,
+    ring: ArcSwap<HashRing<Uuid>>,
 }
 
 impl GossipState {
@@ -74,9 +75,9 @@ impl GossipState {
             dir,
             initial_peers,
             current_node: RwLock::new(current_node),
-            membership: RwLock::new(Membership::default()),
+            membership: ArcSwap::new(Arc::new(Membership::default())),
             transport: Transport::new(),
-            ring: RwLock::new(Arc::new(HashRing::default())),
+            ring: ArcSwap::new(Arc::new(HashRing::default())),
         }
     }
 
@@ -84,12 +85,12 @@ impl GossipState {
         self.current_node.read().unwrap().clone()
     }
 
-    pub fn membership(&self) -> Membership {
-        self.membership.read().unwrap().clone()
+    pub fn membership(&self) -> Arc<Membership> {
+        self.membership.load_full()
     }
 
     pub fn ring(&self) -> Arc<HashRing<Uuid>> {
-        self.ring.read().unwrap().clone()
+        self.ring.load_full()
     }
 
     /// Start the gossip protocol.
@@ -101,11 +102,12 @@ impl GossipState {
         let mut gossip_futs = vec![];
 
         // Fast bootstrap
-        self.membership.write().unwrap().update_member(MemberState {
-            info: self.current(),
-            status: MemberStatus::Alive,
-            heartbeat: Timestamp::now(),
-        });
+        self.membership
+            .store(Arc::new(Membership::from_iter([MemberState {
+                info: self.current(),
+                status: MemberStatus::Alive,
+                heartbeat: Timestamp::now(),
+            }])));
 
         let state_clone = self.clone();
         rt.spawn(async move {
@@ -255,50 +257,51 @@ impl GossipState {
         log::debug!("received message: {message:?}");
         let result = match message {
             GossipMessage::Ping(info) => {
-                self.membership.write().unwrap().update_member(MemberState {
+                let mut membership = (**self.membership.load()).clone();
+                membership.update_member(MemberState {
                     info: info.clone(),
                     status: MemberStatus::Alive,
                     heartbeat: Timestamp::now(),
                 });
+                self.membership.store(Arc::new(membership));
 
                 // Respond with an ack
                 Some(GossipMessage::Ack(self.current()))
             }
             GossipMessage::Ack(info) => {
-                self.membership.write().unwrap().update_member(MemberState {
+                let mut membership = (**self.membership.load()).clone();
+                membership.update_member(MemberState {
                     info: info.clone(),
                     status: MemberStatus::Alive,
                     heartbeat: Timestamp::now(),
                 });
+                self.membership.store(Arc::new(membership));
 
                 None
             }
             GossipMessage::Sync { members } => {
+                let mut membership = (**self.membership.load()).clone();
                 for member in members {
-                    self.membership.write().unwrap().update_member(member);
+                    membership.update_member(member);
                 }
 
                 // Ensure the current node is alive
-                self.membership.write().unwrap().update_member(MemberState {
+                membership.update_member(MemberState {
                     info: self.current(),
                     status: MemberStatus::Alive,
                     heartbeat: Timestamp::now(),
                 });
 
+                self.membership.store(Arc::new(membership.clone()));
+
                 // Respond with the current membership
-                let members = self.membership.read().unwrap().members().clone();
                 Some(GossipMessage::Sync {
-                    members: members.values().cloned().collect(),
+                    members: membership.into_members().into_values().collect(),
                 })
             }
         };
 
-        if self
-            .membership
-            .read()
-            .unwrap()
-            .is_dead(self.current().node_id)
-        {
+        if self.membership.load().is_dead(self.current().node_id) {
             log::info!("current node is marked as dead; advancing incarnation");
             self.advance_incarnation();
         }
@@ -313,7 +316,7 @@ impl GossipState {
     }
 
     fn remove_dead_members(&self) -> Vec<NodeInfo> {
-        let mut members = self.membership.write().unwrap();
+        let mut members = (**self.membership.load()).clone();
         let dead_members: Vec<NodeInfo> = members
             .members()
             .iter()
@@ -331,6 +334,8 @@ impl GossipState {
         for dead_member in &dead_members {
             members.remove_member(dead_member.node_id);
         }
+
+        self.membership.store(Arc::new(members));
 
         dead_members
     }
@@ -421,19 +426,20 @@ impl GossipState {
 
     fn rebuild_ring(&self) {
         // Ensure the current node is alive
-        let mut membership = self.membership.write().unwrap();
+        let mut membership = (**self.membership.load()).clone();
         membership.update_member(MemberState {
             info: self.current(),
             status: MemberStatus::Alive,
             heartbeat: Timestamp::now(),
         });
 
-        *self.ring.write().unwrap() =
-            Arc::new(HashRing::from(membership.members().keys().cloned()));
+        self.ring.store(Arc::new(HashRing::from(
+            membership.members().keys().cloned(),
+        )));
     }
 
     fn mark_dead(&self, peer: &NodeInfo) {
-        let mut members = self.membership.write().unwrap();
+        let mut members = (**self.membership.load()).clone();
         if let Some(last_seen) = members.members().get(&peer.node_id).map(|m| m.heartbeat) {
             let member = MemberState {
                 info: peer.clone(),
@@ -442,6 +448,7 @@ impl GossipState {
             };
             members.update_member(member);
         }
+        self.membership.store(Arc::new(members));
     }
 }
 
