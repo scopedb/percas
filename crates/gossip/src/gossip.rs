@@ -14,7 +14,6 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::RwLock;
 use std::time::Duration;
 
 use arc_swap::ArcSwap;
@@ -62,7 +61,7 @@ pub type GossipFuture = JoinHandle<Result<(), GossipError>>;
 pub struct GossipState {
     dir: PathBuf,
     initial_peers: Vec<Url>,
-    current_node: RwLock<NodeInfo>,
+    current_node: ArcSwap<NodeInfo>,
     transport: Transport,
 
     membership: ArcSwap<Membership>,
@@ -74,7 +73,7 @@ impl GossipState {
         Self {
             dir,
             initial_peers,
-            current_node: RwLock::new(current_node),
+            current_node: ArcSwap::new(Arc::new(current_node)),
             membership: ArcSwap::new(Arc::new(Membership::default())),
             transport: Transport::new(),
             ring: ArcSwap::new(Arc::new(HashRing::default())),
@@ -82,7 +81,7 @@ impl GossipState {
     }
 
     pub fn current(&self) -> NodeInfo {
-        self.current_node.read().unwrap().clone()
+        (**self.current_node.load()).clone()
     }
 
     pub fn membership(&self) -> Arc<Membership> {
@@ -310,9 +309,10 @@ impl GossipState {
     }
 
     fn advance_incarnation(&self) {
-        let mut current = self.current_node.write().unwrap();
+        let mut current = self.current();
         current.advance_incarnation();
         current.persist(&node_file_path(&self.dir));
+        self.current_node.store(Arc::new(current));
     }
 
     fn remove_dead_members(&self) -> Vec<NodeInfo> {
