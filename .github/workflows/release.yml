@@ -34,7 +34,7 @@ jobs:
     if: ${{ github.repository == 'scopedb/percas' }}
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: ./xtask/scripts/check-version-tag-match.sh
 
   docker-meta:
@@ -43,7 +43,7 @@ jobs:
     timeout-minutes: 10
     needs: [ precondition ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: docker/setup-buildx-action@v3
       - name: Run Docker sanity check
         uses: ./.github/actions/docker-sanity-check
@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: docker/setup-buildx-action@v3
       - name: Run Docker sanity check
         uses: ./.github/actions/docker-sanity-check
@@ -118,7 +118,7 @@ jobs:
       - build-and-push-arm64
       - docker-meta
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Release to GitHub Container Registry
         uses: ./.github/actions/docker-release
         with:
@@ -140,7 +140,7 @@ jobs:
       - build-and-push-arm64
       - docker-meta
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # Login to ghcr.io for copy images
       - uses: docker/login-action@v3
         with:
@@ -168,7 +168,7 @@ jobs:
       - build-and-push-arm64
       - docker-meta
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # Login to ghcr.io for copy images
       - uses: docker/login-action@v3
         with:
@@ -179,8 +179,8 @@ jobs:
         uses: ./.github/actions/docker-release
         with:
           tags: ${{ needs.docker-meta.outputs.tags }}
-          registry: ${{ secrets.JIAGOUYUN_REGISTRY }}
-          organization: ${{ secrets.JIAGOUYUN_REGISTRY }}/scopedb
+          registry: pubrepo.jiagouyun.com
+          organization: pubrepo.jiagouyun.com/scopedb
           username: ${{ secrets.JIAGOUYUN_USERNAME }}
           password: ${{ secrets.JIAGOUYUN_TOKEN }}
           digests: >
