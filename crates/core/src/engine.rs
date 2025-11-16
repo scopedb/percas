@@ -30,6 +30,7 @@ use foyer::LfuConfig;
 use foyer::PsyncIoEngineBuilder;
 use foyer::RecoverMode;
 use foyer::RuntimeOptions;
+use foyer::TokioRuntimeOptions;
 use mixtrics::registry::noop::NoopMetricsRegistry;
 use mixtrics::registry::opentelemetry_0_31::OpenTelemetryMetricsRegistry;
 use parse_display::Display;
@@ -92,6 +93,34 @@ impl FoyerEngine {
             .build()
             .map_err(|err| EngineError(format!("failed to create device: {err}")))?;
 
+        let psync_io_engine = PsyncIoEngineBuilder::new()
+            .build()
+            .await
+            .map_err(|err| EngineError(err.to_string()))?;
+
+        let io_engine = {
+            #[cfg(target_os = "linux")]
+            {
+                use foyer::UringIoEngineBuilder;
+
+                UringIoEngineBuilder::new()
+                    .with_sqpoll(true)
+                    .build()
+                    .await
+                    .inspect_err(|e| {
+                        log::warn!(
+                            "failed to build io_uring engine, fallback to psync engine: {e}"
+                        );
+                    })
+                    .unwrap_or(psync_io_engine)
+            }
+
+            #[cfg(not(target_os = "linux"))]
+            {
+                psync_io_engine
+            }
+        };
+
         let parallelism = num_cpus().get();
         let cache = HybridCacheBuilder::new()
             .with_policy(HybridCachePolicy::WriteOnEviction)
@@ -114,14 +143,12 @@ impl FoyerEngine {
                     .with_block_size(DEFAULT_BLOCK_SIZE.0 as usize)
                     .with_flushers(DEFAULT_FLUSHERS),
             )
-            .with_io_engine(
-                PsyncIoEngineBuilder::new()
-                    .build()
-                    .await
-                    .map_err(|err| EngineError(err.to_string()))?,
-            )
+            .with_io_engine(io_engine)
             .with_recover_mode(RecoverMode::Quiet)
-            .with_runtime_options(RuntimeOptions::Unified(Default::default()))
+            .with_runtime_options(RuntimeOptions::Unified(TokioRuntimeOptions {
+                worker_threads: 4,
+                max_blocking_threads: num_cpus().get() * 2,
+            }))
             .build()
             .await
             .map_err(|err| EngineError(err.to_string()))?;

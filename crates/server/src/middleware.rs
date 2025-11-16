@@ -143,8 +143,8 @@ pub struct RateLimitMiddleware {
 
 impl RateLimitMiddleware {
     pub fn new() -> Self {
-        let run_limit = num_cpus().get() * 100;
-        let wait_limit = run_limit * 5;
+        let run_limit = num_cpus().get() * 4;
+        let wait_limit = run_limit * 100;
 
         Self {
             wait_permit: Arc::new(Semaphore::new(wait_limit)),
