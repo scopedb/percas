@@ -17,6 +17,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use fastrace_reqwest::traceparent_headers;
+use reqwest::Body;
 use reqwest::StatusCode;
 use reqwest::Url;
 use reqwest::redirect::Policy;
@@ -144,6 +145,35 @@ impl Client {
             .put(url)
             .headers(traceparent_headers())
             .body(value.to_vec())
+            .send()
+            .await
+            .map_err(make_opaque_error)?;
+
+        match resp.status() {
+            StatusCode::OK | StatusCode::CREATED => Ok(()),
+            StatusCode::TOO_MANY_REQUESTS => Err(Error::TooManyRequests),
+            status => Err(make_opaque_error(status)),
+        }
+    }
+
+    /// Set the value associated with the given key.
+    ///
+    /// This method exists to avoid an extra copy when the caller has ownership of the data:
+    ///
+    /// * `&'static str`
+    /// * `Vec<u8>`
+    /// * `bytes::Bytes`
+    /// * `reqwest::Body`
+    pub async fn put_owned<T: Into<Body>>(&self, key: &str, value: T) -> Result<(), Error> {
+        self.update_route_table_if_needed().await?;
+
+        let url = self.route(key).join(key).map_err(make_opaque_error)?;
+
+        let resp = self
+            .client
+            .put(url)
+            .headers(traceparent_headers())
+            .body(value)
             .send()
             .await
             .map_err(make_opaque_error)?;
