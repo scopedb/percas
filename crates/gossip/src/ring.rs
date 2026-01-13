@@ -141,14 +141,14 @@ where
     }
 
     fn hash_key(&self, key: &[u8]) -> u32 {
-        murmur3::murmur3_32(&mut &key[..], 0).unwrap()
+        mur3::murmurhash3_x86_32(&mut &key[..], 0)
     }
 
     fn hash_node(&self, node: &T, vnode: u32) -> u32 {
         let mut buff = Vec::with_capacity(node.as_ref().len() + 8);
         buff.extend_from_slice(node.as_ref());
         buff.extend_from_slice(&vnode.to_le_bytes());
-        murmur3::murmur3_32(&mut &buff[..], 0).unwrap()
+        mur3::murmurhash3_x86_32(&mut &buff[..], 0)
     }
 }
 

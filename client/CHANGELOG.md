@@ -4,6 +4,8 @@ All significant changes to the `percase-client` crate will be documented in this
 
 ## Unreleased
 
+## v0.3.1 (2026-01-13)
+
 ### New features
 
 * Added `Client::put_owned` to avoid an extra copy when the caller has ownership of the data.
