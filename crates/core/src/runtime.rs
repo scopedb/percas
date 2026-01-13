@@ -14,7 +14,6 @@
 
 use std::future::Future;
 use std::panic::resume_unwind;
-use std::sync::Arc;
 use std::task::ready;
 use std::time::Duration;
 use std::time::Instant;
@@ -35,10 +34,10 @@ pub fn make_runtime(runtime_name: &str, thread_name: &str, worker_threads: usize
 }
 
 /// A runtime to run future tasks.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Runtime {
     name: String,
-    runtime: Arc<tokio::runtime::Runtime>,
+    runtime: tokio::runtime::Runtime,
 }
 
 impl Runtime {
@@ -193,8 +192,7 @@ impl Builder {
             .builder
             .enable_all()
             .thread_name(self.thread_name.clone())
-            .build()
-            .map(Arc::new)?;
+            .build()?;
         Ok(Runtime { name, runtime })
     }
 }
@@ -205,7 +203,7 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    use tokio::sync::oneshot;
+    use mea::oneshot;
 
     use super::*;
 

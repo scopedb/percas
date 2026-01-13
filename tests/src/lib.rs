@@ -91,6 +91,7 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
     let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
     let server_state = rt.block_on(async move {
         let engine = FoyerEngine::try_new(
+            rt,
             &config.storage.data_dir,
             config.storage.memory_capacity.into(),
             config.storage.disk_capacity.into(),

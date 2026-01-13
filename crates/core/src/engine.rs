@@ -18,25 +18,24 @@ use std::sync::Arc;
 use bytesize::ByteSize;
 use exn::Result;
 use exn::bail;
-use foyer::BlockEngineBuilder;
+use foyer::BlockEngineConfig;
 use foyer::DeviceBuilder;
 use foyer::FsDeviceBuilder;
 use foyer::HybridCache;
 use foyer::HybridCacheBuilder;
 use foyer::HybridCachePolicy;
-use foyer::IoEngineBuilder;
+use foyer::IoEngineConfig;
 use foyer::IopsCounter;
 use foyer::LfuConfig;
-use foyer::PsyncIoEngineBuilder;
 use foyer::RecoverMode;
-use foyer::RuntimeOptions;
-use foyer::TokioRuntimeOptions;
+use foyer::Spawner;
 use mixtrics::registry::noop::NoopMetricsRegistry;
 use mixtrics::registry::opentelemetry_0_31::OpenTelemetryMetricsRegistry;
 use parse_display::Display;
 
 use crate::newtype::DiskThrottle;
 use crate::num_cpus;
+use crate::runtime;
 
 const DEFAULT_MEMORY_CAPACITY_FACTOR: f64 = 0.5; // 50% of available memory
 const DEFAULT_BLOCK_SIZE: ByteSize = ByteSize::mib(64);
@@ -48,12 +47,13 @@ pub struct EngineError(String);
 impl std::error::Error for EngineError {}
 
 pub struct FoyerEngine {
-    capacity: ByteSize,
     inner: HybridCache<Vec<u8>, Vec<u8>>,
+    capacity: ByteSize,
 }
 
 impl FoyerEngine {
     pub async fn try_new(
+        io_runtime: &runtime::Runtime,
         data_dir: &Path,
         memory_capacity: ByteSize,
         disk_capacity: ByteSize,
@@ -93,31 +93,17 @@ impl FoyerEngine {
             .build()
             .map_err(|err| EngineError(format!("failed to create device: {err}")))?;
 
-        let psync_io_engine = PsyncIoEngineBuilder::new()
-            .build()
-            .await
-            .map_err(|err| EngineError(err.to_string()))?;
-
-        let io_engine = {
+        let io_engine: Box<dyn IoEngineConfig> = {
             #[cfg(target_os = "linux")]
             {
-                use foyer::UringIoEngineBuilder;
-
-                UringIoEngineBuilder::new()
-                    .with_sqpoll(true)
-                    .build()
-                    .await
-                    .inspect_err(|e| {
-                        log::warn!(
-                            "failed to build io_uring engine, fallback to psync engine: {e}"
-                        );
-                    })
-                    .unwrap_or(psync_io_engine)
+                use foyer::UringIoEngineConfig;
+                Box::new(UringIoEngineConfig::new().with_sqpoll(true))
             }
 
             #[cfg(not(target_os = "linux"))]
             {
-                psync_io_engine
+                use foyer::PsyncIoEngineConfig;
+                Box::new(PsyncIoEngineConfig::new())
             }
         };
 
@@ -138,24 +124,21 @@ impl FoyerEngine {
             .with_eviction_config(LfuConfig::default())
             .storage()
             .with_engine_config(
-                BlockEngineBuilder::new(dev)
+                BlockEngineConfig::new(dev)
                     .with_recover_concurrency(parallelism)
                     .with_block_size(DEFAULT_BLOCK_SIZE.0 as usize)
                     .with_flushers(DEFAULT_FLUSHERS),
             )
-            .with_io_engine(io_engine)
+            .with_io_engine_config(io_engine)
             .with_recover_mode(RecoverMode::Quiet)
-            .with_runtime_options(RuntimeOptions::Unified(TokioRuntimeOptions {
-                worker_threads: 4,
-                max_blocking_threads: num_cpus().get() * 2,
-            }))
+            .with_spawner(io_runtime.spawn_blocking(Spawner::current).await)
             .build()
             .await
             .map_err(|err| EngineError(err.to_string()))?;
 
         Ok(FoyerEngine {
-            capacity: disk_capacity,
             inner: cache,
+            capacity: disk_capacity,
         })
     }
 
@@ -194,25 +177,30 @@ mod tests {
 
     use super::*;
 
-    #[tokio::test]
-    async fn test_get() {
-        let temp_dir = tempfile::tempdir().unwrap();
+    #[test]
+    fn test_get() {
+        let runtime = runtime::make_runtime("test_runtime", "test_thread", 2);
 
-        let engine = FoyerEngine::try_new(
-            temp_dir.path(),
-            ByteSize::kib(512),
-            ByteSize::mib(1),
-            None,
-            None,
-        )
-        .await
-        .unwrap();
+        runtime.block_on(async {
+            let temp_dir = tempfile::tempdir().unwrap();
 
-        engine.put(b"foo".to_vec().as_ref(), b"bar".to_vec().as_ref());
+            let engine = FoyerEngine::try_new(
+                &runtime,
+                temp_dir.path(),
+                ByteSize::kib(512),
+                ByteSize::mib(1),
+                None,
+                None,
+            )
+            .await
+            .unwrap();
 
-        assert_compact_debug_snapshot!(
-            engine.get(b"foo".to_vec().as_ref()).await,
-            @"Some([98, 97, 114])"
-        );
+            engine.put(b"foo".to_vec().as_ref(), b"bar".to_vec().as_ref());
+
+            assert_compact_debug_snapshot!(
+                engine.get(b"foo".to_vec().as_ref()).await,
+                @"Some([98, 97, 114])"
+            );
+        });
     }
 }

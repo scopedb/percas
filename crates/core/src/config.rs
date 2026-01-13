@@ -534,17 +534,13 @@ mod tests {
             filter = 'INFO'
             dir = 'logs'
             max_files = 64
-
             [telemetry.logs.stderr]
             filter = 'INFO'
-
             [telemetry.logs.opentelemetry]
             filter = 'INFO'
             otlp_endpoint = 'http://127.0.0.1:4317'
-
             [telemetry.traces]
             capture_log_filter = 'INFO'
-
             [telemetry.traces.opentelemetry]
             otlp_endpoint = 'http://127.0.0.1:4317'
             [telemetry.metrics.opentelemetry]

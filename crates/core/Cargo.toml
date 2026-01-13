@@ -47,6 +47,7 @@ jemallocator = { workspace = true }
 criterion = { workspace = true }
 googletest = { workspace = true }
 insta = { workspace = true }
+mea = { workspace = true }
 schemars = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }

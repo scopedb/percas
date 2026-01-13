@@ -14,7 +14,7 @@
 
 [package]
 name = "percas-client"
-version = "0.3.0"
+version = "0.3.1"
 
 description = "A client for talking to the Percas server"
 publish = true
@@ -32,7 +32,7 @@ tag-message = "chore: Release {{crate_name}} version {{version}}"
 
 [dependencies]
 fastrace-reqwest = { workspace = true }
-murmur3 = { workspace = true }
+mur3 = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 uuid = { workspace = true }

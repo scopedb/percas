@@ -64,15 +64,25 @@ impl CommandStart {
         }
         log::info!("Percas is starting with loaded config: {config:#?}");
 
+        let io_runtime = make_io_runtime();
         let server_runtime = make_server_runtime();
         let gossip_runtime = make_gossip_runtime();
         server_runtime.block_on(run_server(
+            &io_runtime,
             &server_runtime,
             &gossip_runtime,
             node_id,
             config,
         ))
     }
+}
+
+fn make_io_runtime() -> Runtime {
+    percas_core::Builder::new("foyer_io_runtime", "foyer_io_thread")
+        .worker_threads(4)
+        .max_blocking_threads(num_cpus().get() * 2)
+        .build()
+        .unwrap()
 }
 
 fn make_telemetry_runtime() -> Runtime {
@@ -89,6 +99,7 @@ fn make_gossip_runtime() -> Runtime {
 }
 
 async fn run_server(
+    io_rt: &Runtime,
     server_rt: &Runtime,
     gossip_rt: &Runtime,
     node_id: Uuid,
@@ -105,6 +116,7 @@ async fn run_server(
     })?;
 
     let engine = FoyerEngine::try_new(
+        io_rt,
         config.storage.data_dir.as_path(),
         config.storage.memory_capacity.into(),
         config.storage.disk_capacity.into(),
