@@ -2319,6 +2319,7 @@ dependencies = [
  "mur3",
  "reqwest",
  "serde",
+ "url",
  "uuid",
 ]
 

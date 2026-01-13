@@ -35,6 +35,7 @@ fastrace-reqwest = { workspace = true }
 mur3 = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
+url = { workspace = true }
 uuid = { workspace = true }
 
 [lints]
