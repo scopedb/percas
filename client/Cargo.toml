@@ -14,7 +14,7 @@
 
 [package]
 name = "percas-client"
-version = "0.3.0"
+version = "0.3.1"
 
 description = "A client for talking to the Percas server"
 publish = true

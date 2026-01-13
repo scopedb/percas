@@ -38,7 +38,7 @@ impl RouteTable {
     }
 
     pub(crate) fn lookup(&self, key: &str) -> Option<(&Uuid, &Url)> {
-        let hash = mur3::murmurhash3_x86_32(&mut key.as_bytes(), 0);
+        let hash = mur3::murmurhash3_x86_32(key.as_bytes(), 0);
         self.ring
             .range(hash..)
             .next()

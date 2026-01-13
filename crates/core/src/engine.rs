@@ -18,25 +18,26 @@ use std::sync::Arc;
 use bytesize::ByteSize;
 use exn::Result;
 use exn::bail;
-use foyer::BlockEngineBuilder;
+use foyer::BlockEngineConfig;
 use foyer::DeviceBuilder;
 use foyer::FsDeviceBuilder;
 use foyer::HybridCache;
 use foyer::HybridCacheBuilder;
 use foyer::HybridCachePolicy;
-use foyer::IoEngineBuilder;
+use foyer::IoEngineConfig;
 use foyer::IopsCounter;
 use foyer::LfuConfig;
-use foyer::PsyncIoEngineBuilder;
+use foyer::PsyncIoEngineConfig;
 use foyer::RecoverMode;
-use foyer::RuntimeOptions;
-use foyer::TokioRuntimeOptions;
+use foyer::Spawner;
 use mixtrics::registry::noop::NoopMetricsRegistry;
 use mixtrics::registry::opentelemetry_0_31::OpenTelemetryMetricsRegistry;
 use parse_display::Display;
 
+use crate::Runtime;
 use crate::newtype::DiskThrottle;
 use crate::num_cpus;
+use crate::runtime;
 
 const DEFAULT_MEMORY_CAPACITY_FACTOR: f64 = 0.5; // 50% of available memory
 const DEFAULT_BLOCK_SIZE: ByteSize = ByteSize::mib(64);
@@ -48,8 +49,10 @@ pub struct EngineError(String);
 impl std::error::Error for EngineError {}
 
 pub struct FoyerEngine {
-    capacity: ByteSize,
     inner: HybridCache<Vec<u8>, Vec<u8>>,
+    capacity: ByteSize,
+    #[expect(dead_code)]
+    runtime: Runtime,
 }
 
 impl FoyerEngine {
@@ -93,33 +96,26 @@ impl FoyerEngine {
             .build()
             .map_err(|err| EngineError(format!("failed to create device: {err}")))?;
 
-        let psync_io_engine = PsyncIoEngineBuilder::new()
-            .build()
-            .await
-            .map_err(|err| EngineError(err.to_string()))?;
+        let psync_engine = Box::new(PsyncIoEngineConfig::new());
 
-        let io_engine = {
+        let io_engine: Box<dyn IoEngineConfig> = {
             #[cfg(target_os = "linux")]
             {
-                use foyer::UringIoEngineBuilder;
-
-                UringIoEngineBuilder::new()
-                    .with_sqpoll(true)
-                    .build()
-                    .await
-                    .inspect_err(|e| {
-                        log::warn!(
-                            "failed to build io_uring engine, fallback to psync engine: {e}"
-                        );
-                    })
-                    .unwrap_or(psync_io_engine)
+                use foyer::UringIoEngineConfig;
+                Box::new(UringIoEngineConfig::new().with_sqpoll(true))
             }
 
             #[cfg(not(target_os = "linux"))]
             {
-                psync_io_engine
+                psync_engine
             }
         };
+
+        let runtime = runtime::Builder::new("foyer_io_runtime", "foyer_io_thread")
+            .worker_threads(4)
+            .max_blocking_threads(num_cpus().get() * 2)
+            .build()
+            .map_err(|err| EngineError(format!("failed to build foyer IO runtime: {err}")))?;
 
         let parallelism = num_cpus().get();
         let cache = HybridCacheBuilder::new()
@@ -138,24 +134,22 @@ impl FoyerEngine {
             .with_eviction_config(LfuConfig::default())
             .storage()
             .with_engine_config(
-                BlockEngineBuilder::new(dev)
+                BlockEngineConfig::new(dev)
                     .with_recover_concurrency(parallelism)
                     .with_block_size(DEFAULT_BLOCK_SIZE.0 as usize)
                     .with_flushers(DEFAULT_FLUSHERS),
             )
-            .with_io_engine(io_engine)
+            .with_io_engine_config(io_engine)
             .with_recover_mode(RecoverMode::Quiet)
-            .with_runtime_options(RuntimeOptions::Unified(TokioRuntimeOptions {
-                worker_threads: 4,
-                max_blocking_threads: num_cpus().get() * 2,
-            }))
+            .with_spawner(runtime.spawn_blocking(Spawner::current).await)
             .build()
             .await
             .map_err(|err| EngineError(err.to_string()))?;
 
         Ok(FoyerEngine {
-            capacity: disk_capacity,
             inner: cache,
+            capacity: disk_capacity,
+            runtime,
         })
     }
 
