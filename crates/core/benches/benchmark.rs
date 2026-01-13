@@ -30,10 +30,14 @@ fn foyer_engine(c: &mut Criterion) {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .build()
         .unwrap();
+
+    let test_rt = percas_core::make_runtime("test_runtime", "test_thread", 2);
+
     {
         let dir = tempdir_in("/tmp").unwrap();
         let engine = runtime.block_on(async {
             FoyerEngine::try_new(
+                &test_rt,
                 dir.path(),
                 ByteSize::default(),
                 ByteSize::gib(4),
@@ -63,6 +67,7 @@ fn foyer_engine(c: &mut Criterion) {
                 let dir = tempdir_in("/tmp").unwrap();
                 let engine = runtime.block_on(async {
                     FoyerEngine::try_new(
+                        &test_rt,
                         dir.path(),
                         ByteSize::default(),
                         ByteSize::gib(4),
