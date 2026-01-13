@@ -79,16 +79,26 @@ logforth = { version = "0.29.1", features = [
 mea = { version = "0.6.1" }
 mixtrics = { version = "0.2.2", features = ["opentelemetry_0_31"] }
 mur3 = { version = "0.1.0" }
-opentelemetry = { version = "0.31.0", features = ["trace", "metrics"] }
-opentelemetry-otlp = { version = "0.31.0", features = [
+opentelemetry = { version = "0.31.0", default-features = false, features = [
   "trace",
   "metrics",
-  "grpc-tonic",
+  "logs",
+  "internal-logs",
 ] }
-opentelemetry_sdk = { version = "0.31.0", features = [
+opentelemetry-otlp = { version = "0.31.0", default-features = false, features = [
   "trace",
   "metrics",
+  "logs",
+  "grpc-tonic",
+  "http-proto",
+  "internal-logs",
+] }
+opentelemetry_sdk = { version = "0.31.0", default-features = false, features = [
+  "trace",
+  "metrics",
+  "logs",
   "rt-tokio",
+  "internal-logs",
 ] }
 parse-display = { version = "0.10.0" }
 pin-project = { version = "1.1" }
