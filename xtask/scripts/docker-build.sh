@@ -13,6 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 # Build release artifacts
 cargo build --profile dist --bin percas
