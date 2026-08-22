@@ -12,8 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-headerPath = "Apache-2.0.txt"
+[header]
+builtin = "Apache-2.0"
 
-[properties]
-copyrightOwner = "ScopeDB <contact@scopedb.io>"
-inceptionYear = 2025
+[files]
+excludes = [
+  "**/*.lock",
+  "**/*.md",
+  "**/*.mk",
+  "**/*.tpl",
+  "**/*.txt",
+  "**/.gitignore",
+  "**/.helmignore",
+  "**/LICENSE",
+]
+
+[props]
+copyright_owner = "ScopeDB <contact@scopedb.io>"
+inception_year = 2025
