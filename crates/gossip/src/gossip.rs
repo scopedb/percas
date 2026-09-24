@@ -30,7 +30,7 @@ use percas_core::JoinHandle;
 use percas_core::Runtime;
 use percas_core::node_file_path;
 use percas_core::timer;
-use rand::Rng;
+use rand::RngExt;
 use rand::SeedableRng;
 use reqwest::Client;
 use reqwest::Url;
@@ -123,7 +123,7 @@ impl GossipState {
         // Ping
         let state_clone = self.clone();
         let shutdown_rx_clone = shutdown_rx.clone();
-        let mut rng = rand::rngs::StdRng::from_os_rng();
+        let mut rng = rand::rngs::StdRng::from_rng(&mut rand::rng());
         let ping_fut = rt.spawn(async move {
             let fut = async move {
                 let state = state_clone;
@@ -163,7 +163,7 @@ impl GossipState {
         // Anti-entropy
         let state_clone = self.clone();
         let shutdown_rx_clone = shutdown_rx.clone();
-        let mut rng = rand::rngs::StdRng::from_os_rng();
+        let mut rng = rand::rngs::StdRng::from_rng(&mut rand::rng());
         let anti_entropy_fut = rt.spawn(async move {
             let fut = async move {
                 let state = state_clone;
@@ -319,8 +319,8 @@ impl GossipState {
         let mut members = (**self.membership.load()).clone();
         let dead_members: Vec<NodeInfo> = members
             .members()
-            .iter()
-            .filter_map(|(_, member)| {
+            .values()
+            .filter_map(|member| {
                 if member.status == MemberStatus::Dead
                     && member.heartbeat + DEFAULT_MEMBER_DEADLINE < Timestamp::now()
                 {

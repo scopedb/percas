@@ -30,7 +30,7 @@ use foyer::LfuConfig;
 use foyer::RecoverMode;
 use foyer::Spawner;
 use mixtrics::registry::noop::NoopMetricsRegistry;
-use mixtrics::registry::opentelemetry_0_31::OpenTelemetryMetricsRegistry;
+use mixtrics::registry::opentelemetry_0_32::OpenTelemetryMetricsRegistry;
 use parse_display::Display;
 
 use crate::newtype::DiskThrottle;

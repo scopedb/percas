@@ -19,7 +19,7 @@ use std::sync::Arc;
 use clap::ValueHint;
 use exn::Result;
 use exn::ResultExt;
-use mixtrics::registry::opentelemetry_0_31::OpenTelemetryMetricsRegistry;
+use mixtrics::registry::opentelemetry_0_32::OpenTelemetryMetricsRegistry;
 use percas_core::Config;
 use percas_core::FoyerEngine;
 use percas_core::Runtime;

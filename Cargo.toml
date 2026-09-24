@@ -46,46 +46,47 @@ percas-server = { path = "crates/server" }
 percas-version = { path = "crates/version" }
 
 # Crates.io dependencies
-anstyle = { version = "1.0.10" }
-arc-swap = { version = "1" }
-backon = { version = "1.5.0" }
-build-data = { version = "0.3.0" }
-bytesize = { version = "2.1.0", features = ["serde"] }
-clap = { version = "4.5.35", features = ["derive"] }
-const_format = { version = "0.2.34" }
-criterion = { version = "0.8.1", features = ["async_tokio"] }
-ctrlc = { version = "3.5", features = ["termination"] }
-exn = { version = "0.2.0" }
+anstyle = { version = "1.0.14" }
+arc-swap = { version = "1.9.2" }
+backon = { version = "1.6.0" }
+build-data = { version = "0.3.3" }
+bytesize = { version = "2.7.0", features = ["serde"] }
+clap = { version = "4.6.7", features = ["derive"] }
+const_format = { version = "0.2.36" }
+criterion = { version = "0.8.2", features = ["async_tokio"] }
+ctrlc = { version = "3.5.2", features = ["termination"] }
+exn = { version = "0.3.1" }
 fastimer = { version = "0.10.0" }
-fastrace = { version = "0.7.9" }
-fastrace-opentelemetry = { version = "0.15.1" }
+fastrace = { version = "0.7.19" }
+fastrace-opentelemetry = { version = "0.18.1" }
 fastrace-reqwest = { version = "0.3.0" }
-foyer = { version = "0.22.2", features = ["nightly"] }
-futures-util = { version = "0.3.31" }
-gix-discover = { version = "0.45.0" }
-googletest = { version = "0.14.0" }
+foyer = { version = "0.22.6", features = ["nightly"] }
+futures-util = { version = "0.3.34" }
+gix-discover = { version = "0.55.0", features = ["sha1"] }
+googletest = { version = "0.14.3" }
 indent = { version = "0.1.1" }
-insta = { version = "1.42.2", features = ["json", "toml", "redactions"] }
+insta = { version = "1.48.0", features = ["json", "toml", "redactions"] }
 jemallocator = { version = "0.5.4" }
-jiff = { version = "0.2", features = ["serde"] }
-local-ip-address = { version = "0.6.3" }
-log = { version = "0.4.27", features = ["kv"] }
-logforth = { version = "0.29.1", features = [
+jiff = { version = "0.2.37", features = ["serde"] }
+local-ip-address = { version = "0.6.13" }
+log = { version = "0.4.34", features = ["kv"] }
+logforth = { version = "0.30.1", features = [
   "append-fastrace",
   "append-opentelemetry",
   "diagnostic-fastrace",
   "starter-log",
 ] }
-mea = { version = "0.6.1" }
-mixtrics = { version = "0.2.2", features = ["opentelemetry_0_31"] }
+mea = { version = "0.6.7" }
+mixtrics = { version = "0.2.5", features = ["opentelemetry_0_32"] }
 mur3 = { version = "0.1.0" }
-opentelemetry = { version = "0.31.0", default-features = false, features = [
+# Keep OpenTelemetry aligned with logforth and fastrace-opentelemetry.
+opentelemetry = { version = "0.32.0", default-features = false, features = [
   "trace",
   "metrics",
   "logs",
   "internal-logs",
 ] }
-opentelemetry-otlp = { version = "0.31.0", default-features = false, features = [
+opentelemetry-otlp = { version = "0.32.0", default-features = false, features = [
   "trace",
   "metrics",
   "logs",
@@ -93,35 +94,35 @@ opentelemetry-otlp = { version = "0.31.0", default-features = false, features = 
   "http-proto",
   "internal-logs",
 ] }
-opentelemetry_sdk = { version = "0.31.0", default-features = false, features = [
+opentelemetry_sdk = { version = "0.32.0", default-features = false, features = [
   "trace",
   "metrics",
   "logs",
   "rt-tokio",
   "internal-logs",
 ] }
-parse-display = { version = "0.10.0" }
-pin-project = { version = "1.1" }
-poem = { version = "3.1.7" }
-pretty-hex = { version = "0.4.1" }
+parse-display = { version = "0.11.0" }
+pin-project = { version = "1.1.13" }
+poem = { version = "3.1.12" }
+pretty-hex = { version = "0.4.2" }
 pretty_assertions = { version = "1.4.1" }
-rand = { version = "0.9.2" }
-regex = { version = "1.11.1" }
-reqwest = { version = "0.13.1", default-features = false, features = ["json"] }
-schemars = { version = "1.0.4", features = ["jiff02", "url2"] }
+rand = { version = "0.10.3" }
+regex = { version = "1.13.1" }
+reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
+schemars = { version = "1.2.2", features = ["jiff02", "url2"] }
 scopeguard = { version = "1.2.0" }
-sealed_test = { version = "1.1" }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0" }
-shadow-rs = { version = "1.0.0", default-features = false }
-sysinfo = { version = "0.37.0" }
-tempfile = { version = "3.19.1" }
-test-harness = { version = "0.3.0" }
-tokio = { version = "1.44.2" }
-toml_edit = { version = "0.24.0+spec-1.1.0" }
+sealed_test = { version = "1.1.0" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.151" }
+shadow-rs = { version = "2.0.0", default-features = false }
+sysinfo = { version = "0.39.6" }
+tempfile = { version = "3.27.0" }
+test-harness = { version = "0.3.1" }
+tokio = { version = "1.53.1" }
+toml_edit = { version = "0.25.15" }
 unindent = { version = "0.2.4" }
-url = { version = "2.5.7", features = ["serde"] }
-uuid = { version = "1.16.0", features = ["v7", "serde"] }
+url = { version = "2.5.8", features = ["serde"] }
+uuid = { version = "1.26.1", features = ["v7", "serde"] }
 
 [workspace.lints.rust]
 unknown_lints = "deny"

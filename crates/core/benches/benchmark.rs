@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![feature(random)]
-
 use bytesize::ByteSize;
 use criterion::BenchmarkId;
 use criterion::Criterion;
 use criterion::criterion_group;
 use criterion::criterion_main;
 use percas_core::FoyerEngine;
-use rand::Rng;
+use rand::RngExt;
 use tempfile::tempdir_in;
 
 criterion_group!(benches, foyer_engine);
