@@ -6,8 +6,24 @@ For the changelog of the `percase-client` crate, please refer to its own [CHANGE
 
 ## Unreleased
 
+### Breaking Changes
+
+* Use cache2 as the default storage engine, including for existing configurations
+  without `storage.engine`. Set `storage.engine = "foyer"` to retain Foyer.
+* Cache2 uses a separate disk format and does not migrate Foyer entries. Clean
+  shutdown enables warm recovery; unclean shutdown starts empty. Cache2 provides
+  best-effort cache consistency, including potentially stale reads after DELETE.
+* Cache2 rejects the Foyer-only `storage.disk_throttle` option and validates disk
+  and managed-memory budgets at startup.
+
 ### Improvements
 
+* Separate engine-specific storage tuning, fit automatic cache2 L1 budgets around
+  fixed allocations, and benchmark both engines plus cache2 warm recovery.
+
+* Add a shared storage interface, cache2 I/O metrics, and graceful storage close.
+* Return HTTP 429 for cache admission overload, 400 for invalid mutations, and
+  500 for explicit storage failures.
 * Upgrade workspace dependencies and pin Rust to nightly-2026-08-28. Keep
   OpenTelemetry on 0.32 to match the tracing and logging adapters.
 

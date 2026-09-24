@@ -21,8 +21,8 @@ use exn::Result;
 use exn::ResultExt;
 use mixtrics::registry::opentelemetry_0_32::OpenTelemetryMetricsRegistry;
 use percas_core::Config;
-use percas_core::FoyerEngine;
 use percas_core::Runtime;
+use percas_core::StorageEngine;
 use percas_core::make_runtime;
 use percas_core::num_cpus;
 use percas_metrics::GlobalMetrics;
@@ -78,7 +78,7 @@ impl CommandStart {
 }
 
 fn make_io_runtime() -> Runtime {
-    percas_core::Builder::new("foyer_io_runtime", "foyer_io_thread")
+    percas_core::Builder::new("storage_io_runtime", "storage_io_thread")
         .worker_threads(4)
         .max_blocking_threads(num_cpus().get() * 2)
         .build()
@@ -115,12 +115,9 @@ async fn run_server(
         ))
     })?;
 
-    let engine = FoyerEngine::try_new(
+    let engine = StorageEngine::try_new(
         io_rt,
-        config.storage.data_dir.as_path(),
-        config.storage.memory_capacity.into(),
-        config.storage.disk_capacity.into(),
-        config.storage.disk_throttle,
+        &config.storage,
         Some(OpenTelemetryMetricsRegistry::new(
             GlobalMetrics::get().meter.clone(),
         )),
@@ -173,6 +170,9 @@ async fn run_server(
     ctrlc::set_handler(move || shutdown_tx.shutdown())
         .or_raise(|| Error("failed to setup ctrl-c signal handle".to_string()))?;
 
-    server.await_shutdown().await;
+    server
+        .await_shutdown()
+        .await
+        .or_raise(|| Error("failed to shut down server".to_string()))?;
     Ok(())
 }

@@ -48,3 +48,21 @@ async fn test_put_get(testkit: Testkit) {
         "
     );
 }
+
+#[test(harness)]
+async fn test_delete(testkit: Testkit) {
+    testkit.client.put("deleted/key", b"value").await.unwrap();
+    testkit.client.delete("deleted/key").await.unwrap();
+    assert_eq!(testkit.client.get("deleted/key").await.unwrap(), None);
+    testkit.client.delete("missing/key").await.unwrap();
+}
+
+#[test(harness)]
+async fn test_invalid_key(testkit: Testkit) {
+    let error = testkit
+        .client
+        .put(&"x".repeat(4097), b"value")
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("400"), "{error}");
+}

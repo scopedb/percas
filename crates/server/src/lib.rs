@@ -18,11 +18,11 @@ pub mod server;
 pub mod telemetry;
 
 pub struct PercasContext {
-    engine: percas_core::FoyerEngine,
+    engine: percas_core::StorageEngine,
 }
 
 impl PercasContext {
-    pub fn new(engine: percas_core::FoyerEngine) -> Self {
+    pub fn new(engine: percas_core::StorageEngine) -> Self {
         Self { engine }
     }
 }

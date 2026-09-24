@@ -15,51 +15,22 @@
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
+use percas_core::StorageStatistics;
 use percas_metrics::GlobalMetrics;
 use percas_metrics::StorageIOMetrics;
 
 use crate::PercasContext;
 
-#[derive(Debug, Default)]
-struct MetricsSnapshot {
-    disk_read_bytes: u64,
-    disk_write_bytes: u64,
-    disk_read_ios: u64,
-    disk_write_ios: u64,
-}
-
-impl From<&foyer::Statistics> for MetricsSnapshot {
-    fn from(stats: &foyer::Statistics) -> Self {
-        Self {
-            disk_read_bytes: stats.disk_read_bytes() as _,
-            disk_write_bytes: stats.disk_write_bytes() as _,
-            disk_read_ios: stats.disk_read_ios() as _,
-            disk_write_ios: stats.disk_write_ios() as _,
-        }
-    }
-}
-
-impl MetricsSnapshot {
-    pub fn difference(&self, other: &MetricsSnapshot) -> Self {
-        Self {
-            disk_read_bytes: self.disk_read_bytes - other.disk_read_bytes,
-            disk_write_bytes: self.disk_write_bytes - other.disk_write_bytes,
-            disk_read_ios: self.disk_read_ios - other.disk_read_ios,
-            disk_write_ios: self.disk_write_ios - other.disk_write_ios,
-        }
-    }
-}
-
 pub struct ReportMetricsAction {
     ctx: Arc<PercasContext>,
-    snapshot: ArcSwap<MetricsSnapshot>,
+    snapshot: ArcSwap<StorageStatistics>,
 }
 
 impl ReportMetricsAction {
     pub fn new(ctx: Arc<PercasContext>) -> Self {
         ReportMetricsAction {
             ctx,
-            snapshot: ArcSwap::new(Arc::<MetricsSnapshot>::default()),
+            snapshot: ArcSwap::new(Arc::<StorageStatistics>::default()),
         }
     }
 
@@ -67,13 +38,30 @@ impl ReportMetricsAction {
         let metrics = GlobalMetrics::get();
 
         let engine = &self.ctx.engine;
-        // foyer will reserve all the space in the disk; the used space is meaningless
+        // Both engines reserve their backing storage.
         metrics.storage.used.record(engine.capacity(), &[]);
         metrics.storage.capacity.record(engine.capacity(), &[]);
 
-        let current = MetricsSnapshot::from(engine.statistics().as_ref());
+        let current = match engine.statistics() {
+            Ok(stats) => stats,
+            Err(err) => {
+                log::warn!(err:?; "failed to collect storage statistics");
+                return;
+            }
+        };
         let previous = self.snapshot.load();
-        let difference = current.difference(&previous);
+        let difference = StorageStatistics {
+            disk_read_bytes: current
+                .disk_read_bytes
+                .saturating_sub(previous.disk_read_bytes),
+            disk_write_bytes: current
+                .disk_write_bytes
+                .saturating_sub(previous.disk_write_bytes),
+            disk_read_ios: current.disk_read_ios.saturating_sub(previous.disk_read_ios),
+            disk_write_ios: current
+                .disk_write_ios
+                .saturating_sub(previous.disk_write_ios),
+        };
         self.snapshot.store(Arc::new(current));
 
         let io = &metrics.storage.io;

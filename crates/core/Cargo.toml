@@ -26,6 +26,7 @@ version.workspace = true
 
 [dependencies]
 bytesize = { workspace = true }
+cache2 = { workspace = true }
 exn = { workspace = true }
 fastimer = { workspace = true }
 foyer = { workspace = true }
