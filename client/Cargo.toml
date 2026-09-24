@@ -35,8 +35,19 @@ fastrace-reqwest = { workspace = true }
 mur3 = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
+tokio = { workspace = true, features = ["rt", "time"] }
 url = { workspace = true }
 uuid = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tokio = { workspace = true, features = [
+  "macros",
+  "rt-multi-thread",
+  "net",
+  "io-util",
+  "sync",
+] }
 
 [lints]
 workspace = true

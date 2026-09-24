@@ -18,6 +18,14 @@ For the changelog of the `percase-client` crate, please refer to its own [CHANGE
 
 ### Improvements
 
+* Refresh client routes in the background with bounded multi-peer discovery,
+  retaining usable routes on control-plane failures and excluding dead nodes.
+* Encode opaque keys in `/v1/cache?key=...`; upgrade servers before clients.
+* Serialize gossip writes and publish coherent membership/ring snapshots. Ignore
+  stale observations, add bounded probes and a suspect grace period, and reject
+  foreign-cluster members. The new suspect wire value needs coordinated upgrades.
+* Bound local HTTP concurrency and admitted upload bytes, reject oversized bodies,
+  and time out stalled uploads before they consume unbounded resources.
 * Separate engine-specific storage tuning, fit automatic cache2 L1 budgets around
   fixed allocations, and benchmark both engines plus cache2 warm recovery.
 

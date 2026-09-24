@@ -120,6 +120,46 @@ must retain an authoritative data source and handle misses. Upgrading cache2
 or changing its persistent layout may also cause a cold start.
 
 
+## Routing and HTTP budgets
+
+The Rust client uses `GET`, `PUT`, and `DELETE /v1/cache?key=<encoded-key>`.
+The query field carries the exact UTF-8 key, including slashes, dot segments,
+question marks, fragments, percent signs, and empty keys. `/v1/cache` is reserved
+for this API. Other paths retain the legacy HTTP API. Upgrade servers before
+clients: older servers do not understand the query-key API.
+
+Route refresh is triggered by traffic but runs in the background, with one
+refresh per client at a time. Reads and writes can use the bootstrap data URL
+immediately and keep using the last usable route table if refresh fails. Refresh
+tries configured and discovered control peers with bounded deadlines, rotating
+peers between attempts. Dead members are excluded; suspect members remain
+eligible during the grace period. A successful refresh is reused for ten seconds;
+failed refreshes retry on subsequent traffic after one second. Individual cache
+requests have a five-second deadline.
+
+Gossip probes have a two-second HTTP deadline and a 500 ms connection deadline.
+Failed probes first mark a node suspect; a subsequent failed probe after a
+five-second local grace period can mark it dead. Successful contact clears local
+suspicion. This is direct probing with a grace period, not an indirect-probe
+protocol. The new `suspect` wire value requires coordinated server upgrades.
+
+```toml
+[server.request_limits]
+max_body_bytes = 16777216
+max_inflight_body_bytes = 67108864
+max_concurrent_requests = 64
+body_timeout_ms = 10000
+```
+
+Local data handlers share these budgets across both API routes. PUT reserves its
+declared body size before reading; uploads without Content-Length reserve the
+maximum body size. The read also enforces that bound. Requests beyond the
+concurrency or upload budget return 429; oversized bodies return 413; stalled
+uploads return 408. Reservations are released on completion or cancellation.
+The upload budget bounds admitted payload bytes, not total process RSS or
+response buffers. Environment overrides use the usual
+`PERCAS_CONFIG_SERVER_REQUEST_LIMITS_*` names.
+
 ## Storage benchmarks
 
 `cargo bench -p percas-core --bench benchmark` measures both engines with L1

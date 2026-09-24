@@ -2423,6 +2423,8 @@ dependencies = [
  "mur3",
  "reqwest",
  "serde",
+ "serde_json",
+ "tokio",
  "url",
  "uuid",
 ]
@@ -2475,6 +2477,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "uuid",
 ]
@@ -2513,6 +2516,7 @@ dependencies = [
  "poem",
  "scopeguard",
  "serde",
+ "tokio",
  "url",
  "uuid",
 ]

@@ -36,14 +36,14 @@ impl Proxy {
     }
 
     pub fn route(&self, key: &str) -> RouteDest {
-        let ring = self.gossip.ring();
-
-        let membership = self.gossip.membership();
+        let snapshot = self.gossip.snapshot();
+        let ring = &snapshot.ring;
+        let membership = &snapshot.membership;
         let members = membership.members();
 
         if let Some(id) = ring.lookup_until(key, |id| {
             if let Some(member) = members.get(id)
-                && member.status == MemberStatus::Alive
+                && member.status != MemberStatus::Dead
             {
                 return true;
             }

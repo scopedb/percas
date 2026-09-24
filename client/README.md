@@ -2,14 +2,12 @@
 
 [![Crates.io][crates-badge]][crates-url]
 [![Documentation][docs-badge]][docs-url]
-[![MSRV 1.80][msrv-badge]](https://www.whatrustisit.com)
 [![Apache 2.0 licensed][license-badge]][license-url]
 [![Build Status][actions-badge]][actions-url]
 
 [crates-badge]: https://img.shields.io/crates/v/percas-client.svg
 [crates-url]: https://crates.io/crates/percas-client
 [docs-badge]: https://docs.rs/percas-client/badge.svg
-[msrv-badge]: https://img.shields.io/badge/MSRV-1.80-green?logo=rust
 [docs-url]: https://docs.rs/percas-client
 [license-badge]: https://img.shields.io/crates/l/percas-client
 [license-url]: LICENSE
@@ -29,20 +27,30 @@ cargo add percas-client
 Create a client instance and connect to the Percas service:
 
 ```rust
-fn main() {
-    let server_addr = "...";
-    let factory = ClientFactory::new().unwrap();
-    let client = factory.make_client(server_addr).unwrap();
+use percas_client::ClientBuilder;
 
-    runtime.block_on(async move {
-        let key = "example_key";
-        let value = "example_value";
-        client.put(key, value.as_bytes()).await.unwrap();
-        let value = testkit.client.get(key).await.unwrap().unwrap();
-        client.delete(key).await.unwrap();
-    });
+#[tokio::main]
+async fn main() -> Result<(), percas_client::Error> {
+    let client = ClientBuilder::new("http://localhost:7654", "http://localhost:7655")
+        .control_peer("http://localhost:7657") // optional additional control seed
+        .build()?;
+    client.put("example/key?with#syntax", b"example_value").await?;
+    let value = client.get("example/key?with#syntax").await?;
+    println!("{value:?}");
+    client.delete("example/key?with#syntax").await?;
+    Ok(())
 }
 ```
+
+Enable Tokio's `macros` and `rt-multi-thread` features for this example.
+The client lazily refreshes membership in the background on the calling Tokio
+runtime. Control failures do not block data operations; the last usable routing
+table is retained, and additional configured or discovered control peers are
+tried. The first request uses the data seed and may be redirected by the server.
+
+Keys are encoded in `/v1/cache?key=...` rather than interpreted as URLs.
+Upgrade the Percas servers before using this client. Each data request has a
+five-second deadline, including when a custom HTTP client is supplied.
 
 ## License
 

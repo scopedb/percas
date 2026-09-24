@@ -72,6 +72,7 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
             advertise_ctrl_addr: None,
             initial_peers: vec![],
             cluster_id: default_cluster_id(),
+            request_limits: Default::default(),
         },
         storage: StorageConfig {
             engine: Default::default(),
