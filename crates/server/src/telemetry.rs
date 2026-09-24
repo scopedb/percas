@@ -19,8 +19,8 @@ use logforth::append;
 use logforth::append::file::FileBuilder;
 use logforth::diagnostic::FastraceDiagnostic;
 use logforth::diagnostic::StaticDiagnostic;
-use logforth::filter::EnvFilter;
-use logforth::filter::env_filter::EnvFilterBuilder;
+use logforth::filter::RustLogFilter;
+use logforth::filter::rustlog::RustLogFilterBuilder;
 use logforth::layout;
 use opentelemetry_otlp::WithExportConfig;
 use percas_core::MetricsConfig;
@@ -220,8 +220,8 @@ fn init_logs(
     drop_guards
 }
 
-fn make_rust_log_filter(filter: &str) -> EnvFilter {
-    let builder = EnvFilterBuilder::try_from_spec(filter)
+fn make_rust_log_filter(filter: &str) -> RustLogFilter {
+    let builder = RustLogFilterBuilder::try_from_spec(filter)
         .unwrap_or_else(|_| panic!("failed to parse filter: {filter}"));
     builder.build()
 }

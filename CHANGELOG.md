@@ -6,6 +6,11 @@ For the changelog of the `percase-client` crate, please refer to its own [CHANGE
 
 ## Unreleased
 
+### Improvements
+
+* Upgrade workspace dependencies and pin Rust to nightly-2026-08-28. Keep
+  OpenTelemetry on 0.32 to match the tracing and logging adapters.
+
 ## v0.4.0 (2025-10-12)
 
 ### Breaking Changes
