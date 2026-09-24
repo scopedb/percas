@@ -19,11 +19,19 @@ pub mod telemetry;
 
 pub struct PercasContext {
     engine: percas_core::StorageEngine,
+    request_limits: percas_core::RequestLimits,
 }
 
 impl PercasContext {
     pub fn new(engine: percas_core::StorageEngine) -> Self {
-        Self { engine }
+        Self {
+            engine,
+            request_limits: Default::default(),
+        }
+    }
+    pub fn with_request_limits(mut self, limits: percas_core::RequestLimits) -> Self {
+        self.request_limits = limits;
+        self
     }
 }
 

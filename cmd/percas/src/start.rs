@@ -124,7 +124,9 @@ async fn run_server(
     )
     .await
     .or_raise(make_error)?;
-    let ctx = Arc::new(PercasContext::new(engine));
+    let ctx = Arc::new(
+        PercasContext::new(engine).with_request_limits(server_config.request_limits.clone()),
+    );
 
     let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
 

@@ -52,6 +52,8 @@ pub struct ServerConfig {
     pub initial_peers: Vec<Url>,
     #[serde(default = "default_cluster_id")]
     pub cluster_id: String,
+    #[serde(default)]
+    pub request_limits: RequestLimits,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,6 +74,28 @@ pub struct StorageConfig {
     pub memory_capacity: ByteSize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disk_throttle: Option<DiskThrottle>,
+}
+
+/// HTTP resource budgets, independent of the cache-managed memory budget.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
+#[serde(default, deny_unknown_fields)]
+pub struct RequestLimits {
+    pub max_body_bytes: usize,
+    pub max_inflight_body_bytes: usize,
+    pub max_concurrent_requests: usize,
+    pub body_timeout_ms: u64,
+}
+
+impl Default for RequestLimits {
+    fn default() -> Self {
+        Self {
+            max_body_bytes: 16 * 1024 * 1024,
+            max_inflight_body_bytes: 64 * 1024 * 1024,
+            max_concurrent_requests: 64,
+            body_timeout_ms: 10_000,
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -233,6 +257,7 @@ impl Default for Config {
                 advertise_ctrl_addr: None,
                 initial_peers: Vec::new(),
                 cluster_id: default_cluster_id(),
+                request_limits: RequestLimits::default(),
             },
             storage: StorageConfig {
                 engine: StorageEngineKind::default(),
@@ -321,6 +346,26 @@ pub const fn known_option_entries() -> &'static [OptionEntry] {
             env_name: "PERCAS_CONFIG_SERVER_LISTEN_DATA_ADDR",
             ent_path: "server.listen_data_addr",
             ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_SERVER_REQUEST_LIMITS_BODY_TIMEOUT_MS",
+            ent_path: "server.request_limits.body_timeout_ms",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_SERVER_REQUEST_LIMITS_MAX_BODY_BYTES",
+            ent_path: "server.request_limits.max_body_bytes",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_SERVER_REQUEST_LIMITS_MAX_CONCURRENT_REQUESTS",
+            ent_path: "server.request_limits.max_concurrent_requests",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_SERVER_REQUEST_LIMITS_MAX_INFLIGHT_BODY_BYTES",
+            ent_path: "server.request_limits.max_inflight_body_bytes",
+            ent_type: "integer",
         },
         OptionEntry {
             env_name: "PERCAS_CONFIG_STORAGE_CACHE2_APPEND_SHARDS",
@@ -614,6 +659,11 @@ mod tests {
             listen_data_addr = '0.0.0.0:7654'
             listen_ctrl_addr = '0.0.0.0:7655'
             cluster_id = 'percas-cluster'
+            [server.request_limits]
+            max_body_bytes = 16777216
+            max_inflight_body_bytes = 67108864
+            max_concurrent_requests = 64
+            body_timeout_ms = 10000
 
             [storage]
             engine = 'cache2'

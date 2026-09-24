@@ -40,6 +40,7 @@ use percas_metrics::OperationMetrics;
 use poem::Body;
 use poem::EndpointExt;
 use poem::IntoResponse;
+use poem::Request;
 use poem::Response;
 use poem::Route;
 use poem::handler;
@@ -50,7 +51,6 @@ use poem::listener::TcpAcceptor;
 use poem::listener::TcpListener;
 use poem::web::Data;
 use poem::web::Json;
-use poem::web::Path;
 use poem::web::headers::ContentType;
 use serde::Deserialize;
 use serde::Serialize;
@@ -61,6 +61,8 @@ use crate::PercasContext;
 use crate::ServerError;
 use crate::middleware::ClusterProxyMiddleware;
 use crate::middleware::LoggerMiddleware;
+use crate::middleware::RateLimitMiddleware;
+use crate::middleware::cache_key;
 use crate::scheduled::ReportMetricsAction;
 
 type ServerFuture<T> = percas_core::JoinHandle<Result<T, ServerError>>;
@@ -171,6 +173,16 @@ pub async fn start_server(
 ) -> Result<ServerState, ServerError> {
     let make_error = || ServerError("failed to start server".to_string());
 
+    let limits = &ctx.request_limits;
+    if limits.max_body_bytes == 0
+        || limits.max_inflight_body_bytes < limits.max_body_bytes
+        || limits.max_concurrent_requests == 0
+        || limits.body_timeout_ms == 0
+    {
+        return Err(exn::Exn::new(ServerError(
+            "invalid HTTP request limits".to_string(),
+        )));
+    }
     let wg = WaitGroup::new();
     let shutdown_rx_server = shutdown_rx;
 
@@ -179,12 +191,24 @@ pub async fn start_server(
         let wg_clone = wg.clone();
 
         let proxy_middleware = ClusterProxyMiddleware::new(Proxy::new(gossip_state.clone()));
+        let budgets = RateLimitMiddleware::new(ctx.request_limits.clone());
         let route = Route::new()
+            .at(
+                "/v1/cache",
+                poem::get(get)
+                    .put(put)
+                    .delete(delete)
+                    .with(budgets.clone())
+                    .with(ClusterProxyMiddleware::new(Proxy::new(
+                        gossip_state.clone(),
+                    ))),
+            )
             .at(
                 "/*key",
                 poem::get(get)
                     .put(put)
                     .delete(delete)
+                    .with(budgets)
                     .with(proxy_middleware),
             )
             .data(ctx.clone())
@@ -349,7 +373,11 @@ pub fn get_not_found() -> Response {
 }
 
 #[handler]
-pub async fn get(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Response {
+pub async fn get(Data(ctx): Data<&Arc<PercasContext>>, req: &Request) -> Response {
+    let key = match cache_key(req) {
+        Ok(key) => key,
+        Err(err) => return err.into_response(),
+    };
     let metrics = &GlobalMetrics::get().operation;
     let start = std::time::Instant::now();
 
@@ -417,7 +445,11 @@ pub fn put_bad_request() -> Response {
 }
 
 #[handler]
-pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>, body: Body) -> Response {
+pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, req: &Request, body: Body) -> Response {
+    let key = match cache_key(req) {
+        Ok(key) => key,
+        Err(err) => return err.into_response(),
+    };
     let metrics = &GlobalMetrics::get().operation;
     let start = std::time::Instant::now();
 
@@ -469,7 +501,11 @@ pub fn delete_success() -> Response {
 }
 
 #[handler]
-pub async fn delete(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Response {
+pub async fn delete(Data(ctx): Data<&Arc<PercasContext>>, req: &Request) -> Response {
+    let key = match cache_key(req) {
+        Ok(key) => key,
+        Err(err) => return err.into_response(),
+    };
     let metrics = &GlobalMetrics::get().operation;
     let start = std::time::Instant::now();
     if let Err(err) = ctx.engine.delete(key.as_bytes()) {

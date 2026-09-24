@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
+use std::time::Instant;
 
 use arc_swap::ArcSwap;
 use backon::ConstantBuilder;
@@ -53,6 +56,9 @@ const DEFAULT_RETRIES: usize = 3;
 
 const DEFAULT_REBUILD_RING_INTERVAL: Duration = Duration::from_secs(5);
 
+const SUSPICION_GRACE: Duration = Duration::from_secs(5);
+const PROBE_TIMEOUT: Duration = Duration::from_secs(2);
+
 const DEFAULT_MEMBER_DEADLINE: Duration = Duration::from_secs(30);
 
 pub type GossipFuture = JoinHandle<Result<(), GossipError>>;
@@ -64,8 +70,14 @@ pub struct GossipState {
     current_node: ArcSwap<NodeInfo>,
     transport: Transport,
 
-    membership: ArcSwap<Membership>,
-    ring: ArcSwap<HashRing<Uuid>>,
+    view: ArcSwap<ClusterView>,
+    writer: Mutex<BTreeMap<Uuid, Instant>>,
+}
+
+#[derive(Debug)]
+pub(crate) struct ClusterView {
+    pub membership: Arc<Membership>,
+    pub ring: Arc<HashRing<Uuid>>,
 }
 
 impl GossipState {
@@ -74,9 +86,12 @@ impl GossipState {
             dir,
             initial_peers,
             current_node: ArcSwap::new(Arc::new(current_node)),
-            membership: ArcSwap::new(Arc::new(Membership::default())),
+            view: ArcSwap::from_pointee(ClusterView {
+                membership: Arc::new(Membership::default()),
+                ring: Arc::new(HashRing::default()),
+            }),
+            writer: Mutex::new(BTreeMap::new()),
             transport: Transport::new(),
-            ring: ArcSwap::new(Arc::new(HashRing::default())),
         }
     }
 
@@ -85,11 +100,34 @@ impl GossipState {
     }
 
     pub fn membership(&self) -> Arc<Membership> {
-        self.membership.load_full()
+        self.view.load().membership.clone()
     }
 
     pub fn ring(&self) -> Arc<HashRing<Uuid>> {
-        self.ring.load_full()
+        self.view.load().ring.clone()
+    }
+
+    pub(crate) fn snapshot(&self) -> Arc<ClusterView> {
+        self.view.load_full()
+    }
+
+    // Call only while holding writer. Readers see one coherent membership/ring.
+    fn publish(&self, membership: Membership) {
+        let previous = self.view.load();
+        let ring = if previous
+            .membership
+            .members()
+            .keys()
+            .eq(membership.members().keys())
+        {
+            previous.ring.clone()
+        } else {
+            Arc::new(HashRing::from(membership.members().keys().copied()))
+        };
+        self.view.store(Arc::new(ClusterView {
+            membership: Arc::new(membership),
+            ring,
+        }));
     }
 
     /// Start the gossip protocol.
@@ -101,12 +139,16 @@ impl GossipState {
         let mut gossip_futs = vec![];
 
         // Fast bootstrap
-        self.membership
-            .store(Arc::new(Membership::from_iter([MemberState {
+        {
+            let _writer = self.writer.lock().unwrap();
+            let mut membership = (*self.membership()).clone();
+            membership.update_member(MemberState {
                 info: self.current(),
                 status: MemberStatus::Alive,
                 heartbeat: Timestamp::now(),
-            }])));
+            });
+            self.publish(membership);
+        }
 
         let state_clone = self.clone();
         rt.spawn(async move {
@@ -135,7 +177,7 @@ impl GossipState {
                     if let Some((_, member)) = membership
                         .members()
                         .iter()
-                        .nth(rng.random_range(0..membership.members().len()))
+                        .nth(rng.random_range(0..membership.members().len().max(1)))
                     {
                         if member.status == MemberStatus::Dead {
                             log::debug!("skipping dead member: {member:?}");
@@ -174,7 +216,7 @@ impl GossipState {
                     if let Some((_, member)) = membership
                         .members()
                         .iter()
-                        .nth(rng.random_range(0..membership.members().len()))
+                        .nth(rng.random_range(0..membership.members().len().max(1)))
                     {
                         if member.status == MemberStatus::Dead {
                             log::debug!("skipping dead member: {member:?}");
@@ -254,33 +296,46 @@ impl GossipState {
 
     pub fn handle_message(&self, message: GossipMessage) -> Option<GossipMessage> {
         log::debug!("received message: {message:?}");
+        let mut writer = self.writer.lock().unwrap();
+        let cluster_id = self.current().cluster_id;
+        match &message {
+            GossipMessage::Ping(info) | GossipMessage::Ack(info)
+                if info.cluster_id != cluster_id =>
+            {
+                return None;
+            }
+            _ => {}
+        }
         let result = match message {
             GossipMessage::Ping(info) => {
-                let mut membership = (**self.membership.load()).clone();
+                let mut membership = (*self.membership()).clone();
                 membership.update_member(MemberState {
                     info: info.clone(),
                     status: MemberStatus::Alive,
                     heartbeat: Timestamp::now(),
                 });
-                self.membership.store(Arc::new(membership));
+                self.publish(membership);
 
                 // Respond with an ack
                 Some(GossipMessage::Ack(self.current()))
             }
             GossipMessage::Ack(info) => {
-                let mut membership = (**self.membership.load()).clone();
+                let mut membership = (*self.membership()).clone();
                 membership.update_member(MemberState {
                     info: info.clone(),
                     status: MemberStatus::Alive,
                     heartbeat: Timestamp::now(),
                 });
-                self.membership.store(Arc::new(membership));
+                self.publish(membership);
 
                 None
             }
             GossipMessage::Sync { members } => {
-                let mut membership = (**self.membership.load()).clone();
+                let mut membership = (*self.membership()).clone();
                 for member in members {
+                    if member.info.cluster_id != cluster_id {
+                        continue;
+                    }
                     membership.update_member(member);
                 }
 
@@ -291,7 +346,7 @@ impl GossipState {
                     heartbeat: Timestamp::now(),
                 });
 
-                self.membership.store(Arc::new(membership.clone()));
+                self.publish(membership.clone());
 
                 // Respond with the current membership
                 Some(GossipMessage::Sync {
@@ -300,11 +355,29 @@ impl GossipState {
             }
         };
 
-        if self.membership.load().is_dead(self.current().node_id) {
+        if self
+            .membership()
+            .members()
+            .get(&self.current().node_id)
+            .is_some_and(|member| member.status != MemberStatus::Alive)
+        {
             log::info!("current node is marked as dead; advancing incarnation");
             self.advance_incarnation();
+            let mut membership = (*self.membership()).clone();
+            membership.update_member(MemberState {
+                info: self.current(),
+                status: MemberStatus::Alive,
+                heartbeat: Timestamp::now(),
+            });
+            self.publish(membership);
         }
 
+        writer.retain(|id, _| {
+            self.membership()
+                .members()
+                .get(id)
+                .is_some_and(|member| member.status == MemberStatus::Suspect)
+        });
         result
     }
 
@@ -316,7 +389,8 @@ impl GossipState {
     }
 
     fn remove_dead_members(&self) -> Vec<NodeInfo> {
-        let mut members = (**self.membership.load()).clone();
+        let mut writer = self.writer.lock().unwrap();
+        let mut members = (*self.membership()).clone();
         let dead_members: Vec<NodeInfo> = members
             .members()
             .values()
@@ -333,14 +407,20 @@ impl GossipState {
 
         for dead_member in &dead_members {
             members.remove_member(dead_member.node_id);
+            writer.remove(&dead_member.node_id);
         }
 
-        self.membership.store(Arc::new(members));
+        self.publish(members);
 
         dead_members
     }
 
     async fn ping(&self, peer: NodeInfo) {
+        let observed = self
+            .membership()
+            .members()
+            .get(&peer.node_id)
+            .map(|member| member.heartbeat);
         let message = GossipMessage::Ping(self.current());
         let do_send = || async {
             self.transport
@@ -356,11 +436,16 @@ impl GossipState {
         if let Ok(msg @ GossipMessage::Ack(_)) = with_retry.await {
             self.handle_message(msg);
         } else {
-            self.mark_dead(&peer);
+            self.mark_dead(&peer, observed);
         }
     }
 
     async fn sync(&self, peer: NodeInfo) {
+        let observed = self
+            .membership()
+            .members()
+            .get(&peer.node_id)
+            .map(|member| member.heartbeat);
         let message = GossipMessage::Sync {
             members: self.membership().members().values().cloned().collect(),
         };
@@ -378,7 +463,7 @@ impl GossipState {
         if let Ok(msg @ GossipMessage::Sync { .. }) = with_retry.await {
             self.handle_message(msg);
         } else {
-            self.mark_dead(&peer);
+            self.mark_dead(&peer, observed);
         }
     }
 
@@ -425,30 +510,38 @@ impl GossipState {
     }
 
     fn rebuild_ring(&self) {
+        let _writer = self.writer.lock().unwrap();
         // Ensure the current node is alive
-        let mut membership = (**self.membership.load()).clone();
+        let mut membership = (*self.membership()).clone();
         membership.update_member(MemberState {
             info: self.current(),
             status: MemberStatus::Alive,
             heartbeat: Timestamp::now(),
         });
 
-        self.ring.store(Arc::new(HashRing::from(
-            membership.members().keys().cloned(),
-        )));
+        self.publish(membership);
     }
 
-    fn mark_dead(&self, peer: &NodeInfo) {
-        let mut members = (**self.membership.load()).clone();
-        if let Some(last_seen) = members.members().get(&peer.node_id).map(|m| m.heartbeat) {
-            let member = MemberState {
-                info: peer.clone(),
-                status: MemberStatus::Dead,
-                heartbeat: last_seen,
-            };
-            members.update_member(member);
+    fn mark_dead(&self, peer: &NodeInfo, observed: Option<Timestamp>) {
+        let mut writer = self.writer.lock().unwrap();
+        if peer.node_id == self.current().node_id {
+            return;
         }
-        self.membership.store(Arc::new(members));
+        let mut members = (*self.membership()).clone();
+        if let Some(current) = members.members().get(&peer.node_id).cloned() {
+            // Do not apply a failed probe from an older node incarnation.
+            if current.info.incarnation != peer.incarnation || Some(current.heartbeat) != observed {
+                return;
+            }
+            let since = writer.entry(peer.node_id).or_insert_with(Instant::now);
+            let status = if since.elapsed() >= SUSPICION_GRACE {
+                MemberStatus::Dead
+            } else {
+                MemberStatus::Suspect
+            };
+            members.update_member(MemberState { status, ..current });
+            self.publish(members);
+        }
     }
 }
 
@@ -467,7 +560,13 @@ struct Transport {
 impl Transport {
     pub fn new() -> Self {
         Transport {
-            client: Client::new(),
+            client: Client::builder()
+                .no_proxy()
+                .connect_timeout(Duration::from_millis(500))
+                .timeout(PROBE_TIMEOUT)
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .expect("failed to build gossip HTTP client"),
         }
     }
 
@@ -487,5 +586,146 @@ impl Transport {
             .or_raise(make_error)?;
         ensure!(resp.status().is_success(), make_error());
         resp.json().await.or_raise(make_error)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn node() -> NodeInfo {
+        NodeInfo::new(
+            Uuid::now_v7(),
+            "cluster".into(),
+            "http://127.0.0.1:7654".parse().unwrap(),
+            "http://127.0.0.1:7655".parse().unwrap(),
+        )
+    }
+
+    #[test]
+    fn concurrent_updates_preserve_every_member() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = Arc::new(GossipState::new(node(), vec![], dir.path().to_path_buf()));
+        let barrier = Arc::new(std::sync::Barrier::new(32));
+        let threads: Vec<_> = (0..32)
+            .map(|_| {
+                let state = state.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    state.handle_message(GossipMessage::Ping(node()));
+                })
+            })
+            .collect();
+        for thread in threads {
+            thread.join().unwrap();
+        }
+        let view = state.snapshot();
+        assert_eq!(view.membership.members().len(), 32);
+        assert!(
+            view.membership
+                .members()
+                .contains_key(&view.ring.lookup("key").unwrap())
+        );
+    }
+
+    #[test]
+    fn failure_requires_a_grace_period_and_recovery_clears_suspicion() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = GossipState::new(node(), vec![], dir.path().to_path_buf());
+        let peer = node();
+        state.handle_message(GossipMessage::Ping(peer.clone()));
+        state.mark_dead(
+            &peer,
+            state
+                .membership()
+                .members()
+                .get(&peer.node_id)
+                .map(|member| member.heartbeat),
+        );
+        assert_eq!(
+            state.membership().members()[&peer.node_id].status,
+            MemberStatus::Suspect
+        );
+        state.handle_message(GossipMessage::Ack(peer.clone()));
+        assert_eq!(
+            state.membership().members()[&peer.node_id].status,
+            MemberStatus::Alive
+        );
+        assert!(!state.writer.lock().unwrap().contains_key(&peer.node_id));
+        state.mark_dead(
+            &peer,
+            state
+                .membership()
+                .members()
+                .get(&peer.node_id)
+                .map(|member| member.heartbeat),
+        );
+        state
+            .writer
+            .lock()
+            .unwrap()
+            .insert(peer.node_id, Instant::now() - SUSPICION_GRACE);
+        state.mark_dead(
+            &peer,
+            state
+                .membership()
+                .members()
+                .get(&peer.node_id)
+                .map(|member| member.heartbeat),
+        );
+        assert_eq!(
+            state.membership().members()[&peer.node_id].status,
+            MemberStatus::Dead
+        );
+    }
+
+    #[test]
+    fn stale_probe_failure_cannot_override_successful_contact() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = GossipState::new(node(), vec![], dir.path().to_path_buf());
+        let peer = node();
+        state.handle_message(GossipMessage::Ping(peer.clone()));
+        let old = state.membership().members()[&peer.node_id].heartbeat;
+        {
+            let _writer = state.writer.lock().unwrap();
+            let mut membership = (*state.membership()).clone();
+            membership.update_member(MemberState {
+                info: peer.clone(),
+                status: MemberStatus::Alive,
+                heartbeat: old + Duration::from_secs(1),
+            });
+            state.publish(membership);
+        }
+        state.mark_dead(&peer, Some(old));
+        assert_eq!(
+            state.membership().members()[&peer.node_id].status,
+            MemberStatus::Alive
+        );
+    }
+
+    #[tokio::test]
+    async fn stalled_peer_has_a_bounded_probe() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap())
+            .parse()
+            .unwrap();
+        let transport = Transport::new();
+        let result = tokio::time::timeout(
+            PROBE_TIMEOUT + Duration::from_secs(1),
+            transport.send(&url, &GossipMessage::Ping(node())),
+        )
+        .await;
+        assert!(result.unwrap().is_err());
+    }
+
+    #[test]
+    fn foreign_cluster_cannot_join() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = GossipState::new(node(), vec![], dir.path().to_path_buf());
+        let mut peer = node();
+        peer.cluster_id = "other".into();
+        assert!(state.handle_message(GossipMessage::Ping(peer)).is_none());
+        assert!(state.membership().members().is_empty());
     }
 }

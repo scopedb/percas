@@ -66,3 +66,34 @@ async fn test_invalid_key(testkit: Testkit) {
         .unwrap_err();
     assert!(error.to_string().contains("400"), "{error}");
 }
+
+#[test(harness)]
+async fn test_opaque_keys(testkit: Testkit) {
+    let keys = [
+        "",
+        "..",
+        "a/../b",
+        "b",
+        "a?x=1#y",
+        "a",
+        "http://other.invalid/key",
+        "//other.invalid/key",
+        "a%2Fb",
+        "a/b",
+        "中文 / +",
+    ];
+    for (i, key) in keys.iter().enumerate() {
+        testkit
+            .client
+            .put(key, format!("value-{i}").as_bytes())
+            .await
+            .unwrap();
+    }
+    for (i, key) in keys.iter().enumerate() {
+        assert_eq!(
+            testkit.client.get(key).await.unwrap(),
+            Some(format!("value-{i}").into_bytes()),
+            "{key}"
+        );
+    }
+}

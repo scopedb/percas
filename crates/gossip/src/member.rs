@@ -26,19 +26,8 @@ use crate::node::NodeInfo;
 #[serde(rename_all = "lowercase")]
 pub enum MemberStatus {
     Alive,
+    Suspect,
     Dead,
-}
-
-impl MemberStatus {
-    /// Downgrade the status of a member.
-    pub fn downgrade_to(&mut self, other: &MemberStatus) {
-        match (&self, other) {
-            (MemberStatus::Alive, MemberStatus::Alive) => {}
-            _ => {
-                *self = *other;
-            }
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -95,29 +84,21 @@ impl Membership {
                     return false;
                 }
 
-                // same incarnation: decide based on heartbeat and status
-                let prev_status = current.status;
-                let prev_heartbeat = current.heartbeat;
-
-                // Update heartbeat to the freshest observation
-                current.heartbeat = current.heartbeat.max(member.heartbeat);
-
-                // Accept status change only if the incoming observation is at
-                // least as fresh (prevents stale dead reports from overriding)
-                if member.heartbeat >= prev_heartbeat && member.status != current.status {
-                    current.status = member.status;
-                    if current.status == MemberStatus::Dead {
-                        log::info!(target: "gossip", "member confirmed dead: {current:?}");
-                    }
-                } else {
-                    // Still allow explicit downgrade_to behavior for the common
-                    // case where a Dead report should override an Alive when
-                    // appropriate (keeps compatibility with previous logic).
-                    current.status.downgrade_to(&member.status);
+                // For equal incarnations, newer observations win. At equal
+                // timestamps, severity breaks ties independently of merge order.
+                let rank = |status| match status {
+                    MemberStatus::Alive => 0,
+                    MemberStatus::Suspect => 1,
+                    MemberStatus::Dead => 2,
+                };
+                if member.heartbeat < current.heartbeat
+                    || (member.heartbeat == current.heartbeat
+                        && rank(member.status) <= rank(current.status))
+                {
+                    return false;
                 }
-
-                // Return true if either status or heartbeat changed
-                current.status != prev_status || current.heartbeat != prev_heartbeat
+                *current = member;
+                true
             }
             Entry::Vacant(entry) => {
                 log::info!(target: "gossip", "adding new member: {member:?}");
@@ -273,5 +254,51 @@ mod tests {
             }
             "#
         );
+    }
+}
+
+#[cfg(test)]
+mod merge_regressions {
+    use super::*;
+
+    fn member(status: MemberStatus, heartbeat: i64) -> MemberState {
+        MemberState {
+            info: NodeInfo::new(
+                Uuid::nil(),
+                "cluster".into(),
+                "http://localhost:7654".parse().unwrap(),
+                "http://localhost:7655".parse().unwrap(),
+            ),
+            status,
+            heartbeat: Timestamp::from_second(heartbeat).unwrap(),
+        }
+    }
+
+    #[test]
+    fn stale_status_cannot_override_newer_observation() {
+        for (current, stale) in [
+            (MemberStatus::Alive, MemberStatus::Dead),
+            (MemberStatus::Dead, MemberStatus::Alive),
+        ] {
+            let mut membership = Membership::from_iter([member(current, 20)]);
+            assert!(!membership.update_member(member(stale, 10)));
+            assert_eq!(membership.members()[&Uuid::nil()].status, current);
+        }
+    }
+
+    #[test]
+    fn equal_timestamp_merge_is_independent_of_delivery_order() {
+        for (first, second) in [
+            (MemberStatus::Alive, MemberStatus::Dead),
+            (MemberStatus::Dead, MemberStatus::Alive),
+            (MemberStatus::Suspect, MemberStatus::Dead),
+        ] {
+            let mut membership = Membership::from_iter([member(first, 20)]);
+            membership.update_member(member(second, 20));
+            assert_eq!(
+                membership.members()[&Uuid::nil()].status,
+                MemberStatus::Dead
+            );
+        }
     }
 }
