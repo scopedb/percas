@@ -20,14 +20,13 @@ use mea::shutdown::ShutdownSend;
 use percas_client::Client;
 use percas_client::ClientBuilder;
 use percas_core::Config;
-use percas_core::FoyerEngine;
 use percas_core::Runtime;
 use percas_core::ServerConfig;
 use percas_core::StorageConfig;
+use percas_core::StorageEngine;
 use percas_core::TelemetryConfig;
 use percas_core::default_cluster_id;
 use percas_core::default_disk_capacity;
-use percas_core::default_memory_capacity;
 use percas_core::make_runtime;
 use percas_server::server::ServerState;
 use percas_server::server::make_acceptor_and_advertise_url;
@@ -53,7 +52,7 @@ struct TestServerState {
 impl TestServerState {
     pub async fn shutdown(self) {
         self.shutdown_tx.shutdown();
-        self.server_state.await_shutdown().await;
+        self.server_state.await_shutdown().await.unwrap();
     }
 }
 
@@ -75,9 +74,12 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
             cluster_id: default_cluster_id(),
         },
         storage: StorageConfig {
+            engine: Default::default(),
+            cache2: None,
+            foyer: None,
             data_dir: temp_dir.path().to_path_buf().join("data"),
             disk_capacity: default_disk_capacity(),
-            memory_capacity: default_memory_capacity(),
+            memory_capacity: bytesize::ByteSize::gib(1).into(),
             disk_throttle: None,
         },
         telemetry: TelemetryConfig {
@@ -90,16 +92,9 @@ fn start_test_server(test_name: &str, rt: &Runtime) -> Option<TestServerState> {
     let mut drop_guards = telemetry::init(rt, service_name, node_id, config.telemetry);
     let (shutdown_tx, shutdown_rx) = mea::shutdown::new_pair();
     let server_state = rt.block_on(async move {
-        let engine = FoyerEngine::try_new(
-            rt,
-            &config.storage.data_dir,
-            config.storage.memory_capacity.into(),
-            config.storage.disk_capacity.into(),
-            config.storage.disk_throttle,
-            None,
-        )
-        .await
-        .unwrap();
+        let engine = StorageEngine::try_new(rt, &config.storage, None)
+            .await
+            .unwrap();
         let ctx = Arc::new(percas_server::PercasContext::new(engine));
 
         let (data_acceptor, advertise_data_url) =

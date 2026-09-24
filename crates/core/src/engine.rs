@@ -151,6 +151,28 @@ impl FoyerEngine {
         }
     }
 
+    pub async fn get_result(
+        &self,
+        key: &[u8],
+    ) -> std::result::Result<Option<Vec<u8>>, crate::StorageError> {
+        self.inner
+            .get(&key.to_owned())
+            .await
+            .map(|value| value.map(|value| value.value().clone()))
+            .map_err(|err| crate::StorageError::Foyer(err.to_string()))
+    }
+
+    pub async fn drain(&self) {
+        self.inner.storage().wait().await;
+    }
+
+    pub async fn close(&self) -> std::result::Result<(), crate::StorageError> {
+        self.inner
+            .close()
+            .await
+            .map_err(|err| crate::StorageError::Foyer(err.to_string()))
+    }
+
     /// Put a key-value pair into the engine.
     pub fn put(&self, key: &[u8], value: &[u8]) {
         self.inner.insert(key.to_owned(), value.to_owned());

@@ -23,6 +23,7 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
+bytesize = { workspace = true }
 insta = { workspace = true }
 mea = { workspace = true }
 percas-client = { workspace = true }

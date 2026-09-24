@@ -65,12 +65,12 @@ use crate::scheduled::ReportMetricsAction;
 
 type ServerFuture<T> = percas_core::JoinHandle<Result<T, ServerError>>;
 
-#[derive(Debug)]
 pub struct ServerState {
     advertise_data_url: Url,
     advertise_ctrl_url: Url,
     server_fut: ServerFuture<()>,
     gossip_futs: Vec<GossipFuture>,
+    ctx: Arc<PercasContext>,
 
     shutdown_rx_server: ShutdownRecv,
     shutdown_tx_actions: Vec<ShutdownSend>,
@@ -85,7 +85,7 @@ impl ServerState {
         &self.advertise_ctrl_url
     }
 
-    pub async fn await_shutdown(self) {
+    pub async fn await_shutdown(self) -> Result<(), ServerError> {
         self.shutdown_rx_server.is_shutdown().await;
 
         log::info!("percas server is shutting down");
@@ -103,10 +103,18 @@ impl ServerState {
             Err(err) => log::error!(err:?; "percas server failed."),
         }
 
+        let storage_result = self
+            .ctx
+            .engine
+            .close()
+            .await
+            .or_raise(|| ServerError("failed to close storage engine".to_string()));
+
         match futures_util::future::try_join_all(self.gossip_futs).await {
             Ok(_) => log::info!("percas gossip stopped."),
             Err(err) => log::error!(err:?; "percas gossip failed."),
         }
+        storage_result
     }
 }
 
@@ -219,6 +227,7 @@ pub async fn start_server(
         gossip_futs,
         shutdown_rx_server,
         shutdown_tx_actions,
+        ctx,
     })
 }
 
@@ -298,6 +307,18 @@ pub async fn start_gossip(
     Ok((gossip_state, gossip_futs))
 }
 
+fn storage_error_response(err: percas_core::StorageError) -> Response {
+    let status = if err.is_overloaded() {
+        StatusCode::TOO_MANY_REQUESTS
+    } else if err.is_invalid_input() {
+        StatusCode::BAD_REQUEST
+    } else {
+        log::error!(err:?; "storage operation failed");
+        StatusCode::INTERNAL_SERVER_ERROR
+    };
+    Response::builder().status(status).body(status.to_string())
+}
+
 pub fn too_many_requests() -> Response {
     Response::builder()
         .status(StatusCode::TOO_MANY_REQUESTS)
@@ -333,7 +354,7 @@ pub async fn get(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Res
     let start = std::time::Instant::now();
 
     match ctx.engine.get(key.as_bytes()).await {
-        Some(value) => {
+        Ok(Some(value)) => {
             let labels = OperationMetrics::operation_labels(
                 OperationMetrics::OPERATION_GET,
                 OperationMetrics::STATUS_SUCCESS,
@@ -346,7 +367,7 @@ pub async fn get(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Res
 
             get_success(value)
         }
-        None => {
+        Ok(None) => {
             let labels = OperationMetrics::operation_labels(
                 OperationMetrics::OPERATION_GET,
                 OperationMetrics::STATUS_NOT_FOUND,
@@ -360,6 +381,23 @@ pub async fn get(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Res
                 .status(StatusCode::NOT_FOUND)
                 .typed_header(ContentType::text())
                 .body(StatusCode::NOT_FOUND.to_string())
+        }
+        Err(err) => {
+            metrics.count.add(
+                1,
+                &OperationMetrics::operation_labels(
+                    OperationMetrics::OPERATION_GET,
+                    OperationMetrics::STATUS_FAILURE,
+                ),
+            );
+            metrics.duration.record(
+                start.elapsed().as_secs_f64(),
+                &OperationMetrics::operation_labels(
+                    OperationMetrics::OPERATION_GET,
+                    OperationMetrics::STATUS_FAILURE,
+                ),
+            );
+            storage_error_response(err)
         }
     }
 }
@@ -383,23 +421,8 @@ pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>, body: 
     let metrics = &GlobalMetrics::get().operation;
     let start = std::time::Instant::now();
 
-    match body.into_bytes().await.map(|bytes| {
-        ctx.engine.put(key.as_bytes(), &bytes);
-        bytes.len()
-    }) {
-        Ok(len) => {
-            let labels = OperationMetrics::operation_labels(
-                OperationMetrics::OPERATION_PUT,
-                OperationMetrics::STATUS_SUCCESS,
-            );
-            metrics.count.add(1, &labels);
-            metrics.bytes.add(len as u64, &labels);
-            metrics
-                .duration
-                .record(start.elapsed().as_secs_f64(), &labels);
-
-            put_success()
-        }
+    let bytes = match body.into_bytes().await {
+        Ok(bytes) => bytes,
         Err(_) => {
             let labels = OperationMetrics::operation_labels(
                 OperationMetrics::OPERATION_PUT,
@@ -409,8 +432,34 @@ pub async fn put(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>, body: 
             metrics
                 .duration
                 .record(start.elapsed().as_secs_f64(), &labels);
+            return put_bad_request();
+        }
+    };
+    match ctx.engine.put(key.as_bytes(), &bytes) {
+        Ok(()) => {
+            let labels = OperationMetrics::operation_labels(
+                OperationMetrics::OPERATION_PUT,
+                OperationMetrics::STATUS_SUCCESS,
+            );
+            metrics.count.add(1, &labels);
+            metrics.bytes.add(bytes.len() as u64, &labels);
+            metrics
+                .duration
+                .record(start.elapsed().as_secs_f64(), &labels);
 
-            put_bad_request()
+            put_success()
+        }
+        Err(err) => {
+            let labels = OperationMetrics::operation_labels(
+                OperationMetrics::OPERATION_PUT,
+                OperationMetrics::STATUS_FAILURE,
+            );
+            metrics.count.add(1, &labels);
+            metrics
+                .duration
+                .record(start.elapsed().as_secs_f64(), &labels);
+
+            storage_error_response(err)
         }
     }
 }
@@ -423,7 +472,23 @@ pub fn delete_success() -> Response {
 pub async fn delete(Data(ctx): Data<&Arc<PercasContext>>, key: Path<String>) -> Response {
     let metrics = &GlobalMetrics::get().operation;
     let start = std::time::Instant::now();
-    ctx.engine.delete(key.as_bytes());
+    if let Err(err) = ctx.engine.delete(key.as_bytes()) {
+        metrics.count.add(
+            1,
+            &OperationMetrics::operation_labels(
+                OperationMetrics::OPERATION_DELETE,
+                OperationMetrics::STATUS_FAILURE,
+            ),
+        );
+        metrics.duration.record(
+            start.elapsed().as_secs_f64(),
+            &OperationMetrics::operation_labels(
+                OperationMetrics::OPERATION_DELETE,
+                OperationMetrics::STATUS_FAILURE,
+            ),
+        );
+        return storage_error_response(err);
+    }
 
     let labels = OperationMetrics::operation_labels(
         OperationMetrics::OPERATION_DELETE,

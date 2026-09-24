@@ -19,6 +19,7 @@ listen_ctrl_addr = "0.0.0.0:7655"
 cluster_id = "percas-cluster"
 
 [storage]
+engine = "cache2"
 data_dir = ".percas/data"
 disk_capacity = 536870912
 

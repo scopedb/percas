@@ -41,6 +41,11 @@ pub struct Runtime {
 }
 
 impl Runtime {
+    /// Returns a handle for libraries that bind work to this runtime.
+    pub fn handle(&self) -> tokio::runtime::Handle {
+        self.runtime.handle().clone()
+    }
+
     /// Get the name of the runtime.
     pub fn name(&self) -> &str {
         &self.name

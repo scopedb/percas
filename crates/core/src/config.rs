@@ -58,6 +58,12 @@ pub struct ServerConfig {
 #[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct StorageConfig {
+    #[serde(default)]
+    pub engine: StorageEngineKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache2: Option<Cache2Options>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub foyer: Option<FoyerOptions>,
     #[serde(default = "default_data_dir")]
     pub data_dir: PathBuf,
     #[serde(default = "default_disk_capacity")]
@@ -66,6 +72,36 @@ pub struct StorageConfig {
     pub memory_capacity: ByteSize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disk_throttle: Option<DiskThrottle>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct Cache2Options {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub region_size: Option<ByteSize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub append_shards: Option<std::num::NonZeroU32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub l1_capacity: Option<ByteSize>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct FoyerOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disk_throttle: Option<DiskThrottle>,
+}
+
+/// Selects the persistent cache implementation.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum StorageEngineKind {
+    #[default]
+    Cache2,
+    Foyer,
 }
 
 fn default_listen_data_addr() -> SocketAddr {
@@ -199,6 +235,9 @@ impl Default for Config {
                 cluster_id: default_cluster_id(),
             },
             storage: StorageConfig {
+                engine: StorageEngineKind::default(),
+                cache2: None,
+                foyer: None,
                 data_dir: default_data_dir(),
                 disk_capacity: default_disk_capacity(),
                 memory_capacity: default_memory_capacity(),
@@ -284,6 +323,21 @@ pub const fn known_option_entries() -> &'static [OptionEntry] {
             ent_type: "string",
         },
         OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_CACHE2_APPEND_SHARDS",
+            ent_path: "storage.cache2.append_shards",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_CACHE2_L1_CAPACITY",
+            ent_path: "storage.cache2.l1_capacity",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_CACHE2_REGION_SIZE",
+            ent_path: "storage.cache2.region_size",
+            ent_type: "string",
+        },
+        OptionEntry {
             env_name: "PERCAS_CONFIG_STORAGE_DATA_DIR",
             ent_path: "storage.data_dir",
             ent_type: "string",
@@ -321,6 +375,41 @@ pub const fn known_option_entries() -> &'static [OptionEntry] {
         OptionEntry {
             env_name: "PERCAS_CONFIG_STORAGE_DISK_THROTTLE_WRITE_THROUGHPUT",
             ent_path: "storage.disk_throttle.write_throughput",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_ENGINE",
+            ent_path: "storage.engine",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_FOYER_DISK_THROTTLE_IOPS_COUNTER_MODE",
+            ent_path: "storage.foyer.disk_throttle.iops_counter.mode",
+            ent_type: "string",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_FOYER_DISK_THROTTLE_IOPS_COUNTER_SIZE",
+            ent_path: "storage.foyer.disk_throttle.iops_counter.size",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_FOYER_DISK_THROTTLE_READ_IOPS",
+            ent_path: "storage.foyer.disk_throttle.read_iops",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_FOYER_DISK_THROTTLE_READ_THROUGHPUT",
+            ent_path: "storage.foyer.disk_throttle.read_throughput",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_FOYER_DISK_THROTTLE_WRITE_IOPS",
+            ent_path: "storage.foyer.disk_throttle.write_iops",
+            ent_type: "integer",
+        },
+        OptionEntry {
+            env_name: "PERCAS_CONFIG_STORAGE_FOYER_DISK_THROTTLE_WRITE_THROUGHPUT",
+            ent_path: "storage.foyer.disk_throttle.write_throughput",
             ent_type: "integer",
         },
         OptionEntry {
@@ -527,6 +616,7 @@ mod tests {
             cluster_id = 'percas-cluster'
 
             [storage]
+            engine = 'cache2'
             data_dir = '/var/lib/percas/data'
             disk_capacity = '512.0 MiB'
             memory_capacity = '[available memory size]'

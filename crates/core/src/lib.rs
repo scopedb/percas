@@ -12,17 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod cache2;
 mod config;
 mod engine;
 mod newtype;
 mod runtime;
+mod storage;
 
 use std::num::NonZeroUsize;
 
 use bytesize::ByteSize;
+pub use cache2::*;
 pub use config::*;
 pub use engine::*;
 pub use runtime::*;
+pub use storage::*;
 
 /// Returns the number of logical CPUs on the current machine.
 // This method fills the gap that `std::thread::available_parallelism()`

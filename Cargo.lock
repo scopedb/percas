@@ -153,6 +153,7 @@ checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 name = "behavior-tests"
 version = "0.4.0"
 dependencies = [
+ "bytesize",
  "insta",
  "mea",
  "percas-client",
@@ -241,6 +242,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7354288c522e7e980fafd2075d63d1285794c3a6a16cdd492f189ea406e5f18b"
 dependencies = [
  "serde_core",
+]
+
+[[package]]
+name = "cache2"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22d58e71dc32413c7a68b7816f89ea9e8cc17b37ba4d0d3c689f2aaa09376a9e"
+dependencies = [
+ "asyncband",
+ "hashcrew",
+ "libc",
+ "log",
+ "tokio",
 ]
 
 [[package]]
@@ -1371,6 +1385,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashcrew"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f73782af6df9e45939f4e6206b646f3cbab68c2cc5c0c375dab045800cafb018"
+
+[[package]]
 name = "headers"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2412,6 +2432,7 @@ name = "percas-core"
 version = "0.4.0"
 dependencies = [
  "bytesize",
+ "cache2",
  "criterion",
  "exn",
  "fastimer",
@@ -2474,7 +2495,6 @@ dependencies = [
  "fastimer",
  "fastrace",
  "fastrace-opentelemetry",
- "foyer",
  "futures-util",
  "insta",
  "jiff",
